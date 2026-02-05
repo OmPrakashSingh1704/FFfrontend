@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Bell } from 'lucide-react'
 import { apiRequest } from '../lib/api'
 import { normalizeList } from '../lib/pagination'
 import type { NotificationItem } from '../types/notification'
@@ -54,21 +55,31 @@ export function NotificationsPage() {
       {error ? <div className="form-error">{error}</div> : null}
 
       {!loading && !error ? (
-        <div className="feed-list">
-          {items.map((item) => (
-            <article key={item.id} className="feed-card">
-              <div className="feed-meta">
-                <span className="data-eyebrow">{item.notification_type ?? 'Notification'}</span>
-                <span>{item.created_at ? new Date(item.created_at).toLocaleString() : ''}</span>
-              </div>
-              <h3>{item.title ?? 'Update'}</h3>
-              <p>{item.message ?? ''}</p>
-              <div className="data-meta">
-                <span>{item.is_read ? 'Read' : 'Unread'}</span>
-              </div>
-            </article>
-          ))}
-        </div>
+        items.length === 0 ? (
+          <div className="empty-state">
+            <div className="empty-state-icon">
+              <Bell className="w-8 h-8" />
+            </div>
+            <h3>All caught up</h3>
+            <p>You have no notifications at the moment. We'll let you know when something important happens.</p>
+          </div>
+        ) : (
+          <div className="feed-list">
+            {items.map((item) => (
+              <article key={item.id} className="feed-card">
+                <div className="feed-meta">
+                  <span className="data-eyebrow">{item.notification_type ?? 'Notification'}</span>
+                  <span>{item.created_at ? new Date(item.created_at).toLocaleString() : ''}</span>
+                </div>
+                <h3>{item.title ?? 'Update'}</h3>
+                <p>{item.message ?? ''}</p>
+                <div className="data-meta">
+                  <span>{item.is_read ? 'Read' : 'Unread'}</span>
+                </div>
+              </article>
+            ))}
+          </div>
+        )
       ) : null}
     </section>
   )
