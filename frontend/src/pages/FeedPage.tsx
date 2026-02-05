@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { Activity, Sparkles, Send, ExternalLink, ThumbsUp, MessageCircle } from 'lucide-react'
 import { apiRequest } from '../lib/api'
 import { normalizeList } from '../lib/pagination'
 import { useToast } from '../context/ToastContext'
