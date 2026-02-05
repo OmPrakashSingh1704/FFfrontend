@@ -162,6 +162,7 @@ export function FeedPage() {
               value={form.title}
               onChange={(event) => setForm((prev) => ({ ...prev, title: event.target.value }))}
               placeholder="Announce your progress"
+              data-testid="post-title-input"
             />
           </label>
         </div>
