@@ -845,7 +845,7 @@
 
 /* App Layout */
 .app-header {
-  @apply fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-8 md:px-12 py-4;
+  @apply fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-4 sm:px-6 md:px-12 py-3 sm:py-4 gap-4;
   background: rgba(255, 255, 255, 0.8);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
@@ -856,13 +856,35 @@
   background: rgba(20, 18, 15, 0.85);
 }
 
+.app-header .logo {
+  @apply flex items-center gap-2;
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 1.25rem;
+  font-weight: 500;
+  color: var(--gold);
+}
+
+.app-header .logo-mark {
+  @apply w-8 h-8 rounded-full overflow-hidden grid place-items-center flex-shrink-0;
+  background: linear-gradient(135deg, #b8860b 0%, #d4af37 100%);
+}
+
+.app-header .logo-mark img {
+  @apply w-5 h-5 object-contain;
+  filter: brightness(0) invert(1);
+}
+
+.app-header .logo-name {
+  @apply hidden sm:inline;
+}
+
 .app-nav {
-  @apply flex gap-6 text-sm;
-  color: hsl(var(--muted-foreground));
+  @apply hidden md:flex items-center gap-1 flex-wrap;
 }
 
 .app-nav a {
-  @apply transition-all duration-300 px-3 py-1.5 rounded-full;
+  @apply text-xs px-3 py-2 rounded-full transition-all duration-300 whitespace-nowrap;
+  color: hsl(var(--muted-foreground));
 }
 
 .app-nav a:hover {
@@ -870,8 +892,48 @@
   background: rgba(184, 134, 11, 0.08);
 }
 
+.app-nav a svg {
+  @apply w-3.5 h-3.5;
+}
+
+.app-actions {
+  @apply flex items-center gap-2 sm:gap-3;
+}
+
+.app-actions .btn {
+  @apply text-xs px-3 py-2 sm:px-4 sm:py-2;
+}
+
 .app-main {
-  @apply px-8 md:px-12 py-8 pt-24;
+  @apply px-4 sm:px-6 md:px-12 py-6 sm:py-8 pt-20 sm:pt-24 min-h-screen;
+}
+
+/* Mobile nav for app */
+.mobile-nav-grid {
+  @apply grid grid-cols-4 gap-2 p-4;
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(184, 134, 11, 0.1);
+  @apply rounded-xl mx-4 mb-4;
+}
+
+[data-theme="dark"] .mobile-nav-grid {
+  background: rgba(30, 25, 20, 0.9);
+}
+
+.mobile-nav-grid a {
+  @apply flex flex-col items-center gap-1 p-2 rounded-lg text-center transition-colors;
+  color: hsl(var(--muted-foreground));
+  font-size: 0.65rem;
+}
+
+.mobile-nav-grid a:hover {
+  color: var(--gold);
+  background: rgba(184, 134, 11, 0.08);
+}
+
+.mobile-nav-grid a svg {
+  @apply w-4 h-4;
 }
 
 /* Content */
