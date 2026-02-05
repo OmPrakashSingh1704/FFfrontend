@@ -67,7 +67,7 @@
   }
 }
 
-@layer utilities {
+@layer components {
   .text-gradient {
     @apply bg-gradient-to-r from-cyan-400 to-violet-500 bg-clip-text text-transparent;
   }
@@ -83,7 +83,9 @@
   .neon-border {
     @apply border border-cyan-500/50 shadow-[0_0_15px_rgba(0,240,255,0.3)];
   }
-  
+}
+
+@layer utilities {
   .glow-cyan {
     box-shadow: 0 0 20px rgba(0, 240, 255, 0.4), 0 0 40px rgba(0, 240, 255, 0.2);
   }
