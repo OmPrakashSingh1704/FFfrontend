@@ -192,6 +192,7 @@ export function FeedPage() {
               value={form.tags}
               onChange={(event) => setForm((prev) => ({ ...prev, tags: event.target.value }))}
               placeholder="launch, hiring, demo"
+              data-testid="post-tags-input"
             />
           </label>
         </div>
