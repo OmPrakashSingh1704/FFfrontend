@@ -27,4 +27,7 @@ Thumbs.db
 *.ntvs*
 *.njsproj
 *.sln
-*.sw?
+*.sw?-e 
+# Environment files
+*.env
+*.env.*
