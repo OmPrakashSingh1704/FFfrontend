@@ -85,15 +85,9 @@ export function AppShell() {
           
           <ThemeToggle />
           
+          {/* Profile Dropdown or Sign In */}
           {status === 'authenticated' ? (
-            <button 
-              type="button" 
-              className="btn ghost hidden sm:inline-flex" 
-              onClick={() => void logout()}
-              data-testid="logout-btn"
-            >
-              Logout
-            </button>
+            <ProfileDropdown />
           ) : (
             <Link className="btn primary" to="/login" data-testid="signin-btn">
               Sign in
