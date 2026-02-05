@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { Mail, Lock, ArrowRight } from 'lucide-react'
 import { FormField } from '../components/FormField'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
@@ -43,14 +44,14 @@ export function LoginPage() {
   }
 
   return (
-    <section className="auth-card">
+    <section className="auth-card" data-testid="login-card">
       <header className="auth-header">
-        <h1>Sign in</h1>
+        <h1 className="text-gradient">Welcome back</h1>
         <p>Access your fundraising workspace.</p>
       </header>
-      <form onSubmit={handleSubmit} className="auth-form">
+      <form onSubmit={handleSubmit} className="auth-form" data-testid="login-form">
         {errors.form ? <div className="form-error">{errors.form}</div> : null}
-        <FormField label="Email" error={errors.email}>
+        <FormField label="Email" error={errors.email} icon={<Mail className="w-4 h-4" />}>
           <input
             type="email"
             name="email"
@@ -59,9 +60,10 @@ export function LoginPage() {
             placeholder="you@company.com"
             autoComplete="email"
             required
+            data-testid="login-email-input"
           />
         </FormField>
-        <FormField label="Password" error={errors.password}>
+        <FormField label="Password" error={errors.password} icon={<Lock className="w-4 h-4" />}>
           <input
             type="password"
             name="password"
@@ -70,10 +72,12 @@ export function LoginPage() {
             placeholder="Enter your password"
             autoComplete="current-password"
             required
+            data-testid="login-password-input"
           />
         </FormField>
-        <button className="btn primary" type="submit" disabled={submitting}>
+        <button className="btn primary" type="submit" disabled={submitting} data-testid="login-submit-btn">
           {submitting ? 'Signing in...' : 'Sign in'}
+          {!submitting && <ArrowRight className="w-4 h-4 ml-2" />}
         </button>
       </form>
       <p className="auth-footer">
