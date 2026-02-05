@@ -226,7 +226,12 @@ export function FeedPage() {
                     {item.like_count}
                   </span>
                 ) : null}
-                {item.comment_count !== undefined ? <span>💬 {item.comment_count}</span> : null}
+                {item.comment_count !== undefined ? (
+                  <span className="flex items-center gap-1">
+                    <MessageCircle className="w-3 h-3" />
+                    {item.comment_count}
+                  </span>
+                ) : null}
               </div>
               {item.link_url ? (
                 <a href={item.link_url} target="_blank" rel="noreferrer" className="feed-link">
