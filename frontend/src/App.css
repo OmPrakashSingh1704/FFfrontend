@@ -1272,12 +1272,31 @@
 
 .feed-card h3 {
   font-family: 'Cormorant Garamond', serif;
-  @apply text-lg font-medium;
+  @apply text-lg font-medium mt-3 mb-2;
 }
 
 .feed-card p {
   @apply text-sm mt-2;
   color: hsl(var(--muted-foreground));
+}
+
+.feed-meta {
+  @apply flex flex-wrap items-center gap-3 text-xs;
+  color: hsl(var(--muted-foreground));
+}
+
+.feed-meta .data-eyebrow {
+  @apply uppercase tracking-wider;
+  color: var(--gold);
+}
+
+.feed-link {
+  @apply inline-flex items-center gap-1 mt-4 text-sm transition-colors;
+  color: var(--gold);
+}
+
+.feed-link:hover {
+  color: #d4af37;
 }
 
 .feed-composer {
