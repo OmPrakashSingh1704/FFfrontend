@@ -292,6 +292,11 @@ function App() {
                 </ProtectedRoute>
               }
             />
+            {/* Temporary test route - remove after testing */}
+            <Route
+              path="/test-onboarding"
+              element={<OnboardingPage />}
+            />
           </Route>
 
           <Route path="*" element={<NotFound />} />
