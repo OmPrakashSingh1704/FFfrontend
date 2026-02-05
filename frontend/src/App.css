@@ -1399,12 +1399,26 @@
   @apply w-full px-4 py-3 text-sm rounded-lg transition-all duration-300;
   background: rgba(255, 255, 255, 0.5);
   border: 1px solid rgba(184, 134, 11, 0.15);
+  color: hsl(var(--foreground));
 }
 
 [data-theme="dark"] .feed-composer input,
 [data-theme="dark"] .feed-composer select,
 [data-theme="dark"] .feed-composer textarea {
   background: rgba(30, 25, 20, 0.5);
+  color: hsl(var(--foreground));
+}
+
+/* Fix dropdown options visibility */
+.feed-composer select option {
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
+  padding: 8px;
+}
+
+[data-theme="dark"] .feed-composer select option {
+  background: #1a1612;
+  color: #f5f0e6;
 }
 
 .feed-composer input:focus,
