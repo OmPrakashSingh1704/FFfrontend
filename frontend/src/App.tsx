@@ -293,6 +293,11 @@ function App() {
               }
             />
           </Route>
+          
+          {/* Test route */}
+          <Route element={<AppShell />}>
+            <Route path="/test-header" element={<Dashboard />} />
+          </Route>
 
           <Route path="*" element={<NotFound />} />
         </Routes>
