@@ -293,6 +293,15 @@ function App() {
               }
             />
           </Route>
+          
+          {/* Temporary test routes - remove after testing */}
+          <Route element={<AppShell />}>
+            <Route path="/test-search" element={<SearchPage />} />
+            <Route path="/test-uploads" element={<UploadsPage />} />
+            <Route path="/test-admin" element={<AdminPage />} />
+            <Route path="/test-analytics" element={<AnalyticsPage />} />
+            <Route path="/test-notifications" element={<NotificationsPage />} />
+          </Route>
 
           <Route path="*" element={<NotFound />} />
         </Routes>
