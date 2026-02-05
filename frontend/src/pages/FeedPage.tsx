@@ -173,6 +173,7 @@ export function FeedPage() {
             onChange={(event) => setForm((prev) => ({ ...prev, content: event.target.value }))}
             rows={5}
             placeholder="Write the details you want investors to see."
+            data-testid="post-content-textarea"
           />
         </label>
         <div className="composer-grid">
