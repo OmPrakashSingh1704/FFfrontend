@@ -295,12 +295,6 @@ function App() {
           </Route>
 
           <Route path="*" element={<NotFound />} />
-          
-          {/* Test routes for styling verification - remove in production */}
-          <Route element={<AppShell />}>
-            <Route path="/test-onboarding" element={<OnboardingPage />} />
-            <Route path="/test-dashboard" element={<Dashboard />} />
-          </Route>
         </Routes>
       </Suspense>
     </BrowserRouter>
