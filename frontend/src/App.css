@@ -1299,6 +1299,37 @@
   color: #d4af37;
 }
 
+.feed-startup {
+  @apply mt-3 text-xs;
+  color: hsl(var(--muted-foreground));
+}
+
+.feed-actions {
+  @apply flex items-center gap-2 mt-4 pt-4 border-t;
+  border-color: rgba(184, 134, 11, 0.1);
+}
+
+.feed-action-btn {
+  @apply inline-flex items-center gap-2 px-4 py-2 text-sm rounded-full transition-all duration-300;
+  background: rgba(184, 134, 11, 0.05);
+  border: 1px solid rgba(184, 134, 11, 0.1);
+  color: hsl(var(--muted-foreground));
+}
+
+.feed-action-btn:hover {
+  background: rgba(184, 134, 11, 0.1);
+  border-color: rgba(184, 134, 11, 0.2);
+  color: var(--gold);
+}
+
+.feed-action-btn svg {
+  @apply transition-transform;
+}
+
+.feed-action-btn:hover svg {
+  transform: scale(1.1);
+}
+
 .feed-composer {
   @apply p-6 mb-6;
   background: rgba(255, 255, 255, 0.5);
