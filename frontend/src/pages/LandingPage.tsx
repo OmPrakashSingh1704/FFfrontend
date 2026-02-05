@@ -16,12 +16,6 @@ export function LandingPage() {
           </span>
           <span className="logo-name">FoundersLib</span>
         </div>
-        <nav className="nav-links" aria-label="Primary">
-          <a href="#platform">Platform</a>
-          <a href="#workflow">Workflow</a>
-          <a href="#security">Security</a>
-          <a href="#access">Access</a>
-        </nav>
         <div className="nav-actions">
           <ThemeToggle className="theme-toggle" />
           <Link className="btn ghost" to="/login" data-testid="nav-signin-btn">
@@ -40,7 +34,7 @@ export function LandingPage() {
           <div className="hero-left">
             <span className="eyebrow">
               <Zap className="w-4 h-4" />
-              Founder-grade infrastructure
+              Built for modern founders
             </span>
             <h1 className="hero-title">
               Raise with <span>signal</span>,<br />not noise.
@@ -54,9 +48,9 @@ export function LandingPage() {
                 Get early access
                 <ArrowRight className="w-4 h-4 ml-2" />
               </Link>
-              <a className="btn ghost" href="#workflow" data-testid="hero-workflow-btn">
-                View workflow
-              </a>
+              <Link className="btn ghost" to="/login" data-testid="hero-signin-btn">
+                Sign in
+              </Link>
             </div>
             <div className="hero-metrics">
               <div>
@@ -118,14 +112,14 @@ export function LandingPage() {
           </div>
         </section>
 
-        {/* Platform Section */}
-        <section className="models" id="platform" data-testid="platform-section">
+        {/* Features Section */}
+        <section className="models" id="features" data-testid="features-section">
           <div className="section-intro">
             <span className="eyebrow">
               <BarChart3 className="w-4 h-4" />
-              Platform stack
+              What you get
             </span>
-            <h2>Built to scale every round</h2>
+            <h2>Everything you need to close your round</h2>
             <p>
               A modular system for founders and investors who want clarity, trust,
               and momentum without chasing ten different tools.
@@ -142,7 +136,6 @@ export function LandingPage() {
               <div className="model-metrics">
                 <span>Realtime analytics</span>
                 <span>Priority scoring</span>
-                <span>Follow-up cadence</span>
               </div>
             </article>
             <article className="model-card" data-testid="feature-relay">
@@ -154,7 +147,6 @@ export function LandingPage() {
               <p>Coordinate connectors, track status, and move intros forward without friction.</p>
               <div className="model-metrics">
                 <span>Trusted matches</span>
-                <span>Status timelines</span>
                 <span>Auto reminders</span>
               </div>
             </article>
@@ -168,7 +160,6 @@ export function LandingPage() {
               <div className="model-metrics">
                 <span>Version control</span>
                 <span>Access controls</span>
-                <span>Doc analytics</span>
               </div>
             </article>
             <article className="model-card" data-testid="feature-pulse">
@@ -181,30 +172,26 @@ export function LandingPage() {
               <div className="model-metrics">
                 <span>Update templates</span>
                 <span>Performance KPIs</span>
-                <span>Conversation context</span>
               </div>
             </article>
           </div>
         </section>
 
-        {/* Workflow Section */}
-        <section className="workflow" id="workflow" data-testid="workflow-section">
+        {/* How it works */}
+        <section className="workflow" id="how-it-works" data-testid="workflow-section">
           <div className="workflow-copy">
             <span className="eyebrow">
               <Zap className="w-4 h-4" />
-              Workflow
+              How it works
             </span>
             <h2>Everything moves on one timeline</h2>
             <p>
               FoundersLib keeps your raise, intros, and investor comms in a single
-              command center with secure, auditable collaboration.
+              command center with seamless collaboration.
             </p>
             <div className="workflow-actions">
-              <a className="btn ghost" href="#security">
-                Security overview
-              </a>
               <Link className="btn primary" to="/signup">
-                Book a walkthrough
+                Start free
                 <ArrowRight className="w-4 h-4 ml-2" />
               </Link>
             </div>
@@ -228,10 +215,10 @@ export function LandingPage() {
           </div>
         </section>
 
-        {/* Reviews Section */}
-        <section className="reviews" id="reviews" data-testid="reviews-section">
+        {/* Testimonials */}
+        <section className="reviews" id="testimonials" data-testid="reviews-section">
           <div className="section-intro">
-            <span className="eyebrow">Testimonials</span>
+            <span className="eyebrow">What people say</span>
             <h2>Founders and partners feel the lift</h2>
             <p>Early teams are running tighter rounds with clearer signals and faster closes.</p>
           </div>
@@ -243,7 +230,7 @@ export function LandingPage() {
               </p>
               <div className="review-meta">
                 <span className="review-name">Maya K.</span>
-                <span className="review-role">Founder · Climate SaaS</span>
+                <span className="review-role"> · Founder, Climate SaaS</span>
               </div>
             </article>
             <article className="review-card">
@@ -253,7 +240,7 @@ export function LandingPage() {
               </p>
               <div className="review-meta">
                 <span className="review-name">Elliot R.</span>
-                <span className="review-role">Angel · Fintech</span>
+                <span className="review-role"> · Angel Investor</span>
               </div>
             </article>
             <article className="review-card">
@@ -263,57 +250,23 @@ export function LandingPage() {
               </p>
               <div className="review-meta">
                 <span className="review-name">Priya S.</span>
-                <span className="review-role">Partner · Seed Fund</span>
+                <span className="review-role"> · Partner, Seed Fund</span>
               </div>
             </article>
           </div>
         </section>
 
-        {/* Security Section */}
-        <section className="security" id="security" data-testid="security-section">
-          <div className="security-card">
-            <div>
-              <span className="eyebrow">
-                <Shield className="w-4 h-4" />
-                Security
-              </span>
-              <h2>Built for trust, compliance, and scale</h2>
-              <p>
-                JWT authentication, rate limiting, and audit trails keep your sensitive
-                fundraising data protected from day one.
-              </p>
-            </div>
-            <div className="security-grid">
-              <div>
-                <h4>Verified identities</h4>
-                <p>Every founder and investor profile is validated for authenticity.</p>
-              </div>
-              <div>
-                <h4>Controlled access</h4>
-                <p>Granular permissions keep private data scoped to the right people.</p>
-              </div>
-              <div>
-                <h4>Always auditable</h4>
-                <p>End-to-end logs and audit trails for every interaction.</p>
-              </div>
-            </div>
-          </div>
-        </section>
-
         {/* CTA Section */}
-        <section className="cta" id="access" data-testid="cta-section">
+        <section className="cta" id="cta" data-testid="cta-section">
           <div>
             <h2>Ready to run a calmer raise?</h2>
-            <p>We are onboarding a limited set of founders and investor partners.</p>
+            <p>Join founders and investors already building with clarity.</p>
           </div>
           <div className="cta-actions">
             <Link className="btn primary" to="/signup" data-testid="cta-access-btn">
-              Request early access
+              Get started free
               <ArrowRight className="w-4 h-4 ml-2" />
             </Link>
-            <a className="btn ghost" href="#platform">
-              View the platform
-            </a>
           </div>
         </section>
       </main>
@@ -325,10 +278,8 @@ export function LandingPage() {
           <p className="mt-2">Fundraising infrastructure for modern founders.</p>
         </div>
         <div className="footer-links">
-          <a href="#platform">Platform</a>
-          <a href="#workflow">Workflow</a>
-          <a href="#security">Security</a>
-          <a href="#access">Access</a>
+          <Link to="/login">Sign in</Link>
+          <Link to="/signup">Get started</Link>
         </div>
       </footer>
     </Page>
