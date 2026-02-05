@@ -938,12 +938,16 @@
 
 /* Content */
 .content-section {
-  @apply space-y-8;
+  @apply space-y-6 sm:space-y-8;
+}
+
+.content-header {
+  @apply flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-6;
 }
 
 .content-header h1 {
   font-family: 'Cormorant Garamond', serif;
-  @apply text-3xl font-medium;
+  @apply text-2xl sm:text-3xl font-medium;
 }
 
 .content-header p {
@@ -951,15 +955,72 @@
   @apply text-sm mt-1;
 }
 
+.content-card {
+  @apply p-5 sm:p-6 md:p-8;
+  background: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(184, 134, 11, 0.1);
+  @apply rounded-xl;
+}
+
+[data-theme="dark"] .content-card {
+  background: rgba(40, 35, 30, 0.5);
+}
+
 /* Data Grid */
 .data-grid {
-  @apply grid sm:grid-cols-2 lg:grid-cols-3 gap-6;
+  @apply grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6;
 }
 
 .data-card {
-  @apply p-6 transition-all duration-500 block;
-  background: rgba(255, 255, 255, 0.5);
+  @apply p-5 sm:p-6 transition-all duration-500 block;
+  background: rgba(255, 255, 255, 0.6);
   backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(184, 134, 11, 0.1);
+  @apply rounded-xl;
+}
+
+[data-theme="dark"] .data-card {
+  background: rgba(40, 35, 30, 0.5);
+}
+
+.data-card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(184, 134, 11, 0.3);
+  box-shadow: 0 15px 30px rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="dark"] .data-card:hover {
+  box-shadow: 0 15px 30px rgba(0, 0, 0, 0.25);
+}
+
+.data-eyebrow {
+  @apply text-xs uppercase tracking-[0.15em];
+  color: var(--gold);
+}
+
+.data-card h3 {
+  font-family: 'Cormorant Garamond', serif;
+  @apply text-lg sm:text-xl font-medium mt-2 mb-2;
+}
+
+.data-card p {
+  @apply text-sm leading-relaxed;
+  color: hsl(var(--muted-foreground));
+}
+
+.data-meta {
+  @apply flex flex-wrap gap-2 mt-4 text-xs;
+  color: hsl(var(--muted-foreground));
+}
+
+.data-meta span {
+  @apply px-2 py-1 rounded;
+  background: rgba(184, 134, 11, 0.08);
+  border: 1px solid rgba(184, 134, 11, 0.1);
+}
   -webkit-backdrop-filter: blur(16px);
   border: 1px solid rgba(184, 134, 11, 0.1);
   @apply rounded-lg;
