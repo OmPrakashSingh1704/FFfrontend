@@ -101,15 +101,15 @@ export function AppShell() {
         </div>
       </header>
       
-      {/* Mobile Navigation Overlay */}
+      {/* Navigation Menu Overlay */}
       {mobileMenuOpen && (
         <>
           <div 
-            className="mobile-nav-overlay md:hidden" 
+            className="mobile-nav-overlay" 
             onClick={() => setMobileMenuOpen(false)}
             data-testid="mobile-nav-overlay"
           />
-          <nav className="mobile-nav-panel md:hidden" data-testid="mobile-nav">
+          <nav className="mobile-nav-panel" data-testid="mobile-nav">
             {navItems.map(item => (
               <Link 
                 key={item.path} 
