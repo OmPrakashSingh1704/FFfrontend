@@ -936,6 +936,210 @@
   @apply w-4 h-4;
 }
 
+/* Dashboard Page */
+.dashboard-page {
+  @apply space-y-8;
+}
+
+.dashboard-welcome {
+  @apply mb-8;
+}
+
+.dashboard-welcome h1 {
+  font-family: 'Cormorant Garamond', serif;
+  @apply text-3xl sm:text-4xl font-medium mb-2;
+}
+
+.dashboard-welcome p {
+  color: hsl(var(--muted-foreground));
+  @apply text-sm sm:text-base;
+}
+
+.dashboard-stats {
+  @apply grid grid-cols-2 lg:grid-cols-4 gap-4;
+}
+
+.stat-card {
+  @apply p-4 sm:p-5 rounded-xl transition-all duration-300;
+  background: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(184, 134, 11, 0.1);
+}
+
+[data-theme="dark"] .stat-card {
+  background: rgba(40, 35, 30, 0.5);
+}
+
+.stat-card:hover {
+  border-color: rgba(184, 134, 11, 0.25);
+}
+
+.stat-header {
+  @apply flex items-center justify-between mb-2;
+}
+
+.stat-label {
+  @apply text-xs uppercase tracking-wider;
+  color: hsl(var(--muted-foreground));
+}
+
+.stat-icon {
+  @apply w-4 h-4;
+  color: var(--gold);
+}
+
+.stat-value {
+  font-family: 'Cormorant Garamond', serif;
+  @apply text-2xl sm:text-3xl font-medium;
+}
+
+.stat-trend {
+  @apply text-xs mt-1;
+  color: #1a3a2f;
+}
+
+[data-theme="dark"] .stat-trend {
+  color: #4ade80;
+}
+
+.dashboard-section {
+  @apply space-y-4;
+}
+
+.dashboard-section h2 {
+  font-family: 'Cormorant Garamond', serif;
+  @apply text-xl font-medium;
+}
+
+.action-grid {
+  @apply grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4;
+}
+
+.action-card {
+  @apply flex items-center gap-4 p-4 sm:p-5 rounded-xl transition-all duration-300;
+  background: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(184, 134, 11, 0.1);
+}
+
+[data-theme="dark"] .action-card {
+  background: rgba(40, 35, 30, 0.5);
+}
+
+.action-card:hover {
+  border-color: rgba(184, 134, 11, 0.25);
+  transform: translateY(-2px);
+}
+
+.action-icon {
+  @apply w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0;
+  background: rgba(184, 134, 11, 0.1);
+  color: var(--gold);
+}
+
+.action-icon svg {
+  @apply w-5 h-5;
+}
+
+.action-content {
+  @apply flex-1 min-w-0;
+}
+
+.action-label {
+  @apply block font-medium text-sm;
+}
+
+.action-content p {
+  @apply text-xs mt-0.5 truncate;
+  color: hsl(var(--muted-foreground));
+}
+
+.action-arrow {
+  @apply w-4 h-4 flex-shrink-0 opacity-0 transition-all;
+  color: var(--gold);
+}
+
+.action-card:hover .action-arrow {
+  opacity: 1;
+  transform: translateX(4px);
+}
+
+.browse-grid {
+  @apply grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3;
+}
+
+.browse-card {
+  @apply flex items-center gap-3 p-4 rounded-xl transition-all duration-300;
+  background: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(184, 134, 11, 0.1);
+}
+
+[data-theme="dark"] .browse-card {
+  background: rgba(40, 35, 30, 0.5);
+}
+
+.browse-card:hover {
+  border-color: rgba(184, 134, 11, 0.25);
+}
+
+.browse-icon {
+  @apply w-5 h-5;
+  color: var(--gold);
+}
+
+.browse-card span {
+  @apply flex-1 text-sm font-medium;
+}
+
+.browse-arrow {
+  @apply w-4 h-4 opacity-0 transition-all;
+  color: hsl(var(--muted-foreground));
+}
+
+.browse-card:hover .browse-arrow {
+  opacity: 1;
+}
+
+.analytics-preview {
+  @apply p-5 sm:p-6 rounded-xl;
+  background: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(184, 134, 11, 0.1);
+}
+
+[data-theme="dark"] .analytics-preview {
+  background: rgba(40, 35, 30, 0.5);
+}
+
+.analytics-header {
+  @apply flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4;
+}
+
+.analytics-header h2 {
+  font-family: 'Cormorant Garamond', serif;
+  @apply text-lg font-medium;
+}
+
+.analytics-header p {
+  @apply text-sm;
+  color: hsl(var(--muted-foreground));
+}
+
+.analytics-header .btn svg {
+  @apply w-4 h-4 mr-2;
+}
+
+.analytics-placeholder {
+  @apply h-32 flex items-center justify-center rounded-lg;
+  border: 1px dashed rgba(184, 134, 11, 0.2);
+  color: hsl(var(--muted-foreground));
+}
+
+.analytics-placeholder span {
+  @apply text-sm;
+}
+
 /* Content */
 .content-section {
   @apply space-y-6 sm:space-y-8;
