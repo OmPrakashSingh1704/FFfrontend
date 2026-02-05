@@ -4,7 +4,7 @@ import {
   BarChart3, Settings, Search, FileText, Upload,
   Phone, Activity, Wallet, Menu, X
 } from 'lucide-react'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import logoMark from '../assets/logo-mark.svg'
 import { ThemeToggle } from '../components/ThemeToggle'
 import { NotificationDropdown } from '../components/NotificationDropdown'
@@ -31,6 +31,18 @@ const navItems = [
 export function AppShell() {
   const { status, user, logout } = useAuth()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+
+  // Lock body scroll when mobile menu is open
+  useEffect(() => {
+    if (mobileMenuOpen) {
+      document.body.style.overflow = 'hidden'
+    } else {
+      document.body.style.overflow = ''
+    }
+    return () => {
+      document.body.style.overflow = ''
+    }
+  }, [mobileMenuOpen])
 
   return (
     <Page>
@@ -89,20 +101,27 @@ export function AppShell() {
         </div>
       </header>
       
-      {/* Mobile Navigation */}
+      {/* Mobile Navigation Overlay */}
       {mobileMenuOpen && (
-        <nav className="mobile-nav-grid md:hidden" style={{ marginTop: '4.5rem' }} data-testid="mobile-nav">
-          {navItems.map(item => (
-            <Link 
-              key={item.path} 
-              to={item.path} 
-              onClick={() => setMobileMenuOpen(false)}
-            >
-              <item.icon />
-              {item.label}
-            </Link>
-          ))}
-        </nav>
+        <>
+          <div 
+            className="mobile-nav-overlay md:hidden" 
+            onClick={() => setMobileMenuOpen(false)}
+            data-testid="mobile-nav-overlay"
+          />
+          <nav className="mobile-nav-panel md:hidden" data-testid="mobile-nav">
+            {navItems.map(item => (
+              <Link 
+                key={item.path} 
+                to={item.path} 
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                <item.icon />
+                {item.label}
+              </Link>
+            ))}
+          </nav>
+        </>
       )}
       
       <main className="app-main" id="main-content">
