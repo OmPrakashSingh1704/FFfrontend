@@ -132,7 +132,7 @@ export function FeedPage() {
         </div>
       </header>
 
-      <form className="feed-composer" onSubmit={handleCreate}>
+      <form className="feed-composer" onSubmit={handleCreate} data-testid="feed-composer">
         <header>
           <h2>Create a post</h2>
           <p>Share an update, milestone, or investor insight with your network.</p>
