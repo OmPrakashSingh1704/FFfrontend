@@ -293,11 +293,6 @@ function App() {
               }
             />
           </Route>
-          
-          {/* Test route */}
-          <Route element={<AppShell />}>
-            <Route path="/test-chat" element={<ChatPage />} />
-          </Route>
 
           <Route path="*" element={<NotFound />} />
         </Routes>
