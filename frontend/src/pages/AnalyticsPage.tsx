@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { BarChart3, Activity, Users, MessageSquare, Zap, TrendingUp } from 'lucide-react'
 import { apiRequest } from '../lib/api'
 
 type OverviewMetrics = {
@@ -228,16 +229,24 @@ export function AnalyticsPage() {
   }, [metric])
 
   return (
-    <section className="content-section analytics-page">
+    <section className="content-section analytics-page" data-testid="analytics-page">
       <header className="content-header">
         <div>
+          <div className="flex items-center gap-2 mb-2">
+            <BarChart3 className="w-5 h-5 text-cyan-400" />
+            <span className="text-xs uppercase tracking-wider text-cyan-400">Insights</span>
+          </div>
           <h1>Analytics</h1>
           <p>Admin metrics across growth, engagement, and system health.</p>
         </div>
         <div className="analytics-controls">
           <label>
             Metric focus
-            <select value={metric} onChange={(event) => setMetric(event.target.value)}>
+            <select 
+              value={metric} 
+              onChange={(event) => setMetric(event.target.value)}
+              data-testid="metric-select"
+            >
               {metricOptions.map((option) => (
                 <option key={option.value} value={option.value}>
                   {option.label}
@@ -253,47 +262,68 @@ export function AnalyticsPage() {
 
       {!loading && !error ? (
         <>
-          <div className="analytics-grid">
+          <div className="analytics-grid" data-testid="metrics-grid">
             <div className="metric-card">
-              <span className="metric-label">DAU</span>
+              <div className="flex items-center gap-2">
+                <Users className="w-4 h-4 text-cyan-400" />
+                <span className="metric-label">DAU</span>
+              </div>
               <span className="metric-value">{formatNumber(overview?.current?.dau)}</span>
               <span className="metric-sub">Avg: {formatNumber(overview?.averages?.daily_active_users)}</span>
             </div>
             <div className="metric-card">
-              <span className="metric-label">WAU</span>
+              <div className="flex items-center gap-2">
+                <Activity className="w-4 h-4 text-violet-400" />
+                <span className="metric-label">WAU</span>
+              </div>
               <span className="metric-value">{formatNumber(overview?.current?.wau)}</span>
               <span className="metric-sub">MAU {formatNumber(overview?.current?.mau)}</span>
             </div>
             <div className="metric-card">
-              <span className="metric-label">Messages</span>
+              <div className="flex items-center gap-2">
+                <MessageSquare className="w-4 h-4 text-emerald-400" />
+                <span className="metric-label">Messages</span>
+              </div>
               <span className="metric-value">{formatNumber(overview?.totals?.messages)}</span>
               <span className="metric-sub">{overview?.period_days ?? 0} day total</span>
             </div>
             <div className="metric-card">
-              <span className="metric-label">New users</span>
+              <div className="flex items-center gap-2">
+                <Users className="w-4 h-4 text-amber-400" />
+                <span className="metric-label">New users</span>
+              </div>
               <span className="metric-value">{formatNumber(overview?.totals?.new_users)}</span>
               <span className="metric-sub">{overview?.period_days ?? 0} day total</span>
             </div>
             <div className="metric-card">
-              <span className="metric-label">Conversations</span>
+              <div className="flex items-center gap-2">
+                <MessageSquare className="w-4 h-4 text-pink-400" />
+                <span className="metric-label">Conversations</span>
+              </div>
               <span className="metric-value">{formatNumber(overview?.totals?.conversations)}</span>
               <span className="metric-sub">Created in period</span>
             </div>
             <div className="metric-card">
-              <span className="metric-label">Intros</span>
+              <div className="flex items-center gap-2">
+                <Zap className="w-4 h-4 text-cyan-400" />
+                <span className="metric-label">Intros</span>
+              </div>
               <span className="metric-value">{formatNumber(overview?.totals?.intros)}</span>
               <span className="metric-sub">Requested in period</span>
             </div>
           </div>
 
-          <div className="analytics-panels">
+          <div className="analytics-panels" data-testid="series-panels">
             <SeriesCard title="New users (last 10 days)" series={userGrowth?.new_users_series ?? []} />
             <SeriesCard title="Daily active users (last 10 days)" series={userGrowth?.dau_series ?? []} />
           </div>
 
           <div className="analytics-grid">
             <div className="metric-card">
-              <span className="metric-label">Engagement</span>
+              <div className="flex items-center gap-2">
+                <TrendingUp className="w-4 h-4 text-cyan-400" />
+                <span className="metric-label">Engagement</span>
+              </div>
               <span className="metric-value">{formatNumber(engagement?.messages_sent)}</span>
               <span className="metric-sub">Messages sent</span>
             </div>
@@ -316,7 +346,10 @@ export function AnalyticsPage() {
 
           <div className="analytics-panels">
             <div className="metric-card metric-wide">
-              <span className="metric-label">Live now</span>
+              <div className="flex items-center gap-2">
+                <Activity className="w-4 h-4 text-emerald-400" />
+                <span className="metric-label">Live now</span>
+              </div>
               <span className="metric-value">{formatNumber(realTime?.active_users_last_hour)}</span>
               <span className="metric-sub">
                 Messages today {formatNumber(realTime?.messages_today)} · Updated{' '}
@@ -344,7 +377,7 @@ export function AnalyticsPage() {
             </div>
           </div>
 
-          <div className="series-card">
+          <div className="series-card" data-testid="focused-metric-card">
             <header>
               <h3>Focused metric: {metricOptions.find((option) => option.value === metric)?.label}</h3>
               <span>{seriesLoading ? 'Updating…' : `${series.length} datapoints`}</span>
