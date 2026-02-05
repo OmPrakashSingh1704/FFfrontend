@@ -198,7 +198,8 @@ export function FeedPage() {
         </div>
         <div className="composer-actions">
           <p>{tagList.length ? `${tagList.length} tag${tagList.length === 1 ? '' : 's'} added` : 'Add tags to boost reach.'}</p>
-          <button className="btn primary" type="submit" disabled={submitting}>
+          <button className="btn primary" type="submit" disabled={submitting} data-testid="publish-post-btn">
+            <Send className="w-4 h-4 mr-2" />
             {submitting ? 'Publishing...' : 'Publish post'}
           </button>
         </div>
