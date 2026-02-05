@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
-import { TrendingUp, MapPin, Building2, UserPlus, ArrowRight } from 'lucide-react'
+import { Link, useNavigate } from 'react-router-dom'
+import { TrendingUp, MapPin, Building2, UserPlus, ArrowRight, MessageCircle } from 'lucide-react'
 import { apiRequest } from '../lib/api'
 import { normalizeList } from '../lib/pagination'
 import type { InvestorProfile } from '../types/investor'
@@ -9,6 +9,7 @@ export function InvestorsListPage() {
   const [investors, setInvestors] = useState<InvestorProfile[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const navigate = useNavigate()
 
   useEffect(() => {
     let cancelled = false
@@ -37,6 +38,14 @@ export function InvestorsListPage() {
     }
   }, [])
 
+  const handleStartChat = (e: React.MouseEvent, investor: InvestorProfile) => {
+    e.preventDefault()
+    e.stopPropagation()
+    // Navigate to chat with investor's user ID as participant
+    const userId = investor.user?.id || investor.id
+    navigate(`/app/chat?newChat=${userId}&name=${encodeURIComponent(investor.display_name || 'Investor')}`)
+  }
+
   return (
     <section className="content-section" data-testid="investors-list">
       <header className="content-header">
@@ -60,34 +69,46 @@ export function InvestorsListPage() {
       {!loading && !error ? (
         <div className="data-grid" data-testid="investors-grid">
           {investors.map((investor) => (
-            <Link 
+            <div 
               key={investor.id} 
-              to={`/app/investors/${investor.id}`} 
               className="data-card group"
               data-testid={`investor-card-${investor.id}`}
             >
-              <div className="flex items-center justify-between">
-                <span className="data-eyebrow">Investor</span>
-                <ArrowRight className="w-4 h-4 text-slate-500 opacity-0 group-hover:opacity-100 transition-opacity" />
+              <Link to={`/app/investors/${investor.id}`} className="data-card-content">
+                <div className="flex items-center justify-between">
+                  <span className="data-eyebrow">Investor</span>
+                  <ArrowRight className="w-4 h-4 text-slate-500 opacity-0 group-hover:opacity-100 transition-opacity" />
+                </div>
+                <h3>{investor.display_name}</h3>
+                <p>{investor.headline || investor.investment_thesis || 'Investor profile'}</p>
+                <div className="data-meta">
+                  {investor.investor_type ? (
+                    <span className="flex items-center gap-1">
+                      <Building2 className="w-3 h-3" />
+                      {investor.investor_type}
+                    </span>
+                  ) : null}
+                  {investor.fund_name ? <span>{investor.fund_name}</span> : null}
+                  {investor.location ? (
+                    <span className="flex items-center gap-1">
+                      <MapPin className="w-3 h-3" />
+                      {investor.location}
+                    </span>
+                  ) : null}
+                </div>
+              </Link>
+              <div className="data-card-actions">
+                <button 
+                  type="button"
+                  className="btn-chat"
+                  onClick={(e) => handleStartChat(e, investor)}
+                  data-testid={`chat-investor-${investor.id}`}
+                >
+                  <MessageCircle className="w-4 h-4" />
+                  Start Chat
+                </button>
               </div>
-              <h3>{investor.display_name}</h3>
-              <p>{investor.headline || investor.investment_thesis || 'Investor profile'}</p>
-              <div className="data-meta">
-                {investor.investor_type ? (
-                  <span className="flex items-center gap-1">
-                    <Building2 className="w-3 h-3" />
-                    {investor.investor_type}
-                  </span>
-                ) : null}
-                {investor.fund_name ? <span>{investor.fund_name}</span> : null}
-                {investor.location ? (
-                  <span className="flex items-center gap-1">
-                    <MapPin className="w-3 h-3" />
-                    {investor.location}
-                  </span>
-                ) : null}
-              </div>
-            </Link>
+            </div>
           ))}
           {investors.length === 0 ? (
             <div className="col-span-full text-center py-12 text-slate-500">
