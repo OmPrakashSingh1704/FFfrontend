@@ -69,9 +69,9 @@ export function AppShell() {
         </nav>
         
         <div className="app-actions">
-          {/* Mobile menu toggle */}
+          {/* More menu toggle - works on all screen sizes */}
           <button 
-            className="md:hidden btn ghost"
+            className="btn ghost"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             data-testid="mobile-menu-toggle"
             aria-label="Toggle menu"
