@@ -124,6 +124,7 @@ export function FeedPage() {
               type="button"
               className={`segmented-btn ${tab === option ? 'active' : ''}`}
               onClick={() => setTab(option)}
+              data-testid={`feed-tab-${option}`}
             >
               {option}
             </button>
