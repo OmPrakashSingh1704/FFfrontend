@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { Users, MapPin, TrendingUp, ArrowRight, UserPlus } from 'lucide-react'
 import { apiRequest } from '../lib/api'
 import { normalizeList } from '../lib/pagination'
 import type { FounderProfile } from '../types/founder'
@@ -37,13 +38,18 @@ export function FoundersListPage() {
   }, [])
 
   return (
-    <section className="content-section">
+    <section className="content-section" data-testid="founders-list">
       <header className="content-header">
         <div>
+          <div className="flex items-center gap-2 mb-2">
+            <Users className="w-5 h-5 text-cyan-400" />
+            <span className="text-xs uppercase tracking-wider text-cyan-400">Directory</span>
+          </div>
           <h1>Founders</h1>
           <p>Browse founder profiles and reach out with context.</p>
         </div>
-        <Link className="btn ghost" to="/onboarding">
+        <Link className="btn ghost" to="/onboarding" data-testid="update-profile-btn">
+          <UserPlus className="w-4 h-4 mr-2" />
           Update my profile
         </Link>
       </header>
@@ -52,19 +58,42 @@ export function FoundersListPage() {
       {error ? <div className="form-error">{error}</div> : null}
 
       {!loading && !error ? (
-        <div className="data-grid">
+        <div className="data-grid" data-testid="founders-grid">
           {founders.map((founder) => (
-            <Link key={founder.id} to={`/app/founders/${founder.id}`} className="data-card">
-              <span className="data-eyebrow">Founder</span>
+            <Link 
+              key={founder.id} 
+              to={`/app/founders/${founder.id}`} 
+              className="data-card"
+              data-testid={`founder-card-${founder.id}`}
+            >
+              <div className="flex items-center justify-between">
+                <span className="data-eyebrow">Founder</span>
+                <ArrowRight className="w-4 h-4 text-slate-500 opacity-0 group-hover:opacity-100 transition-opacity" />
+              </div>
               <h3>{founder.user?.full_name ?? 'Founder'}</h3>
-              <p>{founder.headline}</p>
+              <p>{founder.headline || 'Building something amazing'}</p>
               <div className="data-meta">
-                {founder.location ? <span>{founder.location}</span> : null}
-                {founder.current_stage ? <span>{founder.current_stage}</span> : null}
+                {founder.location ? (
+                  <span className="flex items-center gap-1">
+                    <MapPin className="w-3 h-3" />
+                    {founder.location}
+                  </span>
+                ) : null}
+                {founder.current_stage ? (
+                  <span className="flex items-center gap-1">
+                    <TrendingUp className="w-3 h-3" />
+                    {founder.current_stage}
+                  </span>
+                ) : null}
                 {founder.fundraising_status ? <span>{founder.fundraising_status}</span> : null}
               </div>
             </Link>
           ))}
+          {founders.length === 0 ? (
+            <div className="col-span-full text-center py-12 text-slate-500">
+              No founders found. Check back soon!
+            </div>
+          ) : null}
         </div>
       ) : null}
     </section>
