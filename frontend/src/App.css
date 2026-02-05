@@ -909,6 +909,43 @@
 }
 
 /* Mobile nav for app */
+.mobile-nav-overlay {
+  @apply fixed inset-0 z-40;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+.mobile-nav-panel {
+  @apply fixed top-16 left-0 right-0 z-50 p-4 max-h-[calc(100vh-4rem)] overflow-y-auto;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid rgba(184, 134, 11, 0.1);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+}
+
+[data-theme="dark"] .mobile-nav-panel {
+  background: rgba(20, 18, 15, 0.95);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+}
+
+.mobile-nav-panel a {
+  @apply flex items-center gap-3 px-4 py-3 rounded-lg transition-colors;
+  color: hsl(var(--foreground));
+}
+
+.mobile-nav-panel a:hover {
+  background: rgba(184, 134, 11, 0.08);
+  color: var(--gold);
+}
+
+.mobile-nav-panel a svg {
+  @apply w-5 h-5;
+  color: var(--gold);
+}
+
+/* Legacy mobile nav grid - keeping for backwards compatibility */
 .mobile-nav-grid {
   @apply grid grid-cols-4 gap-2 p-4;
   background: rgba(255, 255, 255, 0.9);
