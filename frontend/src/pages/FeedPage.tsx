@@ -134,7 +134,10 @@ export function FeedPage() {
 
       <form className="feed-composer" onSubmit={handleCreate} data-testid="feed-composer">
         <header>
-          <h2>Create a post</h2>
+          <div className="flex items-center gap-2">
+            <Sparkles className="w-5 h-5 text-violet-400" />
+            <h2>Create a post</h2>
+          </div>
           <p>Share an update, milestone, or investor insight with your network.</p>
         </header>
         {formError ? <div className="form-error">{formError}</div> : null}
