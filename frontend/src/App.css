@@ -1694,6 +1694,160 @@
   border-color: rgba(184, 134, 11, 0.1);
 }
 
+/* Calls Page */
+.calls-page .calls-grid {
+  @apply grid grid-cols-1 md:grid-cols-2 gap-6;
+}
+
+.call-card {
+  @apply p-6;
+  background: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(184, 134, 11, 0.1);
+  @apply rounded-xl;
+}
+
+[data-theme="dark"] .call-card {
+  background: rgba(40, 35, 30, 0.5);
+}
+
+.call-card h2 {
+  font-family: 'Cormorant Garamond', serif;
+  @apply text-xl font-medium mb-2;
+}
+
+.call-card > p {
+  @apply text-sm mb-4;
+  color: hsl(var(--muted-foreground));
+}
+
+.call-card .form-grid {
+  @apply space-y-4 mb-4;
+}
+
+.call-card label {
+  @apply block text-sm mb-1;
+  color: hsl(var(--muted-foreground));
+}
+
+.call-card input {
+  @apply w-full mt-2 px-4 py-3 text-sm rounded-lg;
+  background: rgba(255, 255, 255, 0.5);
+  border: 1px solid rgba(184, 134, 11, 0.15);
+  color: #1a1612;
+}
+
+[data-theme="dark"] .call-card input {
+  background: rgba(30, 25, 20, 0.5);
+  color: #f5f0e6;
+}
+
+.call-card input:focus {
+  outline: none;
+  border-color: var(--gold);
+}
+
+.call-card input::placeholder {
+  color: #8b7355;
+  opacity: 0.7;
+}
+
+/* Segmented Buttons */
+.segmented {
+  @apply flex gap-1 mt-2 p-1 rounded-lg;
+  background: rgba(184, 134, 11, 0.05);
+}
+
+.segmented-btn {
+  @apply flex-1 px-4 py-2 text-sm rounded-md transition-all duration-300 capitalize;
+  color: hsl(var(--muted-foreground));
+}
+
+.segmented-btn:hover {
+  color: var(--gold);
+}
+
+.segmented-btn.active {
+  background: linear-gradient(135deg, #b8860b 0%, #d4af37 100%);
+  color: white;
+}
+
+/* Call Active State */
+.call-active {
+  @apply flex items-center justify-between p-4 rounded-lg;
+  background: rgba(184, 134, 11, 0.05);
+  border: 1px solid rgba(184, 134, 11, 0.1);
+}
+
+.call-active strong {
+  color: var(--gold);
+}
+
+.call-active p {
+  @apply text-sm mt-1;
+  color: hsl(var(--muted-foreground));
+}
+
+.call-actions {
+  @apply flex gap-2;
+}
+
+/* Call Log */
+.call-log {
+  @apply space-y-2 max-h-48 overflow-y-auto;
+}
+
+.call-log > p {
+  @apply text-sm;
+  color: hsl(var(--muted-foreground));
+}
+
+.call-log-item {
+  @apply flex justify-between items-center p-2 rounded-lg text-sm;
+  background: rgba(184, 134, 11, 0.03);
+}
+
+.call-log-item span:first-child {
+  color: var(--gold);
+  @apply font-medium;
+}
+
+.call-log-item span:last-child {
+  color: hsl(var(--muted-foreground));
+  @apply text-xs;
+}
+
+/* Call History */
+.call-history {
+  @apply space-y-3 max-h-64 overflow-y-auto;
+}
+
+.call-history > p {
+  @apply text-sm;
+  color: hsl(var(--muted-foreground));
+}
+
+.call-history-item {
+  @apply flex justify-between items-center p-3 rounded-lg;
+  background: rgba(184, 134, 11, 0.03);
+  border: 1px solid rgba(184, 134, 11, 0.05);
+}
+
+.call-history-item strong {
+  @apply text-sm capitalize;
+}
+
+.call-history-item p {
+  @apply text-xs mt-1;
+  color: hsl(var(--muted-foreground));
+}
+
+.call-history-item > span {
+  @apply text-xs;
+  color: hsl(var(--muted-foreground));
+}
+
 .chat-sidebar {
   @apply p-5 flex flex-col gap-4;
   background: rgba(255, 255, 255, 0.5);
