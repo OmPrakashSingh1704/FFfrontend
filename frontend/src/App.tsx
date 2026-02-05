@@ -293,11 +293,6 @@ function App() {
               }
             />
           </Route>
-          
-          {/* Test route */}
-          <Route element={<AppShell />}>
-            <Route path="/test-menu" element={<Dashboard />} />
-          </Route>
 
           <Route path="*" element={<NotFound />} />
         </Routes>
