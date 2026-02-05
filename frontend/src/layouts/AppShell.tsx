@@ -7,6 +7,7 @@ import {
 import { useState } from 'react'
 import logoMark from '../assets/logo-mark.svg'
 import { ThemeToggle } from '../components/ThemeToggle'
+import { NotificationDropdown } from '../components/NotificationDropdown'
 import { useAuth } from '../context/AuthContext'
 import { Page } from '../components/Page'
 import { RealtimeBridge } from '../components/RealtimeBridge'
