@@ -220,7 +220,12 @@ export function FeedPage() {
               <p>{item.content || 'No additional details provided.'}</p>
               <div className="data-meta">
                 {item.startup_name ? <span>Startup: {item.startup_name}</span> : null}
-                {item.like_count !== undefined ? <span>👍 {item.like_count}</span> : null}
+                {item.like_count !== undefined ? (
+                  <span className="flex items-center gap-1">
+                    <ThumbsUp className="w-3 h-3" />
+                    {item.like_count}
+                  </span>
+                ) : null}
                 {item.comment_count !== undefined ? <span>💬 {item.comment_count}</span> : null}
               </div>
               {item.link_url ? (
