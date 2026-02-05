@@ -209,7 +209,7 @@ export function FeedPage() {
       {error ? <div className="form-error">{error}</div> : null}
 
       {!loading && !error ? (
-        <div className="feed-list">
+        <div className="feed-list" data-testid="feed-list">
           {items.map((item) => (
             <article key={item.id} className="feed-card">
               <div className="feed-meta">
