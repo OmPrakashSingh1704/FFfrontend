@@ -235,6 +235,7 @@ export function FeedPage() {
               </div>
               {item.link_url ? (
                 <a href={item.link_url} target="_blank" rel="noreferrer" className="feed-link">
+                  <ExternalLink className="w-3 h-3 mr-1" />
                   View link
                 </a>
               ) : null}
