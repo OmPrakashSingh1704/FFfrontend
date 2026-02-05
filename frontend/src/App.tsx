@@ -293,14 +293,6 @@ function App() {
               }
             />
           </Route>
-          
-          {/* Temporary test route - remove after testing */}
-          <Route element={<AppShell />}>
-            <Route
-              path="/test-onboarding"
-              element={<OnboardingPage />}
-            />
-          </Route>
 
           <Route path="*" element={<NotFound />} />
         </Routes>
