@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { ArrowRight, Zap, Shield, Users, TrendingUp, MessageSquare, BarChart3 } from 'lucide-react'
 import heroIllustration from '../assets/hero-illustration.svg'
 import logoMark from '../assets/logo-mark.svg'
 import { Page } from '../components/Page'
@@ -7,7 +8,8 @@ import { ThemeToggle } from '../components/ThemeToggle'
 export function LandingPage() {
   return (
     <Page>
-      <header className="nav">
+      {/* Navigation */}
+      <header className="nav" data-testid="landing-nav">
         <div className="logo">
           <span className="logo-mark">
             <img src={logoMark} alt="FoundersLib logo" />
@@ -22,34 +24,37 @@ export function LandingPage() {
         </nav>
         <div className="nav-actions">
           <ThemeToggle className="theme-toggle" />
-          <Link className="btn ghost" to="/login">
+          <Link className="btn ghost" to="/login" data-testid="nav-signin-btn">
             Sign in
           </Link>
-          <a className="btn ghost" href="#access">
-            Request access
-          </a>
-          <a className="btn primary" href="#platform">
-            See the platform
-          </a>
+          <Link className="btn primary" to="/signup" data-testid="nav-getstarted-btn">
+            Get Started
+            <ArrowRight className="w-4 h-4 ml-2" />
+          </Link>
         </div>
       </header>
 
       <main id="main-content">
-        <section className="hero" id="top">
+        {/* Hero Section */}
+        <section className="hero" id="top" data-testid="hero-section">
           <div className="hero-left">
-            <span className="eyebrow">Founder-grade infrastructure</span>
+            <span className="eyebrow">
+              <Zap className="w-4 h-4" />
+              Founder-grade infrastructure
+            </span>
             <h1 className="hero-title">
-              Raise with <span>signal</span>, not noise.
+              Raise with <span>signal</span>,<br />not noise.
             </h1>
             <p className="hero-lead">
               FoundersLib compresses your fundraising workflow into one system that keeps
               investors aligned, introductions warm, and decisions moving.
             </p>
             <div className="hero-actions">
-              <a className="btn primary" href="#access">
+              <Link className="btn primary" to="/signup" data-testid="hero-cta-btn">
                 Get early access
-              </a>
-              <a className="btn ghost" href="#workflow">
+                <ArrowRight className="w-4 h-4 ml-2" />
+              </Link>
+              <a className="btn ghost" href="#workflow" data-testid="hero-workflow-btn">
                 View workflow
               </a>
             </div>
@@ -113,9 +118,13 @@ export function LandingPage() {
           </div>
         </section>
 
-        <section className="models" id="platform">
+        {/* Platform Section */}
+        <section className="models" id="platform" data-testid="platform-section">
           <div className="section-intro">
-            <span className="eyebrow">Platform stack</span>
+            <span className="eyebrow">
+              <BarChart3 className="w-4 h-4" />
+              Platform stack
+            </span>
             <h2>Built to scale every round</h2>
             <p>
               A modular system for founders and investors who want clarity, trust,
@@ -123,8 +132,11 @@ export function LandingPage() {
             </p>
           </div>
           <div className="models-grid">
-            <article className="model-card">
-              <span className="chip">Signal</span>
+            <article className="model-card" data-testid="feature-signal">
+              <span className="chip">
+                <TrendingUp className="w-3 h-3" />
+                Signal
+              </span>
               <h3>Investor intent tracking</h3>
               <p>See opens, replies, and sentiment in one dashboard. Know who to prioritize.</p>
               <div className="model-metrics">
@@ -133,8 +145,11 @@ export function LandingPage() {
                 <span>Follow-up cadence</span>
               </div>
             </article>
-            <article className="model-card">
-              <span className="chip">Relay</span>
+            <article className="model-card" data-testid="feature-relay">
+              <span className="chip">
+                <Users className="w-3 h-3" />
+                Relay
+              </span>
               <h3>Warm intro orchestration</h3>
               <p>Coordinate connectors, track status, and move intros forward without friction.</p>
               <div className="model-metrics">
@@ -143,8 +158,11 @@ export function LandingPage() {
                 <span>Auto reminders</span>
               </div>
             </article>
-            <article className="model-card">
-              <span className="chip">Vault</span>
+            <article className="model-card" data-testid="feature-vault">
+              <span className="chip">
+                <Shield className="w-3 h-3" />
+                Vault
+              </span>
               <h3>Single-source data room</h3>
               <p>Share one live application, update once, and keep every stakeholder aligned.</p>
               <div className="model-metrics">
@@ -153,8 +171,11 @@ export function LandingPage() {
                 <span>Doc analytics</span>
               </div>
             </article>
-            <article className="model-card">
-              <span className="chip">Pulse</span>
+            <article className="model-card" data-testid="feature-pulse">
+              <span className="chip">
+                <MessageSquare className="w-3 h-3" />
+                Pulse
+              </span>
               <h3>Founder updates that land</h3>
               <p>Send performance updates in one click and keep investors in the loop.</p>
               <div className="model-metrics">
@@ -166,9 +187,13 @@ export function LandingPage() {
           </div>
         </section>
 
-        <section className="workflow" id="workflow">
+        {/* Workflow Section */}
+        <section className="workflow" id="workflow" data-testid="workflow-section">
           <div className="workflow-copy">
-            <span className="eyebrow">Workflow</span>
+            <span className="eyebrow">
+              <Zap className="w-4 h-4" />
+              Workflow
+            </span>
             <h2>Everything moves on one timeline</h2>
             <p>
               FoundersLib keeps your raise, intros, and investor comms in a single
@@ -178,41 +203,43 @@ export function LandingPage() {
               <a className="btn ghost" href="#security">
                 Security overview
               </a>
-              <a className="btn primary" href="#access">
+              <Link className="btn primary" to="/signup">
                 Book a walkthrough
-              </a>
+                <ArrowRight className="w-4 h-4 ml-2" />
+              </Link>
             </div>
           </div>
           <div className="workflow-steps">
             <div className="step-card">
-              <span className="step-title">01</span>
-              <h3>Centralize</h3>
+              <span className="step-title">01 · Centralize</span>
+              <h3>One source of truth</h3>
               <p>One application, one data room, one source of truth across all investors.</p>
             </div>
             <div className="step-card">
-              <span className="step-title">02</span>
-              <h3>Coordinate</h3>
+              <span className="step-title">02 · Coordinate</span>
+              <h3>Seamless orchestration</h3>
               <p>Manage connectors, follow-ups, and meeting schedules in one flow.</p>
             </div>
             <div className="step-card">
-              <span className="step-title">03</span>
-              <h3>Measure</h3>
-              <p>Track interest signals and keep your raise moving with actionable insights.</p>
+              <span className="step-title">03 · Measure</span>
+              <h3>Actionable insights</h3>
+              <p>Track interest signals and keep your raise moving with real-time data.</p>
             </div>
           </div>
         </section>
 
-        <section className="reviews" id="reviews">
+        {/* Reviews Section */}
+        <section className="reviews" id="reviews" data-testid="reviews-section">
           <div className="section-intro">
-            <span className="eyebrow">Reviews</span>
+            <span className="eyebrow">Testimonials</span>
             <h2>Founders and partners feel the lift</h2>
             <p>Early teams are running tighter rounds with clearer signals and faster closes.</p>
           </div>
           <div className="reviews-grid">
             <article className="review-card">
               <p>
-                “FoundersLib cut our outreach time in half. We had clarity on who was
-                leaning in within a week.”
+                "FoundersLib cut our outreach time in half. We had clarity on who was
+                leaning in within a week."
               </p>
               <div className="review-meta">
                 <span className="review-name">Maya K.</span>
@@ -221,8 +248,8 @@ export function LandingPage() {
             </article>
             <article className="review-card">
               <p>
-                “The intro workflow is the real win. Everyone sees the same timeline,
-                so the handoffs are smoother.”
+                "The intro workflow is the real win. Everyone sees the same timeline,
+                so the handoffs are smoother."
               </p>
               <div className="review-meta">
                 <span className="review-name">Elliot R.</span>
@@ -231,8 +258,8 @@ export function LandingPage() {
             </article>
             <article className="review-card">
               <p>
-                “We used to chase updates across docs and threads. Now it is a single
-                dashboard with signal scoring.”
+                "We used to chase updates across docs and threads. Now it is a single
+                dashboard with signal scoring."
               </p>
               <div className="review-meta">
                 <span className="review-name">Priya S.</span>
@@ -242,10 +269,14 @@ export function LandingPage() {
           </div>
         </section>
 
-        <section className="security" id="security">
+        {/* Security Section */}
+        <section className="security" id="security" data-testid="security-section">
           <div className="security-card">
             <div>
-              <span className="eyebrow">Security</span>
+              <span className="eyebrow">
+                <Shield className="w-4 h-4" />
+                Security
+              </span>
               <h2>Built for trust, compliance, and scale</h2>
               <p>
                 JWT authentication, rate limiting, and audit trails keep your sensitive
@@ -269,15 +300,17 @@ export function LandingPage() {
           </div>
         </section>
 
-        <section className="cta" id="access">
+        {/* CTA Section */}
+        <section className="cta" id="access" data-testid="cta-section">
           <div>
             <h2>Ready to run a calmer raise?</h2>
             <p>We are onboarding a limited set of founders and investor partners.</p>
           </div>
           <div className="cta-actions">
-            <a className="btn primary" href="#access">
+            <Link className="btn primary" to="/signup" data-testid="cta-access-btn">
               Request early access
-            </a>
+              <ArrowRight className="w-4 h-4 ml-2" />
+            </Link>
             <a className="btn ghost" href="#platform">
               View the platform
             </a>
@@ -285,10 +318,11 @@ export function LandingPage() {
         </section>
       </main>
 
-      <footer className="footer">
+      {/* Footer */}
+      <footer className="footer" data-testid="footer">
         <div>
-          <span className="logo-name">FoundersLib</span>
-          <p>Fundraising infrastructure for modern founders.</p>
+          <span className="logo-name font-display font-semibold">FoundersLib</span>
+          <p className="mt-2">Fundraising infrastructure for modern founders.</p>
         </div>
         <div className="footer-links">
           <a href="#platform">Platform</a>
