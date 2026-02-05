@@ -2618,6 +2618,121 @@ select option {
   color: var(--gold) !important;
 }
 
+/* Profile Dropdown */
+.profile-dropdown {
+  @apply relative;
+}
+
+.profile-trigger {
+  @apply flex items-center gap-2 p-1 pr-2 rounded-full transition-all duration-300;
+  background: rgba(184, 134, 11, 0.08);
+  border: 1px solid rgba(184, 134, 11, 0.2);
+}
+
+.profile-trigger:hover {
+  background: rgba(184, 134, 11, 0.15);
+  border-color: rgba(184, 134, 11, 0.3);
+}
+
+.profile-avatar {
+  @apply w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium;
+  background: linear-gradient(135deg, #b8860b 0%, #d4af37 100%);
+  color: white;
+}
+
+.profile-trigger svg {
+  color: var(--gold);
+}
+
+.profile-panel {
+  @apply absolute top-full right-0 mt-2 w-72 z-50;
+  background: rgba(255, 255, 255, 0.98);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(184, 134, 11, 0.15);
+  border-radius: 12px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+  overflow: hidden;
+}
+
+[data-theme="dark"] .profile-panel {
+  background: rgba(26, 22, 18, 0.98);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+}
+
+.profile-info {
+  @apply flex items-center gap-3 p-4 border-b;
+  border-color: rgba(184, 134, 11, 0.1);
+}
+
+.profile-avatar-lg {
+  @apply w-12 h-12 rounded-full flex items-center justify-center text-sm font-medium flex-shrink-0;
+  background: linear-gradient(135deg, #b8860b 0%, #d4af37 100%);
+  color: white;
+}
+
+.profile-details {
+  @apply flex-1 min-w-0;
+}
+
+.profile-details strong {
+  @apply block text-sm font-medium truncate;
+  color: #1a1612;
+}
+
+[data-theme="dark"] .profile-details strong {
+  color: #f5f0e6;
+}
+
+.profile-details span {
+  @apply block text-xs truncate;
+  color: #8b7355;
+}
+
+.profile-menu {
+  @apply py-2;
+}
+
+.profile-menu-item {
+  @apply flex items-center gap-3 px-4 py-2.5 text-sm transition-colors;
+  color: #1a1612;
+}
+
+[data-theme="dark"] .profile-menu-item {
+  color: #f5f0e6;
+}
+
+.profile-menu-item:hover {
+  background: rgba(184, 134, 11, 0.08);
+  color: var(--gold);
+}
+
+.profile-menu-item svg {
+  color: #8b7355;
+}
+
+.profile-menu-item:hover svg {
+  color: var(--gold);
+}
+
+.profile-footer {
+  @apply p-2 border-t;
+  border-color: rgba(184, 134, 11, 0.1);
+}
+
+.profile-logout {
+  @apply w-full flex items-center gap-3 px-4 py-2.5 text-sm rounded-lg transition-colors;
+  color: #ef4444;
+}
+
+.profile-logout:hover {
+  background: rgba(239, 68, 68, 0.08);
+}
+
+.profile-logout svg {
+  color: #ef4444;
+}
+
 /* Admin Filter Bar */
 .admin-filter-bar {
   @apply flex flex-wrap gap-4 p-4 mb-6 rounded-xl;
