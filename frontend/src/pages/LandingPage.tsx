@@ -4,6 +4,71 @@ import logoMark from '../assets/logo-mark.svg'
 import { Page } from '../components/Page'
 import { ThemeToggle } from '../components/ThemeToggle'
 
+function HeroAnimation() {
+  return (
+    <div className="hero-animation" data-testid="hero-animation">
+      {/* Floating cards showing the vision */}
+      <div className="vision-container">
+        {/* Central circle with pulse */}
+        <div className="vision-core">
+          <div className="vision-pulse" />
+          <div className="vision-pulse delay-1" />
+          <div className="vision-pulse delay-2" />
+          <span className="vision-label">Your Round</span>
+        </div>
+        
+        {/* Orbiting investor cards */}
+        <div className="orbit orbit-1">
+          <div className="investor-card card-1">
+            <div className="investor-status active" />
+            <span>Sequoia</span>
+            <small>Reviewing</small>
+          </div>
+        </div>
+        
+        <div className="orbit orbit-2">
+          <div className="investor-card card-2">
+            <div className="investor-status pending" />
+            <span>A16Z</span>
+            <small>Interested</small>
+          </div>
+        </div>
+        
+        <div className="orbit orbit-3">
+          <div className="investor-card card-3">
+            <div className="investor-status hot" />
+            <span>Accel</span>
+            <small>Term Sheet</small>
+          </div>
+        </div>
+
+        {/* Signal lines */}
+        <svg className="signal-lines" viewBox="0 0 400 400">
+          <path className="signal-path path-1" d="M200,200 Q250,150 300,180" />
+          <path className="signal-path path-2" d="M200,200 Q150,250 120,200" />
+          <path className="signal-path path-3" d="M200,200 Q220,280 280,300" />
+        </svg>
+
+        {/* Metrics floating */}
+        <div className="floating-metric metric-1">
+          <span className="metric-num">94%</span>
+          <span className="metric-text">Open Rate</span>
+        </div>
+        
+        <div className="floating-metric metric-2">
+          <span className="metric-num">12</span>
+          <span className="metric-text">Active Intros</span>
+        </div>
+        
+        <div className="floating-metric metric-3">
+          <span className="metric-num">3</span>
+          <span className="metric-text">Decisions</span>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export function LandingPage() {
   return (
     <Page>
@@ -49,7 +114,7 @@ export function LandingPage() {
               </Link>
             </div>
           </div>
-          <div className="hero-visual" />
+          <HeroAnimation />
         </section>
 
         {/* Features */}
