@@ -293,6 +293,14 @@ function App() {
               }
             />
           </Route>
+          
+          {/* Temporary test route - remove after testing */}
+          <Route element={<AppShell />}>
+            <Route
+              path="/test-dashboard"
+              element={<Dashboard />}
+            />
+          </Route>
 
           <Route path="*" element={<NotFound />} />
         </Routes>
