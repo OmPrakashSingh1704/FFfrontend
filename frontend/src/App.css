@@ -8,7 +8,7 @@
 /* Navigation */
 .nav {
   @apply sticky top-0 z-50 flex items-center justify-between px-6 md:px-12 lg:px-24 py-4 gap-5;
-  @apply glass border-b border-white/5;
+  @apply bg-black/40 backdrop-blur-xl border-b border-white/5;
 }
 
 .logo {
@@ -75,7 +75,7 @@
 }
 
 .hero-title span {
-  @apply text-gradient;
+  @apply bg-gradient-to-r from-cyan-400 to-violet-500 bg-clip-text text-transparent;
 }
 
 .hero-lead {
@@ -100,7 +100,7 @@
 
 /* Hero Panel */
 .hero-panel {
-  @apply glass-card p-6 lg:p-8 shadow-2xl;
+  @apply bg-slate-900/50 backdrop-blur-md border border-white/5 rounded-2xl p-6 lg:p-8 shadow-2xl;
 }
 
 .panel-head {
@@ -182,7 +182,7 @@
 }
 
 .model-card {
-  @apply glass-card p-6 lg:p-8 hover:border-cyan-500/30 transition-all duration-300 group;
+  @apply bg-slate-900/50 backdrop-blur-md border border-white/5 rounded-2xl p-6 lg:p-8 hover:border-cyan-500/30 transition-all duration-300 group;
 }
 
 .model-card:hover {
@@ -190,7 +190,7 @@
 }
 
 .chip {
-  @apply inline-flex px-3 py-1 rounded-full text-xs font-medium uppercase tracking-wider bg-cyan-500/10 text-cyan-400 border border-cyan-500/20;
+  @apply inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium uppercase tracking-wider bg-cyan-500/10 text-cyan-400 border border-cyan-500/20;
 }
 
 .model-card h3 {
@@ -227,7 +227,7 @@
 }
 
 .step-card {
-  @apply glass-card p-6 hover:border-cyan-500/20 transition-colors;
+  @apply bg-slate-900/50 backdrop-blur-md border border-white/5 rounded-2xl p-6 hover:border-cyan-500/20 transition-colors;
 }
 
 .step-title {
@@ -248,7 +248,7 @@
 }
 
 .review-card {
-  @apply glass-card p-6 space-y-4;
+  @apply bg-slate-900/50 backdrop-blur-md border border-white/5 rounded-2xl p-6 space-y-4;
 }
 
 .review-card p {
@@ -269,7 +269,7 @@
 
 /* Security */
 .security-card {
-  @apply glass-card p-8 lg:p-12 space-y-8;
+  @apply bg-slate-900/50 backdrop-blur-md border border-white/5 rounded-2xl p-8 lg:p-12 space-y-8;
 }
 
 .security-grid {
@@ -319,7 +319,7 @@
 
 /* App Layout */
 .app-header {
-  @apply relative z-10 flex flex-wrap items-center justify-between px-6 md:px-12 py-4 gap-4 glass border-b border-white/5;
+  @apply relative z-10 flex flex-wrap items-center justify-between px-6 md:px-12 py-4 gap-4 bg-black/40 backdrop-blur-xl border-b border-white/5;
 }
 
 .app-nav {
@@ -356,7 +356,7 @@
 }
 
 .content-card {
-  @apply glass-card p-6 lg:p-8 max-w-4xl mx-auto space-y-6;
+  @apply bg-slate-900/50 backdrop-blur-md border border-white/5 rounded-2xl p-6 lg:p-8 max-w-4xl mx-auto space-y-6;
 }
 
 /* Data Grid */
@@ -365,7 +365,7 @@
 }
 
 .data-card {
-  @apply glass-card p-5 hover:border-cyan-500/30 transition-all duration-300 cursor-pointer group block;
+  @apply bg-slate-900/50 backdrop-blur-md border border-white/5 rounded-2xl p-5 hover:border-cyan-500/30 transition-all duration-300 cursor-pointer group block;
 }
 
 .data-card:hover {
@@ -429,7 +429,7 @@
 }
 
 .auth-card {
-  @apply glass-card p-8 w-full max-w-md space-y-6;
+  @apply bg-slate-900/50 backdrop-blur-md border border-white/5 rounded-2xl p-8 w-full max-w-md space-y-6;
 }
 
 .auth-header h1 {
@@ -495,7 +495,7 @@
 }
 
 .toast {
-  @apply glass-card px-4 py-3 flex items-center gap-3 min-w-[280px] shadow-xl;
+  @apply bg-slate-900/50 backdrop-blur-md border border-white/5 rounded-2xl px-4 py-3 flex items-center gap-3 min-w-[280px] shadow-xl;
 }
 
 .toast button {
@@ -513,7 +513,7 @@
 }
 
 .metric-card {
-  @apply glass-card p-5 space-y-1;
+  @apply bg-slate-900/50 backdrop-blur-md border border-white/5 rounded-2xl p-5 space-y-1;
 }
 
 .metric-card .metric-label {
@@ -533,7 +533,7 @@
 }
 
 .series-card {
-  @apply glass-card p-5 space-y-4;
+  @apply bg-slate-900/50 backdrop-blur-md border border-white/5 rounded-2xl p-5 space-y-4;
 }
 
 .series-card header {
@@ -629,7 +629,7 @@
 }
 
 .feed-card {
-  @apply glass-card p-5 space-y-3;
+  @apply bg-slate-900/50 backdrop-blur-md border border-white/5 rounded-2xl p-5 space-y-3;
 }
 
 .feed-meta {
@@ -649,7 +649,7 @@
 }
 
 .feed-composer {
-  @apply glass-card p-6 space-y-4;
+  @apply bg-slate-900/50 backdrop-blur-md border border-white/5 rounded-2xl p-6 space-y-4;
 }
 
 .feed-composer header h2 {
@@ -702,7 +702,7 @@
 }
 
 .chat-sidebar {
-  @apply glass-card p-5 flex flex-col gap-4;
+  @apply bg-slate-900/50 backdrop-blur-md border border-white/5 rounded-2xl p-5 flex flex-col gap-4;
 }
 
 .chat-sidebar-header {
@@ -758,7 +758,7 @@
 }
 
 .chat-panel {
-  @apply glass-card flex flex-col overflow-hidden;
+  @apply bg-slate-900/50 backdrop-blur-md border border-white/5 rounded-2xl flex flex-col overflow-hidden;
 }
 
 .chat-panel-header {
@@ -864,7 +864,7 @@
 }
 
 .chat-modal {
-  @apply glass-card p-6 w-full max-w-md space-y-4;
+  @apply bg-slate-900/50 backdrop-blur-md border border-white/5 rounded-2xl p-6 w-full max-w-md space-y-4;
 }
 
 .chat-modal header {
@@ -941,7 +941,7 @@
 }
 
 .call-card {
-  @apply glass-card p-5 space-y-4;
+  @apply bg-slate-900/50 backdrop-blur-md border border-white/5 rounded-2xl p-5 space-y-4;
 }
 
 .call-card h2 {
@@ -966,7 +966,7 @@
 }
 
 .admin-card {
-  @apply glass-card p-5 space-y-4;
+  @apply bg-slate-900/50 backdrop-blur-md border border-white/5 rounded-2xl p-5 space-y-4;
 }
 
 .admin-card header h2 {
@@ -1019,7 +1019,7 @@
 }
 
 .onboarding-progress {
-  @apply glass-card p-6 space-y-4;
+  @apply bg-slate-900/50 backdrop-blur-md border border-white/5 rounded-2xl p-6 space-y-4;
 }
 
 .progress-bar {
@@ -1035,7 +1035,7 @@
 }
 
 .onboarding-card {
-  @apply glass-card p-6 space-y-4;
+  @apply bg-slate-900/50 backdrop-blur-md border border-white/5 rounded-2xl p-6 space-y-4;
 }
 
 .onboarding-card h3 {
@@ -1071,7 +1071,7 @@
 }
 
 .step-list {
-  @apply glass-card p-6 space-y-4;
+  @apply bg-slate-900/50 backdrop-blur-md border border-white/5 rounded-2xl p-6 space-y-4;
 }
 
 .step-list ul {
@@ -1092,7 +1092,7 @@
 
 /* Search */
 .search-bar {
-  @apply flex gap-3 glass-card p-4;
+  @apply flex gap-3 bg-slate-900/50 backdrop-blur-md border border-white/5 rounded-2xl p-4;
 }
 
 .search-bar input {
@@ -1118,7 +1118,7 @@
 }
 
 .upload-card {
-  @apply glass-card p-5 space-y-4;
+  @apply bg-slate-900/50 backdrop-blur-md border border-white/5 rounded-2xl p-5 space-y-4;
 }
 
 .upload-card h3 {
@@ -1136,7 +1136,7 @@
 
 /* Audit */
 .audit-filters {
-  @apply glass-card p-5 grid sm:grid-cols-2 lg:grid-cols-4 gap-4;
+  @apply bg-slate-900/50 backdrop-blur-md border border-white/5 rounded-2xl p-5 grid sm:grid-cols-2 lg:grid-cols-4 gap-4;
 }
 
 .audit-filters label {
@@ -1186,7 +1186,7 @@
 }
 
 .moderation-card {
-  @apply glass-card p-5 space-y-3 relative overflow-hidden;
+  @apply bg-slate-900/50 backdrop-blur-md border border-white/5 rounded-2xl p-5 space-y-3 relative overflow-hidden;
 }
 
 .moderation-card::after {
@@ -1220,6 +1220,11 @@
   clip: rect(0, 0, 0, 0);
 }
 
+/* Theme Toggle */
+.theme-toggle {
+  @apply p-2 rounded-lg bg-slate-800/50 border border-white/10 text-slate-400 hover:text-white hover:border-white/20 transition-all;
+}
+
 /* Responsive */
 @media (max-width: 1024px) {
   .hero {
@@ -1249,9 +1254,4 @@
   .audit-row.head {
     @apply hidden;
   }
-}
-
-/* Theme Toggle */
-.theme-toggle {
-  @apply p-2 rounded-lg bg-slate-800/50 border border-white/10 text-slate-400 hover:text-white hover:border-white/20 transition-all;
 }
