@@ -13,12 +13,12 @@ const quickActions = [
 ]
 
 const browseLinks = [
-  { path: '/app/founders', label: 'Founders', icon: Users, color: 'from-cyan-500/20 to-cyan-500/5' },
-  { path: '/app/startups', label: 'Startups', icon: Briefcase, color: 'from-violet-500/20 to-violet-500/5' },
-  { path: '/app/investors', label: 'Investors', icon: TrendingUp, color: 'from-emerald-500/20 to-emerald-500/5' },
-  { path: '/app/funds', label: 'Funds', icon: Wallet, color: 'from-amber-500/20 to-amber-500/5' },
-  { path: '/app/applications', label: 'Applications', icon: FileText, color: 'from-pink-500/20 to-pink-500/5' },
-  { path: '/app/uploads', label: 'Uploads', icon: Upload, color: 'from-blue-500/20 to-blue-500/5' },
+  { path: '/app/founders', label: 'Founders', icon: Users },
+  { path: '/app/startups', label: 'Startups', icon: Briefcase },
+  { path: '/app/investors', label: 'Investors', icon: TrendingUp },
+  { path: '/app/funds', label: 'Funds', icon: Wallet },
+  { path: '/app/applications', label: 'Applications', icon: FileText },
+  { path: '/app/uploads', label: 'Files', icon: Upload },
 ]
 
 const stats = [
@@ -30,90 +30,86 @@ const stats = [
 
 export function Dashboard() {
   return (
-    <div className="space-y-8" data-testid="dashboard">
+    <div className="dashboard-page" data-testid="dashboard">
       {/* Welcome Section */}
-      <section className="space-y-2">
-        <h1 className="text-3xl font-bold">Welcome to <span className="text-gradient">FoundersLib</span></h1>
-        <p className="text-slate-400">Your fundraising command center. Track signals, manage intros, and close faster.</p>
+      <section className="dashboard-welcome">
+        <h1>Welcome back</h1>
+        <p>Your fundraising command center. Track signals, manage intros, and close with confidence.</p>
       </section>
 
       {/* Stats Grid */}
-      <section className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4" data-testid="dashboard-stats">
+      <section className="dashboard-stats" data-testid="dashboard-stats">
         {stats.map((stat) => (
-          <div key={stat.label} className="glass-card p-5 space-y-3 group hover:border-cyan-500/30 transition-colors">
-            <div className="flex items-center justify-between">
-              <span className="text-xs uppercase tracking-wider text-slate-500">{stat.label}</span>
-              <stat.icon className="w-4 h-4 text-cyan-400" />
+          <div key={stat.label} className="stat-card">
+            <div className="stat-header">
+              <span className="stat-label">{stat.label}</span>
+              <stat.icon className="stat-icon" />
             </div>
-            <div className="text-2xl font-bold font-display">{stat.value}</div>
-            <div className="text-xs text-emerald-400">{stat.trend}</div>
+            <div className="stat-value">{stat.value}</div>
+            <div className="stat-trend">{stat.trend}</div>
           </div>
         ))}
       </section>
 
       {/* Quick Actions */}
-      <section className="space-y-4">
-        <h2 className="text-lg font-semibold">Quick Actions</h2>
-        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4" data-testid="quick-actions">
+      <section className="dashboard-section">
+        <h2>Quick Actions</h2>
+        <div className="action-grid" data-testid="quick-actions">
           {quickActions.map((action) => (
             <Link 
               key={action.path} 
               to={action.path} 
-              className="glass-card p-5 group hover:border-cyan-500/30 transition-all hover:-translate-y-1"
+              className="action-card"
               data-testid={`quick-action-${action.label.toLowerCase().replace(' ', '-')}`}
             >
-              <div className="flex items-center gap-3 mb-3">
-                <div className="p-2 rounded-lg bg-cyan-500/10 text-cyan-400">
-                  <action.icon className="w-5 h-5" />
-                </div>
-                <span className="font-medium">{action.label}</span>
+              <div className="action-icon">
+                <action.icon />
               </div>
-              <p className="text-sm text-slate-500">{action.description}</p>
-              <div className="mt-4 flex items-center gap-1 text-cyan-400 text-sm opacity-0 group-hover:opacity-100 transition-opacity">
-                Go <ArrowRight className="w-3 h-3" />
+              <div className="action-content">
+                <span className="action-label">{action.label}</span>
+                <p>{action.description}</p>
               </div>
+              <ArrowRight className="action-arrow" />
             </Link>
           ))}
         </div>
       </section>
 
       {/* Browse Section */}
-      <section className="space-y-4">
-        <h2 className="text-lg font-semibold">Browse Platform</h2>
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4" data-testid="browse-links">
+      <section className="dashboard-section">
+        <h2>Browse</h2>
+        <div className="browse-grid" data-testid="browse-links">
           {browseLinks.map((link) => (
             <Link 
               key={link.path} 
               to={link.path} 
-              className={`glass-card p-5 group hover:border-cyan-500/30 transition-all hover:-translate-y-1 bg-gradient-to-br ${link.color}`}
+              className="browse-card"
               data-testid={`browse-${link.label.toLowerCase()}`}
             >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <link.icon className="w-5 h-5 text-slate-300" />
-                  <span className="font-medium">{link.label}</span>
-                </div>
-                <ArrowRight className="w-4 h-4 text-slate-500 group-hover:text-cyan-400 group-hover:translate-x-1 transition-all" />
-              </div>
+              <link.icon className="browse-icon" />
+              <span>{link.label}</span>
+              <ArrowRight className="browse-arrow" />
             </Link>
           ))}
         </div>
       </section>
 
       {/* Analytics Preview */}
-      <section className="glass-card p-6 space-y-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-lg font-semibold">Activity Overview</h2>
-            <p className="text-sm text-slate-500">Your platform activity at a glance</p>
+      <section className="dashboard-section">
+        <div className="analytics-preview">
+          <div className="analytics-header">
+            <div>
+              <h2>Activity Overview</h2>
+              <p>Your platform activity at a glance</p>
+            </div>
+            <Link to="/app/analytics" className="btn ghost" data-testid="view-analytics-btn">
+              <BarChart3 />
+              View Analytics
+            </Link>
           </div>
-          <Link to="/app/analytics" className="btn ghost text-sm" data-testid="view-analytics-btn">
-            <BarChart3 className="w-4 h-4 mr-2" />
-            View Analytics
-          </Link>
-        </div>
-        <div className="h-32 flex items-center justify-center text-slate-600 border border-dashed border-white/10 rounded-xl">
-          <span className="text-sm">Analytics visualization coming soon</span>
+          <div className="analytics-placeholder">
+            <span>Analytics visualization coming soon</span>
+          </div>
         </div>
       </section>
     </div>
