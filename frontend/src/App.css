@@ -2142,18 +2142,20 @@ select option {
 
 .notification-panel {
   @apply absolute top-full right-0 mt-2 w-80 sm:w-96 z-50;
-  background: rgba(255, 255, 255, 0.95);
+  background: rgba(255, 255, 255, 0.98);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border: 1px solid rgba(184, 134, 11, 0.15);
   border-radius: 12px;
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
   overflow: hidden;
+  color: #1a1612;
 }
 
 [data-theme="dark"] .notification-panel {
-  background: rgba(30, 25, 20, 0.95);
+  background: rgba(26, 22, 18, 0.98);
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+  color: #f5f0e6;
 }
 
 .notification-panel-header {
@@ -2164,11 +2166,12 @@ select option {
 .notification-panel-header h3 {
   font-family: 'Cormorant Garamond', serif;
   @apply text-lg font-medium;
+  color: inherit;
 }
 
 .notification-close {
   @apply p-1 rounded-full transition-colors;
-  color: hsl(var(--muted-foreground));
+  color: #8b7355;
 }
 
 .notification-close:hover {
@@ -2183,16 +2186,20 @@ select option {
 .notification-loading,
 .notification-error {
   @apply px-4 py-8 text-center text-sm;
-  color: hsl(var(--muted-foreground));
+  color: #8b7355;
 }
 
 .notification-empty {
   @apply px-4 py-8 text-center flex flex-col items-center gap-2;
-  color: hsl(var(--muted-foreground));
+  color: #8b7355;
 }
 
 .notification-empty svg {
   opacity: 0.5;
+}
+
+.notification-empty p {
+  color: inherit;
 }
 
 .notification-list {
@@ -2228,16 +2235,17 @@ select option {
 
 .notification-item h4 {
   @apply text-sm font-medium mb-1;
+  color: inherit;
 }
 
 .notification-item p {
   @apply text-xs line-clamp-2;
-  color: hsl(var(--muted-foreground));
+  color: #8b7355;
 }
 
 .notification-time {
   @apply text-xs mt-1 block;
-  color: hsl(var(--muted-foreground));
+  color: #8b7355;
   opacity: 0.7;
 }
 
@@ -2248,6 +2256,7 @@ select option {
 
 .notification-panel-footer .btn {
   @apply w-full justify-center text-sm;
+  color: var(--gold) !important;
 }
 
 /* Admin Filter Bar */
