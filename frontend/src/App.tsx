@@ -292,7 +292,10 @@ function App() {
                 </ProtectedRoute>
               }
             />
-            {/* Temporary test route - remove after testing */}
+          </Route>
+          
+          {/* Temporary test route - remove after testing */}
+          <Route element={<AppShell />}>
             <Route
               path="/test-onboarding"
               element={<OnboardingPage />}
