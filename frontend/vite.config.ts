@@ -21,6 +21,6 @@ export default defineConfig({
     port: 3000,
     strictPort: true,
     host: '0.0.0.0',
-    allowedHosts: ['.emergentagent.com', '.preview.emergentagent.com', 'localhost'],
+    allowedHosts: true,
   },
 })
