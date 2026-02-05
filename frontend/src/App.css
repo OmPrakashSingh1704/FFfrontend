@@ -98,15 +98,15 @@
 /* Hero */
 .hero {
   @apply relative min-h-screen flex items-center;
-  @apply px-8 md:px-16 lg:px-24 pt-32 pb-20;
+  @apply px-4 sm:px-8 md:px-16 lg:px-24 pt-24 sm:pt-32 pb-16 sm:pb-20;
 }
 
 .hero-content {
-  @apply max-w-xl relative z-10;
+  @apply max-w-xl relative z-10 w-full;
 }
 
 .hero-eyebrow {
-  @apply text-xs uppercase tracking-[0.3em] mb-6;
+  @apply text-xs uppercase tracking-[0.2em] sm:tracking-[0.3em] mb-4 sm:mb-6;
   color: var(--gold);
   font-family: 'Inter', sans-serif;
   font-weight: 500;
@@ -114,7 +114,7 @@
 
 .hero-title {
   font-family: 'Cormorant Garamond', serif;
-  @apply text-5xl md:text-6xl lg:text-7xl font-medium leading-[1.1] mb-8;
+  @apply text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-medium leading-[1.1] mb-6 sm:mb-8;
   letter-spacing: -0.02em;
 }
 
@@ -124,13 +124,40 @@
 }
 
 .hero-lead {
-  @apply text-lg md:text-xl leading-relaxed mb-10 max-w-xl;
+  @apply text-base sm:text-lg md:text-xl leading-relaxed mb-8 sm:mb-10;
   color: hsl(var(--muted-foreground));
   font-weight: 300;
 }
 
 .hero-actions {
-  @apply flex gap-4 flex-wrap;
+  @apply flex gap-3 sm:gap-4 flex-wrap;
+}
+
+/* Hero Animation - Desktop only */
+.hero-animation {
+  @apply absolute right-0 top-0 bottom-0 w-1/2 hidden lg:flex items-center justify-center;
+  pointer-events: none;
+}
+
+/* Mobile Hero Stats - Show on mobile instead of animation */
+.hero-stats-mobile {
+  @apply grid grid-cols-3 gap-3 mt-10 pt-8 border-t lg:hidden;
+  border-color: rgba(184, 134, 11, 0.15);
+}
+
+.hero-stat {
+  @apply text-center;
+}
+
+.hero-stat strong {
+  @apply block text-2xl sm:text-3xl;
+  font-family: 'Cormorant Garamond', serif;
+  color: var(--gold);
+}
+
+.hero-stat span {
+  @apply text-xs;
+  color: hsl(var(--muted-foreground));
 }
 
 /* Hero Animation */
