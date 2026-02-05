@@ -1699,3 +1699,318 @@
     @apply grid-cols-1;
   }
 }
+
+/* Header Icon Button */
+.header-icon-btn {
+  @apply p-2 rounded-full transition-all duration-300;
+  background: rgba(184, 134, 11, 0.08);
+  border: 1px solid rgba(184, 134, 11, 0.2);
+  color: var(--gold);
+}
+
+.header-icon-btn:hover {
+  background: rgba(184, 134, 11, 0.15);
+  border-color: rgba(184, 134, 11, 0.3);
+}
+
+/* Search Bar */
+.search-bar {
+  @apply flex gap-3 mb-6;
+}
+
+.search-bar input {
+  @apply flex-1 px-4 py-3 text-sm rounded-lg transition-all duration-300;
+  background: rgba(255, 255, 255, 0.5);
+  border: 1px solid rgba(184, 134, 11, 0.15);
+}
+
+[data-theme="dark"] .search-bar input {
+  background: rgba(30, 25, 20, 0.5);
+  color: hsl(var(--foreground));
+}
+
+.search-bar input:focus {
+  outline: none;
+  border-color: var(--gold);
+  box-shadow: 0 0 0 3px rgba(184, 134, 11, 0.1);
+}
+
+.search-bar input::placeholder {
+  color: hsl(var(--muted-foreground));
+}
+
+/* Upload Grid */
+.upload-grid {
+  @apply grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6;
+}
+
+.upload-card {
+  @apply p-6 space-y-4;
+  background: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(184, 134, 11, 0.1);
+  @apply rounded-xl;
+}
+
+[data-theme="dark"] .upload-card {
+  background: rgba(40, 35, 30, 0.5);
+}
+
+.upload-card h3 {
+  font-family: 'Cormorant Garamond', serif;
+  @apply text-lg font-medium;
+}
+
+.upload-card p {
+  @apply text-sm;
+  color: hsl(var(--muted-foreground));
+}
+
+.upload-card input[type="file"] {
+  @apply hidden;
+}
+
+.upload-card select {
+  @apply w-full px-4 py-3 text-sm rounded-lg transition-all duration-300;
+  background: rgba(255, 255, 255, 0.5);
+  border: 1px solid rgba(184, 134, 11, 0.15);
+}
+
+[data-theme="dark"] .upload-card select {
+  background: rgba(30, 25, 20, 0.5);
+  color: hsl(var(--foreground));
+}
+
+.upload-card select:focus {
+  outline: none;
+  border-color: var(--gold);
+}
+
+/* Admin Page */
+.admin-page .analytics-grid {
+  @apply mb-8;
+}
+
+.admin-layout {
+  @apply grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6;
+}
+
+.admin-card {
+  @apply p-5 sm:p-6;
+  background: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(184, 134, 11, 0.1);
+  @apply rounded-xl;
+}
+
+[data-theme="dark"] .admin-card {
+  background: rgba(40, 35, 30, 0.5);
+}
+
+.admin-card header {
+  @apply mb-4 pb-4 border-b;
+  border-color: rgba(184, 134, 11, 0.1);
+}
+
+.admin-card header h2 {
+  font-family: 'Cormorant Garamond', serif;
+  @apply text-xl font-medium mb-1;
+}
+
+.admin-card header p {
+  @apply text-sm;
+  color: hsl(var(--muted-foreground));
+}
+
+.admin-search {
+  @apply flex gap-2 mt-3;
+}
+
+.admin-search input {
+  @apply flex-1 px-3 py-2 text-sm rounded-lg;
+  background: rgba(255, 255, 255, 0.5);
+  border: 1px solid rgba(184, 134, 11, 0.15);
+}
+
+[data-theme="dark"] .admin-search input {
+  background: rgba(30, 25, 20, 0.5);
+  color: hsl(var(--foreground));
+}
+
+.admin-search input:focus {
+  outline: none;
+  border-color: var(--gold);
+}
+
+.admin-list {
+  @apply space-y-3;
+}
+
+.admin-item {
+  @apply flex flex-wrap items-center gap-3 p-3 rounded-lg;
+  background: rgba(184, 134, 11, 0.03);
+  border: 1px solid rgba(184, 134, 11, 0.05);
+}
+
+.admin-item > div:first-child {
+  @apply flex-1 min-w-0;
+}
+
+.admin-item strong {
+  @apply block text-sm truncate;
+}
+
+.admin-item p {
+  @apply text-xs truncate;
+  color: hsl(var(--muted-foreground));
+}
+
+.admin-pill {
+  @apply inline-block px-2 py-0.5 text-xs rounded-full;
+  background: rgba(184, 134, 11, 0.1);
+  color: var(--gold);
+}
+
+.admin-actions {
+  @apply flex gap-2;
+}
+
+.admin-form {
+  @apply space-y-4 py-4 border-b;
+  border-color: rgba(184, 134, 11, 0.1);
+}
+
+.admin-form:last-of-type {
+  @apply border-b-0 pb-0;
+}
+
+.admin-form label {
+  @apply block text-sm mb-1;
+  color: hsl(var(--muted-foreground));
+}
+
+.admin-form input {
+  @apply w-full px-3 py-2 text-sm rounded-lg;
+  background: rgba(255, 255, 255, 0.5);
+  border: 1px solid rgba(184, 134, 11, 0.15);
+}
+
+[data-theme="dark"] .admin-form input {
+  background: rgba(30, 25, 20, 0.5);
+  color: hsl(var(--foreground));
+}
+
+.admin-form input:focus {
+  outline: none;
+  border-color: var(--gold);
+}
+
+/* Analytics Controls */
+.analytics-controls {
+  @apply flex gap-4 items-end;
+}
+
+.analytics-controls label {
+  @apply text-sm;
+  color: hsl(var(--muted-foreground));
+}
+
+.analytics-controls select {
+  @apply mt-1 px-4 py-2 text-sm rounded-lg;
+  background: rgba(255, 255, 255, 0.5);
+  border: 1px solid rgba(184, 134, 11, 0.15);
+}
+
+[data-theme="dark"] .analytics-controls select {
+  background: rgba(30, 25, 20, 0.5);
+  color: hsl(var(--foreground));
+}
+
+.analytics-controls select:focus {
+  outline: none;
+  border-color: var(--gold);
+}
+
+/* Series Bars */
+.series-bars {
+  @apply space-y-2 mt-4;
+}
+
+.series-bar {
+  @apply flex items-center gap-3 text-xs;
+}
+
+.series-label {
+  @apply w-20 truncate;
+  color: hsl(var(--muted-foreground));
+}
+
+.series-value {
+  @apply w-12 text-right;
+  color: var(--gold);
+}
+
+/* Comparison Grid */
+.comparison-grid {
+  @apply grid grid-cols-2 gap-3 mt-4;
+}
+
+.comparison-card {
+  @apply p-3 rounded-lg text-center;
+  background: rgba(184, 134, 11, 0.05);
+}
+
+.comparison-card span {
+  @apply block text-xs capitalize;
+  color: hsl(var(--muted-foreground));
+}
+
+.comparison-card strong {
+  @apply block text-lg;
+  font-family: 'Cormorant Garamond', serif;
+}
+
+.comparison-card em {
+  @apply text-xs not-italic;
+}
+
+.comparison-card em.trend.up {
+  color: #22c55e;
+}
+
+.comparison-card em.trend.down {
+  color: #ef4444;
+}
+
+/* Metric Card Wide */
+.metric-card.metric-wide {
+  @apply col-span-full lg:col-span-1;
+}
+
+/* Empty State */
+.empty-state {
+  @apply flex flex-col items-center justify-center py-16 text-center;
+}
+
+.empty-state-icon {
+  @apply w-16 h-16 mb-4 rounded-full flex items-center justify-center;
+  background: rgba(184, 134, 11, 0.1);
+  color: var(--gold);
+}
+
+.empty-state h3 {
+  font-family: 'Cormorant Garamond', serif;
+  @apply text-xl font-medium mb-2;
+}
+
+.empty-state p {
+  @apply text-sm max-w-sm;
+  color: hsl(var(--muted-foreground));
+}
+
+/* Data Actions */
+.data-actions {
+  @apply flex flex-wrap gap-2;
+}
