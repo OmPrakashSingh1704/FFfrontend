@@ -66,6 +66,16 @@ export function AppShell() {
             {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>
           
+          {/* Notification Bell */}
+          <Link 
+            to="/app/notifications" 
+            className="header-icon-btn"
+            data-testid="header-notifications-btn"
+            aria-label="Notifications"
+          >
+            <Bell className="w-5 h-5" />
+          </Link>
+          
           <ThemeToggle />
           
           {status === 'authenticated' ? (
