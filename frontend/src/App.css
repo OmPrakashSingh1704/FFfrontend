@@ -7,7 +7,7 @@
 
 /* Navigation */
 .nav {
-  @apply fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-8 md:px-16 lg:px-24 py-5;
+  @apply fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-4 sm:px-8 md:px-16 lg:px-24 py-4;
   background: rgba(255, 255, 255, 0.7);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
@@ -21,27 +21,41 @@
 }
 
 .logo {
-  @apply flex items-center gap-3;
+  @apply flex items-center gap-2 sm:gap-3;
   font-family: 'Cormorant Garamond', serif;
-  font-size: 1.5rem;
+  font-size: 1.25rem;
   font-weight: 500;
   letter-spacing: 0.02em;
   color: var(--gold);
 }
 
+@media (min-width: 640px) {
+  .logo {
+    font-size: 1.5rem;
+  }
+}
+
 .logo-mark {
-  @apply w-10 h-10 rounded-full overflow-hidden grid place-items-center;
+  @apply w-8 h-8 sm:w-10 sm:h-10 rounded-full overflow-hidden grid place-items-center;
   background: linear-gradient(135deg, #b8860b 0%, #d4af37 100%);
   border: 1px solid rgba(184, 134, 11, 0.3);
 }
 
 .logo-mark img {
-  @apply w-6 h-6 object-contain;
+  @apply w-5 h-5 sm:w-6 sm:h-6 object-contain;
   filter: brightness(0) invert(1);
 }
 
 .nav-actions {
-  @apply flex gap-4 items-center;
+  @apply flex gap-2 sm:gap-4 items-center;
+}
+
+.nav-actions .btn {
+  @apply px-3 py-2 text-xs sm:px-6 sm:py-2.5 sm:text-sm;
+}
+
+.nav-actions .btn.ghost {
+  @apply hidden sm:inline-flex;
 }
 
 /* Buttons */
