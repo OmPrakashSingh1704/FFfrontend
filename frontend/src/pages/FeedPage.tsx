@@ -241,6 +241,11 @@ export function FeedPage() {
               ) : null}
             </article>
           ))}
+          {items.length === 0 ? (
+            <div className="text-center py-12 text-slate-500">
+              No posts yet. Be the first to share an update!
+            </div>
+          ) : null}
         </div>
       ) : null}
     </section>
