@@ -147,6 +147,7 @@ export function FeedPage() {
             <select
               value={form.event_type}
               onChange={(event) => setForm((prev) => ({ ...prev, event_type: event.target.value }))}
+              data-testid="post-type-select"
             >
               {feedEventTypes.map((option) => (
                 <option key={option.value} value={option.value}>
