@@ -107,7 +107,7 @@ export function FeedPage() {
   }
 
   return (
-    <section className="content-section">
+    <section className="content-section" data-testid="feed-page">
       <header className="content-header">
         <div>
           <h1>Feed</h1>
