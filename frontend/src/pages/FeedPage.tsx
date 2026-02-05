@@ -183,6 +183,7 @@ export function FeedPage() {
               value={form.link_url}
               onChange={(event) => setForm((prev) => ({ ...prev, link_url: event.target.value }))}
               placeholder="https://"
+              data-testid="post-link-input"
             />
           </label>
           <label>
