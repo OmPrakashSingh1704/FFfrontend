@@ -47,7 +47,7 @@ The user wants to refactor an existing frontend application to "make this a perf
 
 5. **App Shell Layout**
    - Responsive header with navigation
-   - **Notification bell icon added to header** (next to theme toggle and logout)
+   - **Notification dropdown** (click bell icon to see recent notifications in a popover)
    - Mobile menu
    - Theme toggle
 
@@ -55,6 +55,9 @@ The user wants to refactor an existing frontend application to "make this a perf
    - Search page with styled input and button
    - Uploads page with hidden file inputs and styled buttons
    - Admin page with styled forms, search, and cards
+   - Admin Funds page with filter bar
+   - Admin Applications page with filter bar
+   - Admin Moderation page with filter bar and action cards
    - Analytics page with styled dropdown
    - Notifications page with empty state component
 
