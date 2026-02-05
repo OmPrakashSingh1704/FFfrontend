@@ -293,12 +293,6 @@ function App() {
               }
             />
           </Route>
-          
-          {/* Test route */}
-          <Route element={<AppShell />}>
-            <Route path="/test-founders" element={<FoundersListPage />} />
-            <Route path="/test-investors" element={<InvestorsListPage />} />
-          </Route>
 
           <Route path="*" element={<NotFound />} />
         </Routes>
