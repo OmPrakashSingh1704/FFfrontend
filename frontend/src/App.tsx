@@ -293,6 +293,13 @@ function App() {
               }
             />
           </Route>
+          
+          {/* Temporary test routes */}
+          <Route element={<AppShell />}>
+            <Route path="/test-admin-funds" element={<AdminFundsPage />} />
+            <Route path="/test-admin-apps" element={<AdminApplicationsPage />} />
+            <Route path="/test-moderation" element={<AdminModerationPage />} />
+          </Route>
 
           <Route path="*" element={<NotFound />} />
         </Routes>
