@@ -180,6 +180,21 @@ export function LandingPage() {
                 Sign in
               </Link>
             </div>
+            {/* Mobile stats - shown only on mobile */}
+            <div className="hero-stats-mobile animate-fade-in animate-delay-4">
+              <div className="hero-stat">
+                <strong>94%</strong>
+                <span>Open Rate</span>
+              </div>
+              <div className="hero-stat">
+                <strong>12</strong>
+                <span>Active Intros</span>
+              </div>
+              <div className="hero-stat">
+                <strong>3</strong>
+                <span>Decisions</span>
+              </div>
+            </div>
           </div>
           <HeroAnimation />
         </section>
