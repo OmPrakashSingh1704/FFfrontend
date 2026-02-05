@@ -218,27 +218,35 @@ export function FeedPage() {
               </div>
               <h3>{item.title || item.startup_name || 'Update'}</h3>
               <p>{item.content || 'No additional details provided.'}</p>
-              <div className="data-meta">
-                {item.startup_name ? <span>Startup: {item.startup_name}</span> : null}
-                {item.like_count !== undefined ? (
-                  <span className="flex items-center gap-1">
-                    <ThumbsUp className="w-3 h-3" />
-                    {item.like_count}
-                  </span>
-                ) : null}
-                {item.comment_count !== undefined ? (
-                  <span className="flex items-center gap-1">
-                    <MessageCircle className="w-3 h-3" />
-                    {item.comment_count}
-                  </span>
+              {item.startup_name ? (
+                <div className="feed-startup">
+                  <span>From: {item.startup_name}</span>
+                </div>
+              ) : null}
+              <div className="feed-actions">
+                <button 
+                  type="button" 
+                  className="feed-action-btn"
+                  data-testid={`like-btn-${item.id}`}
+                >
+                  <ThumbsUp className="w-4 h-4" />
+                  <span>{item.like_count ?? 0}</span>
+                </button>
+                <button 
+                  type="button" 
+                  className="feed-action-btn"
+                  data-testid={`comment-btn-${item.id}`}
+                >
+                  <MessageCircle className="w-4 h-4" />
+                  <span>{item.comment_count ?? 0}</span>
+                </button>
+                {item.link_url ? (
+                  <a href={item.link_url} target="_blank" rel="noreferrer" className="feed-action-btn">
+                    <ExternalLink className="w-4 h-4" />
+                    <span>Link</span>
+                  </a>
                 ) : null}
               </div>
-              {item.link_url ? (
-                <a href={item.link_url} target="_blank" rel="noreferrer" className="feed-link">
-                  <ExternalLink className="w-3 h-3 mr-1" />
-                  View link
-                </a>
-              ) : null}
             </article>
           ))}
           {items.length === 0 ? (
