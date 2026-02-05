@@ -1219,12 +1219,10 @@
 }
 
 .data-card {
-  @apply p-5 sm:p-6 transition-all duration-500 block;
-  background: rgba(255, 255, 255, 0.6);
+  @apply p-5 rounded-lg transition-all duration-300 block;
+  background: rgba(255, 255, 255, 0.5);
   backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
   border: 1px solid rgba(184, 134, 11, 0.1);
-  @apply rounded-xl;
 }
 
 [data-theme="dark"] .data-card {
@@ -1232,9 +1230,29 @@
 }
 
 .data-card:hover {
-  transform: translateY(-4px);
   border-color: rgba(184, 134, 11, 0.3);
-  box-shadow: 0 15px 30px rgba(0, 0, 0, 0.08);
+  transform: translateY(-2px);
+}
+
+.data-card-content {
+  @apply block;
+}
+
+.data-card-actions {
+  @apply mt-4 pt-4 border-t flex gap-2;
+  border-color: rgba(184, 134, 11, 0.1);
+}
+
+.btn-chat {
+  @apply inline-flex items-center gap-2 px-4 py-2 text-sm rounded-full transition-all duration-300;
+  background: linear-gradient(135deg, #b8860b 0%, #d4af37 100%);
+  color: white;
+  border: none;
+}
+
+.btn-chat:hover {
+  transform: scale(1.02);
+  box-shadow: 0 4px 12px rgba(184, 134, 11, 0.3);
 }
 
 [data-theme="dark"] .data-card:hover {
