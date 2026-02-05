@@ -110,10 +110,14 @@ export function FeedPage() {
     <section className="content-section" data-testid="feed-page">
       <header className="content-header">
         <div>
+          <div className="flex items-center gap-2 mb-2">
+            <Activity className="w-5 h-5 text-cyan-400" />
+            <span className="text-xs uppercase tracking-wider text-cyan-400">Network</span>
+          </div>
           <h1>Feed</h1>
           <p>Signals, updates, and highlights across your network.</p>
         </div>
-        <div className="segmented">
+        <div className="segmented" data-testid="feed-tabs">
           {(['ranked', 'trending', 'all'] as FeedTab[]).map((option) => (
             <button
               key={option}
