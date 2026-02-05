@@ -211,7 +211,7 @@ export function FeedPage() {
       {!loading && !error ? (
         <div className="feed-list" data-testid="feed-list">
           {items.map((item) => (
-            <article key={item.id} className="feed-card">
+            <article key={item.id} className="feed-card" data-testid={`feed-item-${item.id}`}>
               <div className="feed-meta">
                 <span className="data-eyebrow">{item.event_type ?? 'Update'}</span>
                 <span>{item.created_at ? new Date(item.created_at).toLocaleString() : ''}</span>
