@@ -9,5 +9,6 @@ export default defineConfig({
     globals: true,
     css: true,
     clearMocks: true,
+    exclude: ['tests/e2e/**', 'node_modules/**'],
   },
 })

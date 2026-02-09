@@ -1,5 +1,17 @@
+export type InvestorStats = {
+  pending_intros: number
+  accepted_intros: number
+  declined_intros: number
+  total_intros: number
+  saved_startups: number
+  portfolio_count: number
+  is_verified: boolean
+  discoverability_mode: string
+}
+
 export type InvestorProfile = {
   id: string
+  user?: { id: string; full_name?: string; avatar_url?: string | null }
   display_name: string
   fund_name?: string | null
   investor_type?: string | null

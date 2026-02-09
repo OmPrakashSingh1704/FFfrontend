@@ -19,7 +19,7 @@ export class ErrorBoundary extends Component<Props, State> {
 
   componentDidCatch(error: Error, info: ErrorInfo) {
     console.error('UI error boundary', error, info)
-    Sentry.captureException(error, { extra: info })
+    Sentry.captureException(error, { extra: { componentStack: info.componentStack } })
   }
 
   render() {

@@ -57,8 +57,8 @@ export function SignupPage() {
         },
       })
       await login(email, password)
-      pushToast('Account created. Welcome to FoundersLib!', 'success')
-      navigate('/app')
+      pushToast('Account created! Check your email for a verification code.', 'success')
+      navigate('/verify-email')
     } catch {
       setErrors({ form: 'Signup failed. Please review your details and try again.' })
     } finally {

@@ -8,7 +8,7 @@ export function validateRequired<T extends string>(
   fields: Record<T, string>,
 ): FormErrors<T> {
   const errors: FormErrors<T> = {}
-  for (const [key, value] of Object.entries(fields)) {
+  for (const [key, value] of Object.entries(fields) as [T, string][]) {
     if (!value.trim()) {
       errors[key as T] = 'This field is required'
     }

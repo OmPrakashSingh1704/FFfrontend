@@ -48,6 +48,7 @@ const ProfilePage = lazyPage(() => import('./pages/ProfilePage'), 'ProfilePage')
 const SettingsPage = lazyPage(() => import('./pages/SettingsPage'), 'SettingsPage')
 const BillingPage = lazyPage(() => import('./pages/BillingPage'), 'BillingPage')
 const HelpPage = lazyPage(() => import('./pages/HelpPage'), 'HelpPage')
+const VerifyEmailPage = lazyPage(() => import('./pages/VerifyEmailPage'), 'VerifyEmailPage')
 const OnboardingPage = lazyPage(() => import('./pages/OnboardingPage'), 'OnboardingPage')
 const NotFound = lazyPage(() => import('./pages/NotFound'), 'NotFound')
 
@@ -61,6 +62,14 @@ function App() {
           <Route element={<AuthLayout />}>
             <Route path="/login" element={<LoginPage />} />
             <Route path="/signup" element={<SignupPage />} />
+            <Route
+              path="/verify-email"
+              element={
+                <ProtectedRoute allowOnboarding allowUnverified>
+                  <VerifyEmailPage />
+                </ProtectedRoute>
+              }
+            />
           </Route>
 
           <Route element={<AppShell />}>

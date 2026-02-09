@@ -1,8 +1,8 @@
 import { Link, Outlet } from 'react-router-dom'
 import { 
-  Home, Users, Briefcase, TrendingUp, MessageSquare, Bell, 
+  Home, Users, Briefcase, TrendingUp, MessageSquare, Bell,
   BarChart3, Settings, Search, FileText, Upload,
-  Phone, Activity, Wallet, Menu, X
+  Activity, Wallet, Menu, X
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import logoMark from '../assets/logo-mark.svg'
@@ -31,7 +31,7 @@ const navItems = [
 ]
 
 export function AppShell() {
-  const { status, user, logout } = useAuth()
+  const { status, user } = useAuth()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   // Lock body scroll when mobile menu is open

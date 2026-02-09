@@ -28,5 +28,6 @@ export type FeedEvent = {
   like_count?: number
   comment_count?: number
   is_liked_by_me?: boolean
+  is_pinned?: boolean
   created_at?: string
 }

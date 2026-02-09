@@ -274,7 +274,7 @@ export function OnboardingPage() {
 
   const handleInvestorSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    const nextErrors = validateRequired({
+    const nextErrors: InvestorErrors = validateRequired({
       display_name: displayName,
       investor_type: investorType,
       headline: investorHeadline,
