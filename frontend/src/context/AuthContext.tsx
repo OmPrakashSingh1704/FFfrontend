@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import { apiRequest } from '../lib/api'
+import { clearActiveCallIds, getActiveCallIds } from '../lib/callSession'
 import { clearTokens, getTokens, setTokens } from '../lib/tokenStorage'
 import type { User } from '../types/user'
 
@@ -76,6 +77,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = useCallback(async () => {
     const tokens = getTokens()
     try {
+      const activeCallIds = getActiveCallIds()
+      if (activeCallIds.length) {
+        await Promise.all(
+          activeCallIds.map(async (callId) => {
+            try {
+              await apiRequest(`/chat/calls/${callId}/end/`, {
+                method: 'POST',
+                body: { reason: 'logout' },
+              })
+            } catch {
+              try {
+                await apiRequest(`/chat/calls/${callId}/leave/`, { method: 'POST' })
+              } catch {
+                // best-effort only
+              }
+            }
+          }),
+        )
+      }
+      clearActiveCallIds()
       if (tokens.refreshToken) {
         await apiRequest('/users/auth/logout/', {
           method: 'POST',

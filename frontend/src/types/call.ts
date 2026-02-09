@@ -11,7 +11,13 @@ export type CallSession = {
   ice_servers?: unknown[]
   participants?: Array<{
     user_id: string
+    user_name?: string
     status?: string
+    is_muted?: boolean
+    is_video_enabled?: boolean
+    is_screen_sharing?: boolean
+    joined_at?: string | null
+    left_at?: string | null
   }>
 }
 

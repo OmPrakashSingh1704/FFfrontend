@@ -109,6 +109,260 @@ The user wants to refactor an existing frontend application to "make this a perf
 ## Preview URL
 https://glassmorphic-app-5.preview.emergentagent.com
 
+## API Reference (Backend: D:\pynb\FF\ff_backend)
+
+**Base API URL**
+`/api/v1` (frontend uses `VITE_API_BASE_URL`, default `http://localhost:8000/api/v1`)
+
+**Docs and Ops**
+- `GET /api/schema/`
+- `GET /api/docs/`
+- `GET /api/redoc/`
+- `GET /health/`
+- `GET /health/live/`
+- `GET /health/ready/`
+- `GET /metrics/`
+- `GET /s/<slug>/` (short URL redirect)
+
+**Users** (`/api/v1/users/`)
+- `/auth/register/`
+- `/auth/login/`
+- `/auth/logout/`
+- `/auth/refresh/`
+- `/auth/select-role/`
+- `/auth/google/`
+- `/auth/google/callback/`
+- `/auth/session/`
+- `/me/`
+- `/me/profile/`
+
+**Admin** (`/api/v1/admin/`)
+- `/stats/`
+- `/users/`
+- `/users/<uuid:pk>/`
+- `/funds/`
+- `/applications/`
+- `/moderate/<str:entity_type>/<uuid:pk>/`
+- `/pending-verifications/`
+- `/verify-investor/<uuid:pk>/`
+- `/reject-investor/<uuid:pk>/`
+- `/audit-logs/`
+- `/reset-monthly-limits/`
+- `/grant-credits/`
+- `/deduct-credits/`
+
+**Upload** (`/api/v1/upload/`)
+- `/profile-picture/`
+- `/background-picture/`
+- `/startups/<uuid:pk>/logo/`
+
+**Founders** (`/api/v1/founders/`)
+- `/profile/`
+- `/profile/me/`
+- `/profile/update/`
+- `/`
+- `/<uuid:pk>/`
+- `/startups/`
+- `/startups/<uuid:pk>/`
+- `/startups/<uuid:pk>/members/`
+- `/startups/<uuid:pk>/documents/`
+- `/my-startups/`
+- `/save-startup/<uuid:pk>/`
+- `/saved-startups/`
+
+**Investors** (`/api/v1/investors/`)
+- `/profile/`
+- `/profile/me/`
+- `/profile/update/`
+- `/`
+- `/<uuid:pk>/`
+- `/dashboard/stats/`
+- `/dashboard/deal-flow/`
+- `/dashboard/portfolio/`
+- `/dashboard/portfolio/<uuid:pk>/`
+- `/saved-startups/`
+- `/save-startup/<uuid:pk>/`
+
+**Funds** (`/api/v1/funds/`)
+- `/`
+- `/<uuid:pk>/`
+- `/saved/`
+- `/saved/<uuid:pk>/`
+- `/<uuid:pk>/apply/`
+- `/<uuid:pk>/applicants/`
+- `/my-applications/`
+- `/my-opportunities/`
+
+**Applications** (`/api/v1/applications/`)
+- `/`
+- `/<uuid:pk>/`
+- `/<uuid:pk>/status/`
+- `/<uuid:pk>/history/`
+- `/reminders/`
+- `/reminders/<uuid:pk>/`
+- `/reminders/<uuid:pk>/complete/`
+- `/stats/`
+
+**Trust** (`/api/v1/trust/`)
+- `/status/`
+- `/credit-history/`
+- `/leagues/`
+
+**Intros** (`/api/v1/intros/`)
+- `/`
+- `/sent/`
+- `/received/`
+- `/<uuid:pk>/`
+- `/<uuid:pk>/respond/`
+
+**Respects** (`/api/v1/respects/`)
+- `/`
+- `/received/`
+- `/given/`
+- `/count/<uuid:pk>/`
+
+**Feed** (`/api/v1/feed/`)
+- `/`
+- `/ranked/`
+- `/trending/`
+- `/signal/`
+- `/attachments/upload/`
+- `/attachments/<uuid:pk>/`
+- `/create/`
+- `/my/`
+- `/<uuid:pk>/`
+- `/<uuid:pk>/like/`
+- `/<uuid:pk>/pin/`
+- `/<uuid:pk>/attachments/`
+
+**Notifications** (`/api/v1/notifications/`)
+- `/`
+- `/<uuid:pk>/read/`
+- `/read-all/`
+- `/unread-count/`
+- `/devices/`
+- `/devices/register/`
+- `/devices/unregister/`
+- `/preferences/`
+- `/push/test/`
+- `/push/status/`
+
+**Onboarding** (`/api/v1/onboarding/`)
+- `/status/`
+- `/steps/`
+- `/step/`
+- `/skip/`
+- `/founder-profile/`
+- `/startup/`
+- `/investor-profile/`
+
+**Analytics** (`/api/v1/analytics/`)
+- `/profile-views/`
+- `/profile-views/stats/`
+- `/dashboard/`
+- `/dashboard/users/`
+- `/dashboard/engagement/`
+- `/dashboard/intros/`
+- `/dashboard/time-series/`
+- `/dashboard/real-time/`
+- `/dashboard/daily/`
+- `/dashboard/comparison/`
+- `/dashboard/recalculate/`
+
+**Search** (`/api/v1/search/`)
+- `/`
+- `/messages/`
+- `/feed/`
+- `/users/`
+- `/startups/`
+- `/autocomplete/`
+- `/status/`
+
+**Chat (REST)** (`/api/v1/chat/`)
+- `/conversations/`
+- `/conversations/<uuid:pk>/`
+- `/conversations/<uuid:pk>/messages/`
+- `/conversations/<uuid:pk>/messages/create/`
+- `/conversations/<uuid:pk>/read/`
+- `/conversations/<uuid:pk>/participants/add/`
+- `/conversations/<uuid:pk>/participants/remove/`
+- `/conversations/<uuid:pk>/leave/`
+- `/dm/`
+- `/groups/`
+- `/unread-count/`
+- `/messageable-users/`
+- `/upload/`
+- `/presence/`
+- `/status/<uuid:user_id>/`
+- `/status/`
+- `/conversations/<uuid:conversation_id>/typing/`
+- `/health/`
+- `/metrics/`
+- `/messages/<uuid:message_id>/reactions/`
+- `/messages/<uuid:message_id>/reactions/add/`
+- `/messages/<uuid:message_id>/reactions/remove/`
+- `/messages/<uuid:message_id>/reactions/toggle/`
+- `/messages/<uuid:message_id>/edit/`
+- `/messages/<uuid:message_id>/history/`
+- `/messages/<uuid:message_id>/delete/`
+
+**Chat E2EE** (`/api/v1/chat/e2ee/`)
+- `/keys/register/`
+- `/keys/<uuid:user_id>/`
+- `/keys/prekeys/`
+- `/keys/prekeys/status/`
+- `/keys/signed-prekey/rotate/`
+- `/backup/`
+- `/messages/send/`
+- `/messages/pending/`
+- `/messages/acknowledge/`
+- `/status/`
+
+**Chat Bots** (`/api/v1/chat/bots/`)
+- `/`
+- `/create/`
+- `/<uuid:bot_id>/`
+- `/<uuid:bot_id>/regenerate-key/`
+- `/commands/`
+- `/<uuid:bot_id>/commands/`
+- `/<uuid:bot_id>/webhooks/`
+- `/conversations/add/`
+- `/conversations/remove/`
+- `/api/send/`
+
+**Chat Calls** (`/api/v1/chat/calls/`)
+- `/initiate/`
+- `/<uuid:call_id>/`
+- `/<uuid:call_id>/answer/`
+- `/<uuid:call_id>/decline/`
+- `/<uuid:call_id>/end/`
+- `/<uuid:call_id>/leave/`
+- `/<uuid:call_id>/media/`
+- `/<uuid:call_id>/signal/`
+- `/<uuid:call_id>/quality/`
+- `/history/`
+- `/active/<uuid:conversation_id>/`
+- `/ice-servers/`
+
+**Core (URL Shortener + Audit)** (`/api/v1/`)
+- `/shorten/`
+- `/urls/`
+- `/urls/<uuid:pk>/`
+- `/urls/<uuid:pk>/stats/`
+- `/audit/`
+- `/audit/<uuid:log_id>/`
+- `/audit/user/<uuid:user_id>/`
+- `/audit/stats/`
+- `/audit/security/`
+- `/audit/export/`
+
+**WebSockets**
+- `ws/chat/`
+- `ws/calls/`
+
+**Not Mounted Yet**
+- Integrations endpoints exist in `ff_backend/integrations/urls.py` but are not included in `config/urls.py` as of February 6, 2026.
+
 ## Notes
 - This is a **frontend-only** application designed to connect to an external API
 - Backend is not running (intentionally)

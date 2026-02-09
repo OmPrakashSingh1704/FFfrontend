@@ -57,9 +57,13 @@ export type StartupDetail = {
     id: string
     name?: string
     document_type?: string
+    file?: string
     file_url?: string
+    file_size?: number | null
+    access_level?: string
     uploaded_by_name?: string
     created_at?: string
+    updated_at?: string
   }>
   created_at?: string
   updated_at?: string

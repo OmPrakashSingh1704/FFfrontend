@@ -44,6 +44,10 @@ const FundDetailPage = lazyPage(() => import('./pages/FundDetailPage'), 'FundDet
 const ApplicationsListPage = lazyPage(() => import('./pages/ApplicationsListPage'), 'ApplicationsListPage')
 const ApplicationDetailPage = lazyPage(() => import('./pages/ApplicationDetailPage'), 'ApplicationDetailPage')
 const UploadsPage = lazyPage(() => import('./pages/UploadsPage'), 'UploadsPage')
+const ProfilePage = lazyPage(() => import('./pages/ProfilePage'), 'ProfilePage')
+const SettingsPage = lazyPage(() => import('./pages/SettingsPage'), 'SettingsPage')
+const BillingPage = lazyPage(() => import('./pages/BillingPage'), 'BillingPage')
+const HelpPage = lazyPage(() => import('./pages/HelpPage'), 'HelpPage')
 const OnboardingPage = lazyPage(() => import('./pages/OnboardingPage'), 'OnboardingPage')
 const NotFound = lazyPage(() => import('./pages/NotFound'), 'NotFound')
 
@@ -281,6 +285,38 @@ function App() {
               element={
                 <ProtectedRoute>
                   <UploadsPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/app/profile"
+              element={
+                <ProtectedRoute>
+                  <ProfilePage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/app/settings"
+              element={
+                <ProtectedRoute>
+                  <SettingsPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/app/billing"
+              element={
+                <ProtectedRoute>
+                  <BillingPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/app/help"
+              element={
+                <ProtectedRoute>
+                  <HelpPage />
                 </ProtectedRoute>
               }
             />

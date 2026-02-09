@@ -2,11 +2,13 @@ import { useEffect, useRef, useState } from 'react'
 import { apiRequest, uploadRequest } from '../lib/api'
 import { normalizeList } from '../lib/pagination'
 import type { StartupListItem } from '../types/startup'
+import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 
 type UploadTarget = 'profile-picture' | 'background-picture' | 'startup-logo'
 
 export function UploadsPage() {
+  const { refreshUser } = useAuth()
   const { pushToast } = useToast()
   const [startups, setStartups] = useState<StartupListItem[]>([])
   const [startupId, setStartupId] = useState('')
@@ -66,6 +68,9 @@ export function UploadsPage() {
 
       await uploadRequest(path, formData)
       pushToast('Upload successful', 'success')
+      if (target === 'profile-picture' || target === 'background-picture') {
+        await refreshUser()
+      }
     } catch {
       pushToast('Upload failed', 'error')
     } finally {

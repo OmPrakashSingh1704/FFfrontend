@@ -1384,12 +1384,134 @@
   color: var(--gold);
 }
 
+.feed-action-btn.is-active {
+  background: rgba(184, 134, 11, 0.16);
+  border-color: rgba(184, 134, 11, 0.35);
+  color: var(--gold);
+  box-shadow: inset 0 0 0 1px rgba(184, 134, 11, 0.2);
+}
+
+.feed-action-btn:active {
+  transform: translateY(1px) scale(0.98);
+}
+
+.feed-action-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .feed-action-btn svg {
   @apply transition-transform;
 }
 
 .feed-action-btn:hover svg {
   transform: scale(1.1);
+}
+
+.comment-section {
+  @apply mt-3 rounded-lg text-sm;
+  background: rgba(0, 0, 0, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.comment-loading {
+  @apply flex items-center gap-2 px-4 py-3;
+  color: hsl(var(--muted-foreground));
+}
+
+.comment-empty {
+  @apply px-4 py-3 text-sm;
+  color: hsl(var(--muted-foreground));
+}
+
+.comment-list {
+  @apply divide-y;
+  divide-color: rgba(255, 255, 255, 0.06);
+}
+
+.comment-item {
+  @apply px-4 py-3 relative;
+}
+
+.comment-header {
+  @apply flex items-center gap-2 mb-1;
+}
+
+.comment-author {
+  @apply text-sm font-medium;
+  color: hsl(var(--foreground));
+}
+
+.comment-time {
+  @apply text-xs;
+  color: hsl(var(--muted-foreground));
+}
+
+.comment-content {
+  @apply text-sm whitespace-pre-wrap;
+  color: hsl(var(--foreground) / 0.85);
+}
+
+.comment-owner-actions {
+  @apply flex gap-1 mt-1;
+}
+
+.comment-action-btn {
+  @apply p-1 rounded transition-colors;
+  color: hsl(var(--muted-foreground));
+}
+
+.comment-action-btn:hover {
+  color: hsl(var(--foreground));
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.comment-action-btn.danger:hover {
+  color: hsl(0 80% 60%);
+  background: rgba(255, 60, 60, 0.1);
+}
+
+.comment-edit-form {
+  @apply mt-1 space-y-2;
+}
+
+.comment-edit-form textarea {
+  @apply w-full rounded-md px-3 py-2 text-sm;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: hsl(var(--foreground));
+  resize: vertical;
+}
+
+.comment-edit-form textarea:focus {
+  outline: none;
+  border-color: hsl(var(--primary));
+}
+
+.comment-edit-actions {
+  @apply flex gap-1;
+}
+
+.comment-form {
+  @apply flex gap-2 px-4 py-3 items-end;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.comment-form textarea {
+  @apply flex-1 rounded-md px-3 py-2 text-sm;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: hsl(var(--foreground));
+  resize: vertical;
+}
+
+.comment-form textarea:focus {
+  outline: none;
+  border-color: hsl(var(--primary));
+}
+
+.comment-submit-btn {
+  @apply flex items-center gap-1.5 text-xs px-3 py-2 shrink-0;
 }
 
 .feed-composer {
@@ -1590,7 +1712,20 @@
   color: #1a1612;
 }
 
+[data-theme="dark"] .chat-field select,
+.chat-field select {
+  @apply w-full mt-2 px-4 py-3 text-sm rounded-lg;
+  background: rgba(255, 255, 255, 0.5);
+  border: 1px solid rgba(184, 134, 11, 0.15);
+  color: #1a1612;
+}
+
 [data-theme="dark"] .chat-field input {
+  background: rgba(30, 25, 20, 0.5);
+  color: #f5f0e6;
+}
+
+[data-theme="dark"] .chat-field select {
   background: rgba(30, 25, 20, 0.5);
   color: #f5f0e6;
 }
@@ -1710,6 +1845,46 @@
 
 [data-theme="dark"] .call-card {
   background: rgba(40, 35, 30, 0.5);
+}
+
+.call-media {
+  @apply mt-4 space-y-3;
+}
+
+.call-media-stage {
+  @apply relative rounded-xl overflow-hidden;
+  background: rgba(17, 14, 12, 0.85);
+  border: 1px solid rgba(184, 134, 11, 0.12);
+  min-height: 240px;
+}
+
+.call-video {
+  width: 100%;
+  height: 240px;
+  object-fit: cover;
+  display: block;
+}
+
+.call-video.local {
+  position: absolute;
+  width: 140px;
+  height: 100px;
+  bottom: 12px;
+  right: 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(184, 134, 11, 0.35);
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.3);
+  object-fit: cover;
+}
+
+.call-media-placeholder {
+  @apply flex items-center justify-center text-sm;
+  color: rgba(255, 255, 255, 0.7);
+  height: 240px;
+}
+
+.call-media-actions {
+  @apply flex flex-wrap gap-2;
 }
 
 .call-card h2 {
@@ -1931,6 +2106,10 @@
   border-color: rgba(184, 134, 11, 0.1);
 }
 
+.chat-composer-input {
+  @apply relative;
+}
+
 .chat-composer textarea {
   @apply w-full px-4 py-3 text-sm rounded-lg;
   background: rgba(255, 255, 255, 0.5);
@@ -1939,6 +2118,55 @@
 
 [data-theme="dark"] .chat-composer textarea {
   background: rgba(30, 25, 20, 0.5);
+}
+
+.chat-command-list {
+  @apply absolute left-0 right-0 rounded-lg overflow-hidden shadow-lg z-20;
+  bottom: calc(100% + 8px);
+  background: rgba(24, 20, 16, 0.98);
+  border: 1px solid rgba(184, 134, 11, 0.2);
+}
+
+[data-theme="dark"] .chat-command-list {
+  background: rgba(18, 14, 12, 0.98);
+}
+
+.chat-command-item {
+  @apply w-full flex items-center justify-between px-4 py-2 text-sm transition-colors;
+  color: hsl(var(--foreground));
+  border-bottom: 1px solid rgba(184, 134, 11, 0.08);
+  background: transparent;
+}
+
+.chat-command-item:last-child {
+  border-bottom: none;
+}
+
+.chat-command-item:hover {
+  background: rgba(184, 134, 11, 0.12);
+  color: var(--gold);
+}
+
+.chat-command-item.muted {
+  color: hsl(var(--muted-foreground));
+}
+
+.chat-command-info {
+  @apply flex flex-col items-start gap-0.5;
+}
+
+.chat-command-name {
+  @apply font-medium;
+}
+
+.chat-command-desc {
+  @apply text-xs;
+  color: hsl(var(--muted-foreground));
+}
+
+.chat-command-meta {
+  @apply text-xs uppercase tracking-wider shrink-0;
+  color: rgba(184, 134, 11, 0.7);
 }
 
 /* Onboarding Page */
@@ -2178,6 +2406,10 @@
   @apply flex gap-3 mb-6;
 }
 
+.search-input-wrap {
+  @apply flex-1 relative;
+}
+
 .search-bar input {
   @apply flex-1 px-4 py-3 text-sm rounded-lg transition-all duration-300;
   background: rgba(255, 255, 255, 0.5);
@@ -2197,6 +2429,42 @@
 
 .search-bar input::placeholder {
   color: hsl(var(--muted-foreground));
+}
+
+.search-suggest-list {
+  @apply absolute left-0 right-0 mt-2 rounded-lg overflow-hidden shadow-lg z-20;
+  background: rgba(24, 20, 16, 0.98);
+  border: 1px solid rgba(184, 134, 11, 0.2);
+}
+
+[data-theme="dark"] .search-suggest-list {
+  background: rgba(18, 14, 12, 0.98);
+}
+
+.search-suggest-item {
+  @apply w-full flex items-center justify-between px-4 py-3 text-sm transition-colors;
+  color: hsl(var(--foreground));
+  background: transparent;
+  border-bottom: 1px solid rgba(184, 134, 11, 0.08);
+}
+
+.search-suggest-item:last-child {
+  border-bottom: none;
+}
+
+.search-suggest-item:hover {
+  background: rgba(184, 134, 11, 0.12);
+  color: var(--gold);
+}
+
+.search-suggest-item.muted {
+  @apply text-sm;
+  color: hsl(var(--muted-foreground));
+}
+
+.search-suggest-type {
+  @apply text-xs uppercase tracking-wider;
+  color: rgba(184, 134, 11, 0.7);
 }
 
 /* Upload Grid */
@@ -2634,10 +2902,14 @@ select option {
   border-color: rgba(184, 134, 11, 0.3);
 }
 
-.profile-avatar {
+span.profile-avatar {
   @apply w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium;
   background: linear-gradient(135deg, #b8860b 0%, #d4af37 100%);
   color: white;
+}
+
+img.profile-avatar {
+  @apply w-8 h-8 rounded-full object-cover;
 }
 
 .profile-trigger svg {
@@ -2665,10 +2937,14 @@ select option {
   border-color: rgba(184, 134, 11, 0.1);
 }
 
-.profile-avatar-lg {
+span.profile-avatar-lg {
   @apply w-12 h-12 rounded-full flex items-center justify-center text-sm font-medium flex-shrink-0;
   background: linear-gradient(135deg, #b8860b 0%, #d4af37 100%);
   color: white;
+}
+
+img.profile-avatar-lg {
+  @apply w-12 h-12 rounded-full object-cover flex-shrink-0;
 }
 
 .profile-details {
@@ -2822,4 +3098,787 @@ select option {
 /* Tag List */
 .tag-list {
   @apply flex flex-wrap gap-2 mt-3;
+}
+
+/* Profile Page */
+.profile-page-header {
+  position: relative;
+}
+
+.profile-page-bg {
+  @apply relative w-full;
+  height: 180px;
+  background: linear-gradient(135deg, rgba(184, 134, 11, 0.2) 0%, rgba(40, 35, 30, 0.6) 100%);
+  background-size: cover;
+  background-position: center;
+}
+
+.profile-page-bg-upload {
+  @apply absolute top-3 right-3;
+  padding: 0.4rem 0.6rem !important;
+  font-size: 0.75rem;
+}
+
+.profile-page-avatar-section {
+  @apply flex items-end gap-5 px-6 sm:px-8;
+  margin-top: -40px;
+  position: relative;
+  z-index: 1;
+}
+
+.profile-page-avatar {
+  @apply relative flex-shrink-0 w-20 h-20 sm:w-24 sm:h-24 rounded-full overflow-hidden grid place-items-center;
+  background: hsl(var(--muted));
+  border: 3px solid hsl(var(--background));
+}
+
+.profile-page-avatar img {
+  @apply w-full h-full object-cover;
+}
+
+.profile-page-avatar-upload {
+  @apply absolute bottom-0 right-0 w-7 h-7 rounded-full grid place-items-center transition-all duration-200;
+  background: var(--gold);
+  color: white;
+  border: 2px solid hsl(var(--background));
+  cursor: pointer;
+}
+
+.profile-page-avatar-upload:hover {
+  transform: scale(1.1);
+}
+
+.profile-page-avatar-upload:disabled {
+  @apply opacity-50 cursor-not-allowed;
+  transform: none;
+}
+
+.profile-page-info {
+  @apply pb-2;
+}
+
+.profile-page-info h1 {
+  font-family: 'Cormorant Garamond', serif;
+  @apply text-xl sm:text-2xl font-medium;
+}
+
+.profile-page-email {
+  @apply flex items-center gap-1.5 text-sm mt-0.5;
+  color: hsl(var(--muted-foreground));
+}
+
+.profile-page-stats {
+  @apply grid grid-cols-2 sm:grid-cols-4 gap-4 px-6 sm:px-8 py-5;
+  border-top: 1px solid rgba(184, 134, 11, 0.1);
+  margin-top: 1rem;
+}
+
+.profile-page-stat {
+  @apply flex flex-col gap-0.5;
+  color: hsl(var(--muted-foreground));
+}
+
+.profile-page-stat svg {
+  color: var(--gold);
+}
+
+.profile-page-stat-label {
+  @apply text-xs uppercase tracking-wider;
+}
+
+.profile-page-stat-value {
+  @apply text-sm font-medium capitalize;
+  color: hsl(var(--foreground));
+}
+
+.profile-edit-header {
+  @apply flex items-center justify-between mb-6;
+}
+
+.profile-edit-header h2 {
+  font-family: 'Cormorant Garamond', serif;
+  @apply text-xl font-medium;
+}
+
+.profile-edit-header .btn {
+  @apply flex items-center gap-1.5;
+}
+
+.profile-edit-form {
+  @apply space-y-5;
+}
+
+.profile-field {
+  @apply flex flex-col gap-1.5;
+}
+
+.profile-field-label {
+  @apply flex items-center gap-1.5 text-xs uppercase tracking-wider;
+  color: hsl(var(--muted-foreground));
+}
+
+.profile-field input {
+  @apply w-full px-4 py-3 text-sm rounded-lg transition-all duration-300;
+  background: rgba(255, 255, 255, 0.5);
+  border: 1px solid rgba(184, 134, 11, 0.15);
+}
+
+[data-theme="dark"] .profile-field input {
+  background: rgba(30, 25, 20, 0.5);
+  color: hsl(var(--foreground));
+}
+
+.profile-field input:focus {
+  outline: none;
+  border-color: var(--gold);
+}
+
+.profile-edit-actions {
+  @apply flex items-center gap-3 pt-2;
+}
+
+.profile-edit-actions .btn {
+  @apply flex items-center gap-1.5;
+}
+
+.profile-view-fields {
+  @apply space-y-4;
+}
+
+.profile-view-row {
+  @apply flex flex-col gap-1;
+}
+
+.profile-view-row span:last-child {
+  @apply text-sm;
+}
+
+/* Settings Page */
+.settings-section-header {
+  @apply flex items-center gap-2 mb-5;
+}
+
+.settings-section-header svg {
+  color: var(--gold);
+}
+
+.settings-section-header h2 {
+  font-family: 'Cormorant Garamond', serif;
+  @apply text-xl font-medium;
+}
+
+.settings-info-grid {
+  @apply grid grid-cols-1 sm:grid-cols-2 gap-4;
+}
+
+.settings-info-row {
+  @apply flex flex-col gap-0.5;
+}
+
+.settings-info-label {
+  @apply text-xs uppercase tracking-wider;
+  color: hsl(var(--muted-foreground));
+}
+
+.settings-info-value {
+  @apply text-sm;
+}
+
+.settings-toggle-list {
+  @apply space-y-1;
+}
+
+.settings-toggle-row {
+  @apply flex items-center justify-between gap-4 px-4 py-3 rounded-lg cursor-pointer transition-all duration-200;
+}
+
+.settings-toggle-row:hover {
+  background: rgba(184, 134, 11, 0.04);
+}
+
+[data-theme="dark"] .settings-toggle-row:hover {
+  background: rgba(184, 134, 11, 0.06);
+}
+
+.settings-toggle-label {
+  @apply text-sm font-medium block;
+}
+
+.settings-toggle-desc {
+  @apply text-xs block mt-0.5;
+  color: hsl(var(--muted-foreground));
+}
+
+.settings-checkbox {
+  @apply w-5 h-5 rounded cursor-pointer flex-shrink-0;
+  accent-color: var(--gold);
+}
+
+.settings-save-row {
+  @apply flex justify-end mt-5;
+}
+
+.settings-save-row .btn {
+  @apply flex items-center gap-1.5;
+}
+
+.settings-accounts-list {
+  @apply space-y-2;
+}
+
+.settings-account-row {
+  @apply flex items-center justify-between gap-4 px-4 py-3 rounded-lg;
+  border: 1px solid rgba(184, 134, 11, 0.1);
+}
+
+.settings-account-info {
+  @apply flex flex-col gap-0.5;
+}
+
+.settings-account-platform {
+  @apply text-sm font-medium capitalize;
+}
+
+.settings-account-user {
+  @apply text-xs;
+  color: hsl(var(--muted-foreground));
+}
+
+.settings-account-error {
+  @apply text-xs;
+  color: #ef4444;
+}
+
+.settings-account-actions {
+  @apply flex items-center gap-2;
+}
+
+.settings-account-badge {
+  @apply text-xs px-2 py-0.5 rounded-full;
+}
+
+.settings-account-badge.inactive {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+}
+
+/* Connect Platform Grid */
+.settings-platforms-grid {
+  @apply grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4;
+}
+
+.settings-platform-card {
+  @apply flex flex-col gap-3 p-4 rounded-lg transition-all duration-200;
+  border: 1px solid rgba(184, 134, 11, 0.1);
+}
+
+.settings-platform-card:hover {
+  border-color: rgba(184, 134, 11, 0.25);
+}
+
+.settings-platform-info {
+  @apply flex flex-col gap-2 flex-1;
+}
+
+.settings-platform-name {
+  @apply text-sm font-medium capitalize;
+}
+
+.settings-platform-caps {
+  @apply flex flex-wrap gap-1;
+}
+
+.settings-cap-badge {
+  @apply text-xs px-1.5 py-0.5 rounded;
+  background: rgba(184, 134, 11, 0.08);
+  color: hsl(var(--muted-foreground));
+}
+
+.settings-platform-card .btn {
+  @apply flex items-center gap-1.5 self-start;
+}
+
+.settings-platform-auth-hint {
+  @apply text-xs;
+  color: var(--gold);
+}
+
+/* Token Connect Modal */
+.settings-modal-overlay {
+  @apply fixed inset-0 z-50 grid place-items-center;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+}
+
+.settings-modal {
+  @apply w-full max-w-md mx-4;
+}
+
+.settings-modal-header {
+  @apply flex items-center justify-between mb-2;
+}
+
+.settings-modal-header h2 {
+  font-family: 'Cormorant Garamond', serif;
+  @apply text-xl font-medium;
+}
+
+.settings-modal-close {
+  @apply p-1 rounded transition-colors duration-200 cursor-pointer;
+  background: transparent;
+  border: none;
+  color: hsl(var(--muted-foreground));
+}
+
+.settings-modal-close:hover {
+  color: hsl(var(--foreground));
+}
+
+.settings-modal-desc {
+  @apply text-sm mb-5;
+  color: hsl(var(--muted-foreground));
+}
+
+.settings-modal-form {
+  @apply space-y-5;
+}
+
+/* QR Code Modal */
+.qr-modal-body {
+  @apply flex flex-col items-center gap-5 py-2;
+}
+
+.qr-modal-loading {
+  @apply flex flex-col items-center gap-3 py-8;
+  color: hsl(var(--muted-foreground));
+}
+
+.qr-modal-error {
+  @apply flex flex-col items-center gap-3 py-6 text-center;
+  color: hsl(var(--muted-foreground));
+}
+
+.qr-modal-error svg {
+  color: #ef4444;
+}
+
+.qr-modal-error p {
+  @apply text-sm;
+}
+
+.qr-modal-instructions {
+  @apply flex gap-3 w-full p-3 rounded-lg text-sm;
+  background: rgba(184, 134, 11, 0.05);
+  border: 1px solid rgba(184, 134, 11, 0.1);
+}
+
+.qr-modal-instructions svg {
+  color: var(--gold);
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.qr-modal-instructions p {
+  @apply leading-relaxed;
+  color: hsl(var(--muted-foreground));
+}
+
+.qr-modal-code {
+  @apply w-56 h-56 rounded-xl overflow-hidden grid place-items-center;
+  background: white;
+  padding: 0.75rem;
+}
+
+.qr-modal-code img {
+  @apply w-full h-full object-contain;
+}
+
+.qr-modal-placeholder {
+  @apply grid place-items-center;
+  color: hsl(var(--muted));
+}
+
+.qr-modal-scanned {
+  @apply flex items-center gap-2 text-sm;
+  color: var(--gold);
+}
+
+.qr-modal-hint {
+  @apply text-xs;
+  color: hsl(var(--muted-foreground));
+}
+
+.qr-modal-success {
+  @apply flex flex-col items-center gap-3 py-8;
+}
+
+.qr-modal-success-icon {
+  @apply w-14 h-14 rounded-full grid place-items-center text-2xl font-bold;
+  background: rgba(34, 197, 94, 0.1);
+  color: #22c55e;
+}
+
+.qr-modal-success p {
+  @apply text-sm font-medium;
+}
+
+/* Billing Page */
+.billing-cards-grid {
+  @apply grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6;
+}
+
+.billing-plan-card {
+  @apply flex flex-col items-center text-center gap-2;
+}
+
+.billing-card-icon {
+  @apply w-12 h-12 rounded-full grid place-items-center;
+  background: rgba(184, 134, 11, 0.1);
+  color: var(--gold);
+}
+
+.billing-card-label {
+  @apply text-xs uppercase tracking-wider;
+  color: hsl(var(--muted-foreground));
+}
+
+.billing-card-value {
+  font-family: 'Cormorant Garamond', serif;
+  @apply text-2xl font-medium;
+}
+
+.billing-muted {
+  @apply text-sm;
+  color: hsl(var(--muted-foreground));
+}
+
+.billing-leagues-list {
+  @apply space-y-2;
+}
+
+.billing-league-row {
+  @apply flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 px-4 py-3 rounded-lg transition-all duration-200;
+  border: 1px solid rgba(184, 134, 11, 0.1);
+}
+
+.billing-league-row.billing-league-active {
+  border-color: var(--gold);
+  background: rgba(184, 134, 11, 0.05);
+}
+
+.billing-league-name {
+  @apply text-sm font-medium;
+}
+
+.billing-league-desc {
+  @apply text-xs flex-1;
+  color: hsl(var(--muted-foreground));
+}
+
+.billing-league-range {
+  @apply text-xs;
+  color: hsl(var(--muted-foreground));
+}
+
+.billing-history-list {
+  @apply space-y-1;
+}
+
+.billing-history-row {
+  @apply flex items-center justify-between gap-4 px-4 py-3 rounded-lg;
+  border-bottom: 1px solid rgba(184, 134, 11, 0.06);
+}
+
+.billing-history-row:last-child {
+  border-bottom: none;
+}
+
+.billing-history-info {
+  @apply flex flex-col gap-0.5;
+}
+
+.billing-history-reason {
+  @apply text-sm;
+}
+
+.billing-history-date {
+  @apply text-xs;
+  color: hsl(var(--muted-foreground));
+}
+
+.billing-history-amount {
+  @apply text-sm font-medium flex-shrink-0;
+}
+
+.billing-history-amount.positive {
+  color: #22c55e;
+}
+
+.billing-history-amount.negative {
+  color: #ef4444;
+}
+
+/* Help Page */
+.help-links-grid {
+  @apply grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6;
+}
+
+.help-link-card {
+  @apply flex flex-col gap-2 transition-all duration-300 cursor-pointer relative;
+  text-decoration: none;
+  color: inherit;
+}
+
+.help-link-card:hover {
+  border-color: rgba(184, 134, 11, 0.3);
+  transform: translateY(-2px);
+}
+
+.help-link-card svg {
+  color: var(--gold);
+}
+
+.help-link-card h3 {
+  font-family: 'Cormorant Garamond', serif;
+  @apply text-lg font-medium;
+}
+
+.help-link-card p {
+  @apply text-xs;
+  color: hsl(var(--muted-foreground));
+}
+
+.help-link-badge {
+  @apply text-xs px-2 py-0.5 rounded-full mt-1 self-start;
+  background: rgba(184, 134, 11, 0.1);
+  color: var(--gold);
+}
+
+.help-search {
+  @apply flex items-center gap-2 px-4 py-3 rounded-lg mb-5;
+  background: rgba(255, 255, 255, 0.5);
+  border: 1px solid rgba(184, 134, 11, 0.15);
+}
+
+[data-theme="dark"] .help-search {
+  background: rgba(30, 25, 20, 0.5);
+}
+
+.help-search svg {
+  color: hsl(var(--muted-foreground));
+  flex-shrink: 0;
+}
+
+.help-search input {
+  @apply w-full text-sm bg-transparent;
+  border: none;
+  outline: none;
+  color: hsl(var(--foreground));
+}
+
+.help-faq-list {
+  @apply space-y-1;
+}
+
+.help-faq-item {
+  @apply rounded-lg overflow-hidden;
+  border: 1px solid rgba(184, 134, 11, 0.08);
+}
+
+.help-faq-question {
+  @apply flex items-center justify-between gap-3 w-full text-left px-4 py-3 text-sm font-medium cursor-pointer transition-all duration-200;
+  background: transparent;
+  border: none;
+  color: hsl(var(--foreground));
+}
+
+.help-faq-question:hover {
+  background: rgba(184, 134, 11, 0.04);
+}
+
+[data-theme="dark"] .help-faq-question:hover {
+  background: rgba(184, 134, 11, 0.06);
+}
+
+.help-faq-chevron {
+  @apply transition-transform duration-200 flex-shrink-0;
+  color: hsl(var(--muted-foreground));
+}
+
+.help-faq-chevron.open {
+  transform: rotate(180deg);
+}
+
+.help-faq-answer {
+  @apply px-4 pb-4;
+}
+
+.help-faq-answer p {
+  @apply text-sm leading-relaxed;
+  color: hsl(var(--muted-foreground));
+}
+
+.help-contact-card {
+  @apply flex flex-col sm:flex-row items-start sm:items-center gap-4;
+}
+
+.help-contact-card svg {
+  color: var(--gold);
+  flex-shrink: 0;
+}
+
+.help-contact-card h3 {
+  font-family: 'Cormorant Garamond', serif;
+  @apply text-lg font-medium;
+}
+
+.help-contact-card p {
+  @apply text-sm mt-0.5;
+  color: hsl(var(--muted-foreground));
+}
+
+.help-contact-card .btn {
+  @apply ml-auto flex-shrink-0;
+}
+
+/* ===================== Startup Documents ===================== */
+
+.startup-docs-header {
+  @apply flex items-center justify-between flex-wrap gap-4 mb-4;
+}
+
+.startup-docs-header h2 {
+  @apply text-lg font-semibold m-0;
+  font-family: var(--font-display);
+}
+
+.startup-docs-upload-controls {
+  @apply flex items-center gap-2 flex-wrap;
+}
+
+.startup-docs-select {
+  @apply text-sm rounded-md px-2.5 py-1.5 border;
+  background: hsl(var(--card));
+  color: hsl(var(--foreground));
+  border-color: hsl(var(--border));
+}
+
+.startup-docs-list {
+  @apply flex flex-col gap-2;
+}
+
+.startup-doc-row {
+  @apply flex items-center justify-between gap-4 px-4 py-3 rounded-lg;
+  background: hsl(var(--muted) / 0.3);
+  border: 1px solid hsl(var(--border));
+}
+
+.startup-doc-row:hover {
+  background: hsl(var(--muted) / 0.5);
+}
+
+.startup-doc-info {
+  @apply flex items-center gap-3 min-w-0;
+  color: hsl(var(--muted-foreground));
+}
+
+.startup-doc-info > div {
+  @apply flex flex-col min-w-0;
+}
+
+.startup-doc-name {
+  @apply text-sm font-medium truncate;
+  color: hsl(var(--foreground));
+}
+
+.startup-doc-meta {
+  @apply text-xs;
+  color: hsl(var(--muted-foreground));
+}
+
+.startup-doc-actions {
+  @apply flex items-center gap-1 flex-shrink-0;
+}
+
+.startup-doc-access {
+  @apply p-1;
+  color: hsl(var(--muted-foreground));
+}
+
+.startup-docs-empty {
+  @apply text-sm text-center py-8;
+  color: hsl(var(--muted-foreground));
+}
+
+.btn.small {
+  @apply px-2 py-1 text-xs;
+}
+
+.btn.danger {
+  color: hsl(var(--destructive, 0 84% 60%));
+}
+
+.btn.danger:hover {
+  background: hsl(var(--destructive, 0 84% 60%) / 0.1);
+}
+
+/* ===================== Profile Startups Accordion ===================== */
+
+.profile-startups-list {
+  @apply flex flex-col gap-2;
+}
+
+.profile-startup-card {
+  @apply rounded-lg overflow-hidden;
+  border: 1px solid hsl(var(--border));
+}
+
+.profile-startup-toggle {
+  @apply flex items-center justify-between w-full px-4 py-3 text-left cursor-pointer;
+  background: hsl(var(--muted) / 0.2);
+  border: none;
+  color: hsl(var(--foreground));
+  transition: background 0.15s;
+}
+
+.profile-startup-toggle:hover {
+  background: hsl(var(--muted) / 0.4);
+}
+
+.profile-startup-info {
+  @apply flex items-center gap-3 min-w-0;
+}
+
+.profile-startup-logo {
+  @apply w-8 h-8 rounded-md object-cover flex-shrink-0;
+}
+
+.profile-startup-logo-placeholder {
+  @apply w-8 h-8 rounded-md flex items-center justify-center flex-shrink-0;
+  background: hsl(var(--muted) / 0.5);
+  color: hsl(var(--muted-foreground));
+}
+
+.profile-startup-name {
+  @apply text-sm font-medium block truncate;
+}
+
+.profile-startup-meta {
+  @apply text-xs block;
+  color: hsl(var(--muted-foreground));
+}
+
+.profile-startup-right {
+  @apply flex items-center gap-2 flex-shrink-0;
+  color: hsl(var(--muted-foreground));
+}
+
+.profile-startup-doc-count {
+  @apply text-xs px-2 py-0.5 rounded-full;
+  background: hsl(var(--muted) / 0.5);
+}
+
+.profile-startup-docs {
+  @apply px-4 py-3;
+  border-top: 1px solid hsl(var(--border));
 }

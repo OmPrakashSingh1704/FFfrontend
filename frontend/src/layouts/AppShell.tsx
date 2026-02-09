@@ -12,6 +12,7 @@ import { ProfileDropdown } from '../components/ProfileDropdown'
 import { useAuth } from '../context/AuthContext'
 import { Page } from '../components/Page'
 import { RealtimeBridge } from '../components/RealtimeBridge'
+import { IncomingCallBridge } from '../components/IncomingCallBridge'
 
 const navItems = [
   { path: '/app', label: 'Home', icon: Home },
@@ -26,7 +27,7 @@ const navItems = [
   { path: '/app/analytics', label: 'Analytics', icon: BarChart3 },
   { path: '/app/search', label: 'Search', icon: Search },
   { path: '/app/uploads', label: 'Files', icon: Upload },
-  { path: '/app/admin', label: 'Admin', icon: Settings },
+  { path: '/app/admin', label: 'Admin', icon: Settings, adminOnly: true },
 ]
 
 export function AppShell() {
@@ -45,14 +46,19 @@ export function AppShell() {
     }
   }, [mobileMenuOpen])
 
+  const isAdmin = user?.role === 'admin'
+  const visibleNavItems = navItems.filter((item) => !item.adminOnly || isAdmin)
+  const homePath = status === 'authenticated' ? '/app' : '/'
+
   return (
     <Page>
       <RealtimeBridge />
+      <IncomingCallBridge />
       
       {/* Header */}
       <header className="app-header" data-testid="app-header">
         <div className="flex items-center gap-3">
-          <Link to="/" className="logo">
+          <Link to={homePath} className="logo">
             <span className="logo-mark">
               <img src={logoMark} alt="" />
             </span>
@@ -62,7 +68,7 @@ export function AppShell() {
         
         {/* Desktop Navigation */}
         <nav className="app-nav" aria-label="Application">
-          {navItems.slice(0, 7).map(item => (
+          {visibleNavItems.slice(0, 7).map(item => (
             <Link key={item.path} to={item.path}>
               {item.label}
             </Link>
@@ -105,10 +111,10 @@ export function AppShell() {
             data-testid="mobile-nav-overlay"
           />
           <nav className="mobile-nav-panel" data-testid="mobile-nav">
-            {navItems.map(item => (
-              <Link 
-                key={item.path} 
-                to={item.path} 
+            {visibleNavItems.map(item => (
+              <Link
+                key={item.path}
+                to={item.path}
                 onClick={() => setMobileMenuOpen(false)}
               >
                 <item.icon />

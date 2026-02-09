@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { apiRequest, uploadRequest } from '../lib/api'
 import { normalizeList } from '../lib/pagination'
 import { buildWsUrl } from '../lib/ws'
@@ -14,6 +14,23 @@ type WsEvent = {
   data?: Record<string, unknown>
 }
 
+type BotSummary = {
+  id: string
+  name: string
+  display_name: string
+  description?: string | null
+  avatar_url?: string | null
+  bot_type?: string
+  is_owned?: boolean
+}
+
+type ChatCommand = {
+  name: string
+  description?: string
+  usage?: string
+  bot_name?: string
+}
+
 const formatName = (participant?: ChatParticipant) =>
   participant?.full_name || participant?.title || `User ${participant?.id ?? ''}`.trim()
 
@@ -25,12 +42,20 @@ const formatConversationName = (conversation: ChatConversation) => {
   return 'Conversation'
 }
 
+const normalizeIncomingMessage = (message: ChatMessage & { conversation_id?: string }) => ({
+  ...message,
+  conversation: message.conversation ?? message.conversation_id,
+})
+
 export function ChatPage() {
   const { id } = useParams()
+  const [searchParams] = useSearchParams()
+  const newChatId = searchParams.get('newChat')
   const navigate = useNavigate()
   const { user } = useAuth()
   const { pushToast } = useToast()
   const tokens = getTokens()
+  const newChatRequestRef = useRef<string | null>(null)
 
   const [conversations, setConversations] = useState<ChatConversation[]>([])
   const [messages, setMessages] = useState<ChatMessage[]>([])
@@ -53,6 +78,15 @@ export function ChatPage() {
   const [selectedUsers, setSelectedUsers] = useState<string[]>([])
   const [editingId, setEditingId] = useState<string | number | null>(null)
   const [editingContent, setEditingContent] = useState('')
+  const [showBotModal, setShowBotModal] = useState(false)
+  const [bots, setBots] = useState<BotSummary[]>([])
+  const [botLoading, setBotLoading] = useState(false)
+  const [botError, setBotError] = useState<string | null>(null)
+  const [selectedBotId, setSelectedBotId] = useState('')
+  const [commands, setCommands] = useState<ChatCommand[]>([])
+  const [commandsLoading, setCommandsLoading] = useState(false)
+  const [commandsOpen, setCommandsOpen] = useState(false)
+  const [commandsError, setCommandsError] = useState<string | null>(null)
 
   const scrollRef = useRef<HTMLDivElement | null>(null)
   const typingTimer = useRef<number | null>(null)
@@ -68,7 +102,7 @@ export function ChatPage() {
         const list = normalizeList(data)
         if (!cancelled) {
           setConversations(list)
-          if (!activeId && list.length > 0) {
+          if (!activeId && list.length > 0 && !newChatId) {
             setActiveId(list[0].id)
             navigate(`/app/chat/${list[0].id}`, { replace: true })
           }
@@ -88,7 +122,7 @@ export function ChatPage() {
     return () => {
       cancelled = true
     }
-  }, [activeId, navigate])
+  }, [activeId, navigate, newChatId])
 
   useEffect(() => {
     if (!id) return
@@ -96,9 +130,69 @@ export function ChatPage() {
   }, [id])
 
   useEffect(() => {
+    if (!newChatId) return
+    if (newChatRequestRef.current === newChatId) return
+
+    newChatRequestRef.current = newChatId
+    setError(null)
+
+    const createDirectChat = async () => {
+      try {
+        const conversation = await apiRequest<ChatConversation>('/chat/dm/', {
+          method: 'POST',
+          body: { user_id: newChatId },
+        })
+        setConversations((prev) => {
+          const exists = prev.some((item) => String(item.id) === String(conversation.id))
+          if (exists) {
+            return prev.map((item) => (String(item.id) === String(conversation.id) ? conversation : item))
+          }
+          return [conversation, ...prev]
+        })
+        setActiveId(conversation.id)
+        navigate(`/app/chat/${conversation.id}`, { replace: true })
+      } catch {
+        setError('Unable to start this chat.')
+      }
+    }
+
+    void createDirectChat()
+  }, [navigate, newChatId])
+
+  useEffect(() => {
+    if (!showBotModal) return
+    let cancelled = false
+    const loadBots = async () => {
+      setBotLoading(true)
+      setBotError(null)
+      try {
+        const data = await apiRequest<{ bots: BotSummary[] }>('/chat/bots/')
+        if (!cancelled) {
+          setBots(data.bots ?? [])
+          setSelectedBotId((prev) => prev || data.bots?.[0]?.id || '')
+        }
+      } catch {
+        if (!cancelled) {
+          setBotError('Unable to load bots.')
+        }
+      } finally {
+        if (!cancelled) {
+          setBotLoading(false)
+        }
+      }
+    }
+
+    void loadBots()
+    return () => {
+      cancelled = true
+    }
+  }, [showBotModal])
+
+  useEffect(() => {
     if (!activeId) {
       setMessages([])
       setConversationDetail(null)
+      setCommands([])
       return
     }
     setTypingUsers({})
@@ -139,6 +233,34 @@ export function ChatPage() {
     }
   }, [activeId])
 
+  useEffect(() => {
+    if (!activeId) return
+    let cancelled = false
+    const loadCommands = async () => {
+      setCommandsLoading(true)
+      setCommandsError(null)
+      try {
+        const data = await apiRequest<{ commands: ChatCommand[] }>(`/chat/bots/commands/?conversation_id=${activeId}`)
+        if (!cancelled) {
+          setCommands(data.commands ?? [])
+        }
+      } catch {
+        if (!cancelled) {
+          setCommandsError('Unable to load commands.')
+        }
+      } finally {
+        if (!cancelled) {
+          setCommandsLoading(false)
+        }
+      }
+    }
+
+    void loadCommands()
+    return () => {
+      cancelled = true
+    }
+  }, [activeId])
+
   const wsUrl = useMemo(() => {
     if (!tokens.accessToken) return null
     return buildWsUrl('/ws/chat/', tokens.accessToken)
@@ -151,8 +273,9 @@ export function ChatPage() {
     try {
       const event = JSON.parse(lastMessage.data as string) as WsEvent
       if (event.type === 'message.new') {
-        const message = event.data as ChatMessage
-        if (String(message.conversation) === String(activeId)) {
+        const message = normalizeIncomingMessage(event.data as ChatMessage & { conversation_id?: string })
+        const conversationId = message.conversation
+        if (String(conversationId) === String(activeId)) {
           setMessages((prev) => {
             if (prev.some((msg) => String(msg.id) === String(message.id))) return prev
             return [...prev, message]
@@ -160,7 +283,7 @@ export function ChatPage() {
         }
         setConversations((prev) =>
           prev.map((item) =>
-            String(item.id) === String(message.conversation)
+            String(item.id) === String(conversationId)
               ? {
                   ...item,
                   last_message_preview: message.content ?? item.last_message_preview ?? null,
@@ -213,11 +336,103 @@ export function ChatPage() {
     })
     .join(', ')
 
+  const commandPrefix = useMemo(() => {
+    const trimmed = messageDraft.trim()
+    if (!trimmed.startsWith('/')) return ''
+    const token = trimmed.slice(1).split(/\s+/)[0]
+    return token.toLowerCase()
+  }, [messageDraft])
+
+  const filteredCommands = useMemo(() => {
+    if (!commandPrefix) return commands.slice(0, 6)
+    return commands.filter((cmd) => cmd.name.startsWith(commandPrefix)).slice(0, 6)
+  }, [commandPrefix, commands])
+
+  const resolveCommand = (content: string) => {
+    const trimmed = content.trim()
+    if (!trimmed.startsWith('/')) return null
+    const name = trimmed.slice(1).split(/\s+/)[0].toLowerCase()
+    return commands.find((cmd) => cmd.name === name) ?? null
+  }
+
+  const buildReactionSummary = (message: ChatMessage) => {
+    if (message.reaction_summary) return message.reaction_summary
+    const reactions = message.reactions ?? []
+    return reactions.reduce<Record<string, number>>((acc, reaction) => {
+      acc[reaction.emoji] = (acc[reaction.emoji] || 0) + 1
+      return acc
+    }, {})
+  }
+
+  const getUserReactions = (message: ChatMessage) => {
+    if (message.user_reactions) return message.user_reactions
+    if (!user?.id) return []
+    const reactions = message.reactions ?? []
+    return reactions
+      .filter((reaction) => String(reaction.user_id) === String(user.id))
+      .map((reaction) => reaction.emoji)
+  }
+
   const handleSend = async () => {
     if (!activeId) return
     const trimmed = messageDraft.trim()
     const attachment = attachments[0]
     if (!trimmed && !attachment?.url) return
+
+    // Slash command handling — execute via dedicated endpoint
+    if (trimmed.startsWith('/')) {
+      const commandMatch = resolveCommand(trimmed)
+      if (!commandsLoading && !commandsError && !commandMatch) {
+        setError(`Unknown command: ${trimmed.split(/\s+/)[0]}`)
+        return
+      }
+      if (commandMatch) {
+        setSending(true)
+        setError(null)
+        try {
+          const data = await apiRequest<{
+            result: { message?: string; error?: string }
+            bot_name: string
+            bot_avatar_url?: string | null
+            message?: ChatMessage | null
+          }>('/chat/bots/execute/', {
+            method: 'POST',
+            body: { content: trimmed, conversation_id: String(activeId) },
+          })
+
+          // Display the bot reply message in chat
+          if (data.message) {
+            setMessages((prev) => {
+              if (prev.some((msg) => String(msg.id) === String(data.message!.id))) return prev
+              return [...prev, data.message!]
+            })
+          } else if (data.result.error) {
+            setError(data.result.error)
+          }
+
+          setMessageDraft('')
+          setCommandsOpen(false)
+          setConversations((prev) =>
+            prev.map((item) =>
+              String(item.id) === String(activeId)
+                ? {
+                    ...item,
+                    last_message_preview: data.result.message ?? trimmed,
+                    last_message_at: new Date().toISOString(),
+                  }
+                : item,
+            ),
+          )
+        } catch {
+          setError('Command execution failed.')
+        } finally {
+          setSending(false)
+        }
+        return
+      }
+    }
+
+    // Regular message sending
     setSending(true)
     setError(null)
     try {
@@ -240,6 +455,7 @@ export function ChatPage() {
       }
       setMessageDraft('')
       setAttachments([])
+      setCommandsOpen(false)
       setConversations((prev) =>
         prev.map((item) =>
           String(item.id) === String(activeId)
@@ -290,6 +506,28 @@ export function ChatPage() {
       navigate(`/app/chat/${conversation.id}`)
     } catch {
       setError('Unable to create conversation.')
+    }
+  }
+
+  const handleAddBot = async () => {
+    if (!activeId) {
+      setError('Select a conversation first.')
+      return
+    }
+    if (!selectedBotId) {
+      setBotError('Select a bot to add.')
+      return
+    }
+    setBotError(null)
+    try {
+      await apiRequest('/chat/bots/conversations/add/', {
+        method: 'POST',
+        body: { bot_id: selectedBotId, conversation_id: activeId },
+      })
+      pushToast('Bot added to conversation', 'success')
+      setShowBotModal(false)
+    } catch {
+      setBotError('Unable to add bot.')
     }
   }
 
@@ -355,19 +593,44 @@ export function ChatPage() {
 
   const handleReaction = async (messageId: string | number, emoji: string, hasReacted: boolean) => {
     try {
-      if (hasReacted) {
-        await apiRequest(`/chat/messages/${messageId}/reactions/remove/?emoji=${encodeURIComponent(emoji)}`, { method: 'DELETE' })
-      } else {
-        await apiRequest(`/chat/messages/${messageId}/reactions/add/`, { method: 'POST', body: { emoji } })
-      }
+      const response = await apiRequest<{
+        status?: 'added' | 'removed' | string
+        summary?: Record<string, number>
+        user_reactions?: string[]
+      }>(`/chat/messages/${messageId}/reactions/toggle/`, {
+        method: 'POST',
+        body: { emoji },
+      })
       setMessages((prev) =>
         prev.map((msg) => {
           if (String(msg.id) !== String(messageId)) return msg
-          const reactions = msg.reactions ? [...msg.reactions] : []
-          if (hasReacted) {
-            return { ...msg, reactions: reactions.filter((r) => !(r.emoji === emoji && String(r.user_id) === String(user?.id))) }
+          const currentSummary = buildReactionSummary(msg)
+          const currentUserReactions = getUserReactions(msg)
+          const action = response.status ?? (hasReacted ? 'removed' : 'added')
+
+          let nextSummary = response.summary
+          if (!nextSummary) {
+            nextSummary = { ...currentSummary }
+            const delta = action === 'added' ? 1 : -1
+            const nextCount = (nextSummary[emoji] || 0) + delta
+            if (nextCount <= 0) {
+              delete nextSummary[emoji]
+            } else {
+              nextSummary[emoji] = nextCount
+            }
           }
-          return { ...msg, reactions: [...reactions, { emoji, user_id: user?.id ?? 'me' }] }
+
+          const nextUserReactions =
+            response.user_reactions ??
+            (action === 'added'
+              ? Array.from(new Set([...currentUserReactions, emoji]))
+              : currentUserReactions.filter((value) => value !== emoji))
+
+          return {
+            ...msg,
+            reaction_summary: nextSummary,
+            user_reactions: nextUserReactions,
+          }
         }),
       )
     } catch {
@@ -377,6 +640,11 @@ export function ChatPage() {
 
   const handleTyping = (value: string) => {
     setMessageDraft(value)
+    if (value.trim().startsWith('/')) {
+      setCommandsOpen(true)
+    } else {
+      setCommandsOpen(false)
+    }
     if (wsStatus !== 'open' || !activeId || !user?.id) return
     sendJson({ type: 'typing.start', data: { conversation_id: activeId } })
     if (typingTimer.current) {
@@ -473,12 +741,25 @@ export function ChatPage() {
               <button className="btn ghost" type="button">
                 Archive
               </button>
+              <button className="btn ghost" type="button" onClick={() => setShowBotModal(true)}>
+                Add bot
+              </button>
               {activeConversation ? (
                 <button className="btn ghost" type="button" onClick={() => void handleLeaveConversation()}>
                   Leave
                 </button>
               ) : null}
-              <button className="btn primary" type="button" onClick={() => navigate('/app/calls')}>
+              <button
+                className="btn primary"
+                type="button"
+                onClick={() => {
+                  if (activeConversation?.id) {
+                    navigate(`/app/calls?conversationId=${encodeURIComponent(String(activeConversation.id))}`)
+                  } else {
+                    navigate('/app/calls')
+                  }
+                }}
+              >
                 Start call
               </button>
             </div>
@@ -488,11 +769,8 @@ export function ChatPage() {
             {messages.map((message) => {
               const isMe = String(message.sender_id ?? '') === String(user?.id ?? '')
               const senderLabel = message.sender_name || 'Unknown'
-              const reactions = message.reactions ?? []
-              const reactionSummary = reactions.reduce<Record<string, number>>((acc, reaction) => {
-                acc[reaction.emoji] = (acc[reaction.emoji] || 0) + 1
-                return acc
-              }, {})
+              const reactionSummary = buildReactionSummary(message)
+              const userReactions = getUserReactions(message)
               return (
                 <div key={message.id} className={`chat-message ${isMe ? 'mine' : ''}`}>
                   <div className="chat-message-meta">
@@ -531,14 +809,12 @@ export function ChatPage() {
                         <button
                           key={emoji}
                           type="button"
-                          className={`chat-reaction-btn ${
-                            reactions.some((r) => r.emoji === emoji && String(r.user_id) === String(user?.id)) ? 'active' : ''
-                          }`}
+                          className={`chat-reaction-btn ${userReactions.includes(emoji) ? 'active' : ''}`}
                           onClick={() =>
                             void handleReaction(
                               message.id,
                               emoji,
-                              reactions.some((r) => r.emoji === emoji && String(r.user_id) === String(user?.id)),
+                              userReactions.includes(emoji),
                             )
                           }
                         >
@@ -554,7 +830,7 @@ export function ChatPage() {
                             void handleReaction(
                               message.id,
                               emoji,
-                              reactions.some((r) => r.emoji === emoji && String(r.user_id) === String(user?.id)),
+                              userReactions.includes(emoji),
                             )
                           }
                         >
@@ -608,17 +884,55 @@ export function ChatPage() {
                 </div>
               ) : null}
             </div>
-            <div className="chat-composer-input">
-              <textarea
-                value={messageDraft}
-                onChange={(event) => handleTyping(event.target.value)}
-                placeholder="Write a message..."
-                rows={3}
-              />
-              <button className="btn primary" type="button" onClick={() => void handleSend()} disabled={sending}>
-                {sending ? 'Sending...' : 'Send'}
-              </button>
-            </div>
+          <div className="chat-composer-input">
+            <textarea
+              value={messageDraft}
+              onChange={(event) => handleTyping(event.target.value)}
+              onFocus={() => {
+                if (messageDraft.trim().startsWith('/')) {
+                  setCommandsOpen(true)
+                }
+              }}
+              onBlur={() => {
+                window.setTimeout(() => setCommandsOpen(false), 150)
+              }}
+              placeholder="Write a message..."
+              rows={3}
+            />
+            {commandsOpen ? (
+              <div className="chat-command-list">
+                {commandsLoading ? <div className="chat-command-item muted">Loading commands...</div> : null}
+                {!commandsLoading && filteredCommands.length === 0 ? (
+                  <div className="chat-command-item muted">No matching commands</div>
+                ) : null}
+                {filteredCommands.map((cmd) => (
+                  <button
+                    key={cmd.name}
+                    type="button"
+                    className="chat-command-item"
+                    onMouseDown={(event) => event.preventDefault()}
+                    onClick={() => {
+                      setMessageDraft(`/${cmd.name} `)
+                      setCommandsOpen(false)
+                    }}
+                    data-testid={`command-${cmd.name}`}
+                  >
+                    <div className="chat-command-info">
+                      <span className="chat-command-name">/{cmd.name}</span>
+                      {cmd.description ? (
+                        <span className="chat-command-desc">{cmd.description}</span>
+                      ) : null}
+                    </div>
+                    <span className="chat-command-meta">{cmd.bot_name || 'Bot'}</span>
+                  </button>
+                ))}
+                {commandsError ? <div className="chat-command-item muted">{commandsError}</div> : null}
+              </div>
+            ) : null}
+            <button className="btn primary" type="button" onClick={() => void handleSend()} disabled={sending}>
+              {sending ? 'Sending...' : 'Send'}
+            </button>
+          </div>
           </div>
         </div>
       </div>
@@ -691,6 +1005,49 @@ export function ChatPage() {
               </button>
               <button type="button" className="btn primary" onClick={() => void handleCreateConversation()}>
                 Create
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {showBotModal ? (
+        <div className="chat-modal-overlay" role="dialog" aria-modal="true">
+          <div className="chat-modal">
+            <header>
+              <h3>Add a bot</h3>
+              <button type="button" onClick={() => setShowBotModal(false)}>
+                ✕
+              </button>
+            </header>
+            {botError ? <div className="form-error">{botError}</div> : null}
+            <label className="chat-field">
+              Select bot
+              <select
+                value={selectedBotId}
+                onChange={(event) => setSelectedBotId(event.target.value)}
+                disabled={botLoading}
+              >
+                {botLoading ? <option>Loading...</option> : null}
+                {!botLoading && bots.length === 0 ? <option value="">No bots available</option> : null}
+                {bots.map((bot) => (
+                  <option key={bot.id} value={bot.id}>
+                    {bot.display_name || bot.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {selectedBotId ? (
+              <div className="text-xs text-slate-500">
+                {bots.find((bot) => bot.id === selectedBotId)?.description || 'No description provided.'}
+              </div>
+            ) : null}
+            <div className="chat-modal-actions">
+              <button className="btn ghost" type="button" onClick={() => setShowBotModal(false)}>
+                Cancel
+              </button>
+              <button className="btn primary" type="button" onClick={() => void handleAddBot()} disabled={botLoading}>
+                Add bot
               </button>
             </div>
           </div>

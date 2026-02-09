@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { User, Settings, HelpCircle, CreditCard, Bell, LogOut, ChevronDown } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
+import { resolveMediaUrl } from '../lib/env'
 
 export function ProfileDropdown() {
   const [isOpen, setIsOpen] = useState(false)
@@ -24,19 +25,24 @@ export function ProfileDropdown() {
     void logout()
   }
 
+  const avatarSrc = resolveMediaUrl(user?.picture) || resolveMediaUrl(user?.avatar_url)
   const initials = user?.full_name
     ? user.full_name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
     : user?.email?.slice(0, 2).toUpperCase() || 'U'
 
   return (
     <div className="profile-dropdown" ref={dropdownRef}>
-      <button 
+      <button
         className="profile-trigger"
         onClick={() => setIsOpen(!isOpen)}
         aria-label="Profile menu"
         data-testid="profile-dropdown-btn"
       >
-        <span className="profile-avatar">{initials}</span>
+        {avatarSrc ? (
+          <img className="profile-avatar" src={avatarSrc} alt={user?.full_name ?? 'Profile'} />
+        ) : (
+          <span className="profile-avatar">{initials}</span>
+        )}
         <ChevronDown className={`w-4 h-4 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
       </button>
 
@@ -44,7 +50,11 @@ export function ProfileDropdown() {
         <div className="profile-panel" data-testid="profile-panel">
           {/* User Info */}
           <div className="profile-info">
-            <span className="profile-avatar-lg">{initials}</span>
+            {avatarSrc ? (
+              <img className="profile-avatar-lg" src={avatarSrc} alt={user?.full_name ?? 'Profile'} />
+            ) : (
+              <span className="profile-avatar-lg">{initials}</span>
+            )}
             <div className="profile-details">
               <strong>{user?.full_name || 'User'}</strong>
               <span>{user?.email || ''}</span>
@@ -85,8 +95,8 @@ export function ProfileDropdown() {
               <CreditCard className="w-4 h-4" />
               Billing
             </Link>
-            <Link 
-              to="/help" 
+            <Link
+              to="/app/help"
               className="profile-menu-item"
               onClick={() => setIsOpen(false)}
             >

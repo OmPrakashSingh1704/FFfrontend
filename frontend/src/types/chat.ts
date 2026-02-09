@@ -39,6 +39,8 @@ export type ChatMessage = {
   deleted_at?: string | null
   metadata?: Record<string, unknown> | null
   reactions?: ChatReaction[]
+  reaction_summary?: Record<string, number>
+  user_reactions?: string[]
 }
 
 export type ChatConversation = {

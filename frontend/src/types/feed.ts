@@ -1,3 +1,17 @@
+export type FeedComment = {
+  id: string
+  user: {
+    id: string
+    email?: string
+    full_name?: string
+    profile_picture?: string | null
+    role?: string
+  }
+  content: string
+  created_at: string
+  updated_at: string
+}
+
 export type FeedEvent = {
   id: string
   event_type?: string
@@ -13,5 +27,6 @@ export type FeedEvent = {
   tags?: string[]
   like_count?: number
   comment_count?: number
+  is_liked_by_me?: boolean
   created_at?: string
 }
