@@ -1,5 +1,5 @@
-import { Link, Outlet } from 'react-router-dom'
-import { 
+import { Link, Outlet, useLocation } from 'react-router-dom'
+import {
   Home, Users, Briefcase, TrendingUp, MessageSquare, Bell,
   BarChart3, Settings, Search, FileText, Upload,
   Activity, Wallet, Menu, X
@@ -14,24 +14,45 @@ import { Page } from '../components/Page'
 import { RealtimeBridge } from '../components/RealtimeBridge'
 import { IncomingCallBridge } from '../components/IncomingCallBridge'
 
-const navItems = [
-  { path: '/app', label: 'Home', icon: Home },
-  { path: '/app/feed', label: 'Feed', icon: Activity },
-  { path: '/app/founders', label: 'Founders', icon: Users },
-  { path: '/app/startups', label: 'Startups', icon: Briefcase },
-  { path: '/app/investors', label: 'Investors', icon: TrendingUp },
-  { path: '/app/funds', label: 'Funds', icon: Wallet },
-  { path: '/app/applications', label: 'Applications', icon: FileText },
-  { path: '/app/chat', label: 'Chat', icon: MessageSquare },
-  { path: '/app/notifications', label: 'Alerts', icon: Bell },
-  { path: '/app/analytics', label: 'Analytics', icon: BarChart3 },
-  { path: '/app/search', label: 'Search', icon: Search },
-  { path: '/app/uploads', label: 'Files', icon: Upload },
-  { path: '/app/admin', label: 'Admin', icon: Settings, adminOnly: true },
+const navSections = [
+  {
+    label: 'Main',
+    items: [
+      { path: '/app', label: 'Home', icon: Home },
+      { path: '/app/feed', label: 'Feed', icon: Activity },
+      { path: '/app/search', label: 'Search', icon: Search },
+    ],
+  },
+  {
+    label: 'Network',
+    items: [
+      { path: '/app/founders', label: 'Founders', icon: Users },
+      { path: '/app/startups', label: 'Startups', icon: Briefcase },
+      { path: '/app/investors', label: 'Investors', icon: TrendingUp },
+      { path: '/app/funds', label: 'Funds', icon: Wallet },
+    ],
+  },
+  {
+    label: 'Manage',
+    items: [
+      { path: '/app/applications', label: 'Applications', icon: FileText },
+      { path: '/app/chat', label: 'Chat', icon: MessageSquare },
+      { path: '/app/notifications', label: 'Alerts', icon: Bell },
+    ],
+  },
+  {
+    label: 'Tools',
+    items: [
+      { path: '/app/analytics', label: 'Analytics', icon: BarChart3 },
+      { path: '/app/uploads', label: 'Files', icon: Upload },
+      { path: '/app/admin', label: 'Admin', icon: Settings, adminOnly: true as const },
+    ],
+  },
 ]
 
 export function AppShell() {
   const { status, user } = useAuth()
+  const location = useLocation()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   // Lock body scroll when mobile menu is open
@@ -46,52 +67,88 @@ export function AppShell() {
     }
   }, [mobileMenuOpen])
 
+  // Close sidebar on route change (mobile)
+  useEffect(() => {
+    setMobileMenuOpen(false)
+  }, [location.pathname])
+
   const isAdmin = user?.role === 'admin'
-  const visibleNavItems = navItems.filter((item) => !item.adminOnly || isAdmin)
   const homePath = status === 'authenticated' ? '/app' : '/'
+
+  function isActive(path: string) {
+    if (path === '/app') return location.pathname === '/app'
+    return location.pathname.startsWith(path)
+  }
 
   return (
     <Page>
       <RealtimeBridge />
       <IncomingCallBridge />
-      
-      {/* Header */}
-      <header className="app-header" data-testid="app-header">
-        <div className="flex items-center gap-3">
-          <Link to={homePath} className="logo">
+
+      {/* Sidebar */}
+      <aside
+        className={`app-sidebar${mobileMenuOpen ? ' open' : ''}`}
+        data-testid="app-sidebar"
+      >
+        <div className="sidebar-header">
+          <Link to={homePath} className="sidebar-logo">
             <span className="logo-mark">
               <img src={logoMark} alt="" />
             </span>
             <span className="logo-name">FoundersLib</span>
           </Link>
         </div>
-        
-        {/* Desktop Navigation */}
-        <nav className="app-nav" aria-label="Application">
-          {visibleNavItems.slice(0, 7).map(item => (
-            <Link key={item.path} to={item.path}>
-              {item.label}
-            </Link>
-          ))}
+        <nav className="sidebar-nav" aria-label="Application">
+          {navSections.map((section) => {
+            const items = section.items.filter(
+              (item) => !('adminOnly' in item && item.adminOnly) || isAdmin
+            )
+            if (items.length === 0) return null
+            return (
+              <div className="sidebar-section" key={section.label}>
+                <span className="sidebar-section-label">{section.label}</span>
+                {items.map((item) => (
+                  <Link
+                    key={item.path}
+                    to={item.path}
+                    className={`sidebar-link${isActive(item.path) ? ' active' : ''}`}
+                    data-testid={`nav-${item.label.toLowerCase()}`}
+                  >
+                    <item.icon className="w-[18px] h-[18px]" strokeWidth={1.5} />
+                    {item.label}
+                  </Link>
+                ))}
+              </div>
+            )
+          })}
         </nav>
-        
+      </aside>
+
+      {/* Mobile overlay */}
+      {mobileMenuOpen && (
+        <div
+          className="sidebar-overlay"
+          onClick={() => setMobileMenuOpen(false)}
+          data-testid="mobile-nav-overlay"
+        />
+      )}
+
+      {/* Top header */}
+      <header className="app-header" data-testid="app-header">
+        <button
+          className="sidebar-toggle"
+          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+          data-testid="mobile-menu-toggle"
+          aria-label="Toggle menu"
+        >
+          {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+        </button>
+
+        <div className="app-header-spacer" />
+
         <div className="app-actions">
-          {/* More menu toggle - works on all screen sizes */}
-          <button 
-            className="btn ghost"
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            data-testid="mobile-menu-toggle"
-            aria-label="Toggle menu"
-          >
-            {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-          </button>
-          
-          {/* Notification Dropdown */}
           <NotificationDropdown />
-          
           <ThemeToggle />
-          
-          {/* Profile Dropdown or Sign In */}
           {status === 'authenticated' ? (
             <ProfileDropdown />
           ) : (
@@ -101,30 +158,7 @@ export function AppShell() {
           )}
         </div>
       </header>
-      
-      {/* Navigation Menu Overlay */}
-      {mobileMenuOpen && (
-        <>
-          <div 
-            className="mobile-nav-overlay" 
-            onClick={() => setMobileMenuOpen(false)}
-            data-testid="mobile-nav-overlay"
-          />
-          <nav className="mobile-nav-panel" data-testid="mobile-nav">
-            {visibleNavItems.map(item => (
-              <Link
-                key={item.path}
-                to={item.path}
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                <item.icon />
-                {item.label}
-              </Link>
-            ))}
-          </nav>
-        </>
-      )}
-      
+
       <main className="app-main" id="main-content">
         <Outlet />
       </main>

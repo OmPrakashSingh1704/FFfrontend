@@ -67,80 +67,115 @@ export function SignupPage() {
   }
 
   return (
-    <section className="auth-card" data-testid="signup-card">
-      <header className="auth-header">
-        <h1 className="text-gradient">Create your account</h1>
-        <p>Join the founders and investors building with clarity.</p>
-      </header>
-      <form onSubmit={handleSubmit} className="auth-form" data-testid="signup-form">
-        {errors.form ? <div className="form-error">{errors.form}</div> : null}
-        <FormField label="Full name" error={errors.full_name} icon={<User className="w-4 h-4" />}>
-          <input
-            type="text"
-            name="full_name"
-            value={fullName}
-            onChange={(event) => setFullName(event.target.value)}
-            placeholder="Alex Morgan"
-            autoComplete="name"
-            required
-            data-testid="signup-name-input"
-          />
-        </FormField>
-        <FormField label="Email" error={errors.email} icon={<Mail className="w-4 h-4" />}>
-          <input
-            type="email"
-            name="email"
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
-            placeholder="you@company.com"
-            autoComplete="email"
-            required
-            data-testid="signup-email-input"
-          />
-        </FormField>
-        <FormField label="Role" error={errors.role} icon={<Briefcase className="w-4 h-4" />}>
-          <select 
-            value={role} 
-            onChange={(event) => setRole(event.target.value)}
-            data-testid="signup-role-select"
-          >
-            <option value="founder">Founder</option>
-            <option value="investor">Investor</option>
-            <option value="both">Both</option>
-          </select>
-        </FormField>
-        <FormField label="Password" error={errors.password} icon={<Lock className="w-4 h-4" />}>
-          <input
-            type="password"
-            name="password"
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-            placeholder="Create a strong password"
-            autoComplete="new-password"
-            required
-            data-testid="signup-password-input"
-          />
-        </FormField>
-        <FormField label="Confirm password" error={errors.confirm} icon={<Lock className="w-4 h-4" />}>
-          <input
-            type="password"
-            name="confirm"
-            value={confirm}
-            onChange={(event) => setConfirm(event.target.value)}
-            placeholder="Repeat your password"
-            autoComplete="new-password"
-            required
-            data-testid="signup-confirm-input"
-          />
-        </FormField>
-        <button className="btn primary" type="submit" disabled={submitting} data-testid="signup-submit-btn">
-          {submitting ? 'Creating account...' : 'Create account'}
-          {!submitting && <ArrowRight className="w-4 h-4 ml-2" />}
-        </button>
-      </form>
-      <p className="auth-footer">
-        Already have an account? <Link to="/login">Sign in</Link>
-      </p>
-    </section>
+    <div className="min-h-screen flex items-center justify-center" style={{ background: 'hsl(var(--background))' }}>
+      <section className="card max-w-sm w-full mx-4 p-8" data-testid="signup-card">
+        <div className="text-center mb-8">
+          <h2 className="text-xl font-semibold mb-1" style={{ color: 'var(--gold)' }}>
+            FoundersLib
+          </h2>
+          <h1 className="text-2xl font-semibold tracking-tight mt-4" style={{ fontFamily: "'Inter', sans-serif" }}>
+            Create your account
+          </h1>
+          <p className="text-sm mt-1" style={{ color: 'hsl(var(--muted-foreground))' }}>
+            Join the founders and investors building with clarity.
+          </p>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-5" data-testid="signup-form">
+          {errors.form ? <div className="form-error">{errors.form}</div> : null}
+
+          <div className="form-group">
+            <FormField label="Full name" error={errors.full_name} icon={<User className="w-4 h-4" />}>
+              <input
+                type="text"
+                name="full_name"
+                className="input"
+                value={fullName}
+                onChange={(event) => setFullName(event.target.value)}
+                placeholder="Alex Morgan"
+                autoComplete="name"
+                required
+                data-testid="signup-name-input"
+              />
+            </FormField>
+          </div>
+
+          <div className="form-group">
+            <FormField label="Email" error={errors.email} icon={<Mail className="w-4 h-4" />}>
+              <input
+                type="email"
+                name="email"
+                className="input"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                placeholder="you@company.com"
+                autoComplete="email"
+                required
+                data-testid="signup-email-input"
+              />
+            </FormField>
+          </div>
+
+          <div className="form-group">
+            <FormField label="Role" error={errors.role} icon={<Briefcase className="w-4 h-4" />}>
+              <select
+                className="select"
+                value={role}
+                onChange={(event) => setRole(event.target.value)}
+                data-testid="signup-role-select"
+              >
+                <option value="founder">Founder</option>
+                <option value="investor">Investor</option>
+                <option value="both">Both</option>
+              </select>
+            </FormField>
+          </div>
+
+          <div className="form-group">
+            <FormField label="Password" error={errors.password} icon={<Lock className="w-4 h-4" />}>
+              <input
+                type="password"
+                name="password"
+                className="input"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                placeholder="Create a strong password"
+                autoComplete="new-password"
+                required
+                data-testid="signup-password-input"
+              />
+            </FormField>
+          </div>
+
+          <div className="form-group">
+            <FormField label="Confirm password" error={errors.confirm} icon={<Lock className="w-4 h-4" />}>
+              <input
+                type="password"
+                name="confirm"
+                className="input"
+                value={confirm}
+                onChange={(event) => setConfirm(event.target.value)}
+                placeholder="Repeat your password"
+                autoComplete="new-password"
+                required
+                data-testid="signup-confirm-input"
+              />
+            </FormField>
+          </div>
+
+          <button className="btn primary w-full" type="submit" disabled={submitting} data-testid="signup-submit-btn">
+            {submitting ? 'Creating account...' : 'Create account'}
+            {!submitting && <ArrowRight className="w-4 h-4 ml-2" />}
+          </button>
+        </form>
+
+        <p className="text-center text-sm mt-6" style={{ color: 'hsl(var(--muted-foreground))' }}>
+          Already have an account?{' '}
+          <Link to="/login" style={{ color: 'var(--gold)' }}>
+            Log in
+          </Link>
+        </p>
+      </section>
+    </div>
   )
 }

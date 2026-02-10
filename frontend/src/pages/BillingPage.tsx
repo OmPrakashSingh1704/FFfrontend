@@ -8,6 +8,8 @@ import {
   Trophy,
   Clock,
   Loader2,
+  ChevronRight,
+  Award,
 } from 'lucide-react'
 
 type CreditHistoryItem = {
@@ -66,123 +68,172 @@ export function BillingPage() {
   }, [])
 
   return (
-    <section className="content-section">
-      <header className="content-header">
+    <div style={{ padding: '1.5rem' }}>
+      {/* Page Header */}
+      <div className="page-header">
         <div>
-          <h1>Billing</h1>
-          <p>Your subscription, credits, and trust league information.</p>
+          <h1 className="page-title">Billing</h1>
+          <p className="page-description">Your subscription, credits, and trust league information.</p>
         </div>
-      </header>
+      </div>
 
-      {/* Plan Overview */}
-      <div className="billing-cards-grid">
-        <div className="content-card billing-plan-card">
-          <div className="billing-card-icon">
-            <CreditCard size={24} strokeWidth={1.5} />
+      {/* Plan Overview - 3 stat cards */}
+      <div className="grid-3 section">
+        <div className="stat-card">
+          <div className="stat-header">
+            <span className="stat-label">Current Plan</span>
+            <div className="stat-icon">
+              <CreditCard style={{ width: 20, height: 20 }} strokeWidth={1.5} />
+            </div>
           </div>
-          <span className="billing-card-label">Current plan</span>
-          <span className="billing-card-value capitalize">
+          <span className="stat-value" style={{ textTransform: 'capitalize' }}>
             {user?.subscription_tier ?? 'Free'}
           </span>
         </div>
 
-        <div className="content-card billing-plan-card">
-          <div className="billing-card-icon">
-            <Star size={24} strokeWidth={1.5} />
+        <div className="stat-card">
+          <div className="stat-header">
+            <span className="stat-label">Credits</span>
+            <div className="stat-icon">
+              <Star style={{ width: 20, height: 20 }} strokeWidth={1.5} />
+            </div>
           </div>
-          <span className="billing-card-label">Credits</span>
-          <span className="billing-card-value">
+          <span className="stat-value">
             {user?.credits ?? 0}
           </span>
         </div>
 
-        <div className="content-card billing-plan-card">
-          <div className="billing-card-icon">
-            <Trophy size={24} strokeWidth={1.5} />
+        <div className="stat-card">
+          <div className="stat-header">
+            <span className="stat-label">Next Billing</span>
+            <div className="stat-icon">
+              <Trophy style={{ width: 20, height: 20 }} strokeWidth={1.5} />
+            </div>
           </div>
-          <span className="billing-card-label">League</span>
-          <span className="billing-card-value capitalize">
-            {user?.league ?? '—'}
+          <span className="stat-value" style={{ textTransform: 'capitalize' }}>
+            {user?.league ?? '\u2014'}
           </span>
         </div>
       </div>
 
-      {/* Leagues */}
-      <div className="content-card">
-        <div className="settings-section-header">
-          <Trophy size={18} strokeWidth={1.5} />
-          <h2>Trust leagues</h2>
+      {/* Trust Leagues */}
+      <div className="card section">
+        <div className="card-header">
+          <span className="card-title">
+            <Award style={{ width: 14, height: 14, display: 'inline', verticalAlign: 'middle', marginRight: '0.375rem' }} strokeWidth={1.5} />
+            Trust Leagues
+          </span>
         </div>
 
         {loadingLeagues ? (
-          <div className="page-loader">Loading leagues…</div>
-        ) : leagues.length === 0 ? (
-          <p className="billing-muted">No league information available.</p>
-        ) : (
-          <div className="billing-leagues-list">
-            {leagues.map((league) => (
-              <div
-                key={league.name}
-                className={`billing-league-row${user?.league === league.name ? ' billing-league-active' : ''}`}
-              >
-                <span className="billing-league-name capitalize">{league.name}</span>
-                {league.description && (
-                  <span className="billing-league-desc">{league.description}</span>
-                )}
-                {league.min_credits != null && (
-                  <span className="billing-league-range">
-                    {league.min_credits}
-                    {league.max_credits != null ? `–${league.max_credits}` : '+'} credits
-                  </span>
-                )}
-              </div>
-            ))}
+          <div className="empty-state" style={{ padding: '2rem 0' }}>
+            <Loader2 style={{ width: 20, height: 20, animation: 'spin 1s linear infinite' }} />
+            <p className="empty-description">Loading leagues...</p>
           </div>
+        ) : leagues.length === 0 ? (
+          <div className="empty-state" style={{ padding: '2rem 0' }}>
+            <Trophy className="empty-icon" />
+            <p className="empty-description">No league information available.</p>
+          </div>
+        ) : (
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>League</th>
+                <th>Description</th>
+                <th style={{ textAlign: 'right' }}>Credit Range</th>
+                <th style={{ width: '2rem' }}></th>
+              </tr>
+            </thead>
+            <tbody>
+              {leagues.map((league) => {
+                const isActive = user?.league === league.name
+                return (
+                  <tr key={league.name}>
+                    <td>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <span style={{ fontWeight: 500, textTransform: 'capitalize' }}>{league.name}</span>
+                        {isActive && (
+                          <span className="badge success">Current</span>
+                        )}
+                      </span>
+                    </td>
+                    <td style={{ color: 'hsl(var(--muted-foreground))' }}>
+                      {league.description ?? '\u2014'}
+                    </td>
+                    <td style={{ textAlign: 'right', fontFamily: "'JetBrains Mono', monospace", fontSize: '0.8125rem' }}>
+                      {league.min_credits != null
+                        ? `${league.min_credits}${league.max_credits != null ? `\u2013${league.max_credits}` : '+'}`
+                        : '\u2014'}
+                    </td>
+                    <td>
+                      {isActive && (
+                        <ChevronRight style={{ width: 14, height: 14, color: 'var(--gold)' }} />
+                      )}
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
         )}
       </div>
 
       {/* Credit History */}
-      <div className="content-card">
-        <div className="settings-section-header">
-          <Clock size={18} strokeWidth={1.5} />
-          <h2>Credit history</h2>
+      <div className="card section">
+        <div className="card-header">
+          <span className="card-title">
+            <Clock style={{ width: 14, height: 14, display: 'inline', verticalAlign: 'middle', marginRight: '0.375rem' }} strokeWidth={1.5} />
+            Credit History
+          </span>
         </div>
 
         {loadingHistory ? (
-          <div className="page-loader">
-            <Loader2 className="w-5 h-5 animate-spin" />
-            Loading history…
+          <div className="empty-state" style={{ padding: '2rem 0' }}>
+            <Loader2 style={{ width: 20, height: 20, animation: 'spin 1s linear infinite' }} />
+            <p className="empty-description">Loading history...</p>
           </div>
         ) : creditHistory.length === 0 ? (
           <div className="empty-state">
-            <div className="empty-state-icon">
-              <Clock className="w-8 h-8" />
-            </div>
-            <h3>No credit history</h3>
-            <p>Your credit transactions will appear here as you use the platform.</p>
+            <Clock className="empty-icon" />
+            <h3 className="empty-title">No credit history</h3>
+            <p className="empty-description">Your credit transactions will appear here as you use the platform.</p>
           </div>
         ) : (
-          <div className="billing-history-list">
-            {creditHistory.map((item) => (
-              <div key={item.id} className="billing-history-row">
-                <div className="billing-history-info">
-                  <span className="billing-history-reason">
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Description</th>
+                <th style={{ textAlign: 'right' }}>Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              {creditHistory.map((item) => (
+                <tr key={item.id}>
+                  <td style={{ color: 'hsl(var(--muted-foreground))', fontSize: '0.8125rem', whiteSpace: 'nowrap' }}>
+                    {item.created_at
+                      ? new Date(item.created_at).toLocaleDateString()
+                      : '\u2014'}
+                  </td>
+                  <td>
                     {item.reason ?? item.description ?? 'Credit adjustment'}
-                  </span>
-                  {item.created_at && (
-                    <span className="billing-history-date">
-                      {new Date(item.created_at).toLocaleDateString()}
-                    </span>
-                  )}
-                </div>
-                <span className={`billing-history-amount${item.amount >= 0 ? ' positive' : ' negative'}`}>
-                  {item.amount >= 0 ? '+' : ''}{item.amount}
-                </span>
-              </div>
-            ))}
-          </div>
+                  </td>
+                  <td style={{
+                    textAlign: 'right',
+                    fontWeight: 600,
+                    fontFamily: "'JetBrains Mono', monospace",
+                    fontSize: '0.8125rem',
+                    color: item.amount >= 0 ? '#22c55e' : '#ef4444',
+                  }}>
+                    {item.amount >= 0 ? '+' : ''}{item.amount}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         )}
       </div>
-    </section>
+    </div>
   )
 }

@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=Inter:wght@300;400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -6,59 +6,57 @@
 
 @layer base {
   :root {
-    --background: 40 20% 97%;
-    --foreground: 30 10% 15%;
+    --background: 0 0% 98%;
+    --foreground: 0 0% 10%;
 
-    --card: 40 30% 95%;
-    --card-foreground: 30 10% 15%;
+    --card: 0 0% 95%;
+    --card-foreground: 0 0% 10%;
 
-    --primary: 38 70% 45%;
-    --primary-foreground: 40 20% 97%;
+    --primary: 24 94% 53%;
+    --primary-foreground: 0 0% 98%;
 
-    --secondary: 150 25% 25%;
-    --secondary-foreground: 40 20% 97%;
+    --secondary: 0 0% 88%;
+    --secondary-foreground: 0 0% 10%;
 
-    --muted: 40 15% 90%;
-    --muted-foreground: 30 10% 45%;
+    --muted: 0 0% 92%;
+    --muted-foreground: 0 0% 40%;
 
-    --accent: 150 20% 30%;
-    --accent-foreground: 40 20% 97%;
+    --accent: 24 94% 53%;
+    --accent-foreground: 0 0% 98%;
 
-    --border: 40 20% 85%;
-    --input: 40 20% 90%;
-    --ring: 38 70% 45%;
+    --border: 0 0% 88%;
+    --input: 0 0% 90%;
+    --ring: 24 94% 53%;
 
     --radius: 0.5rem;
-    
-    --gold: #b8860b;
-    --gold-light: #d4af37;
-    --cream: #f5f0e6;
-    --forest: #1a3a2f;
-    --burgundy: #722f37;
+
+    --gold: #f97316;
+    --gold-light: #fb923c;
+    --accent-glow: rgba(249, 115, 22, 0.4);
   }
 
   [data-theme="dark"] {
-    --background: 30 15% 8%;
-    --foreground: 40 20% 92%;
+    --background: 0 0% 6%;
+    --foreground: 0 0% 93%;
 
-    --card: 30 15% 12%;
-    --card-foreground: 40 20% 92%;
+    --card: 0 0% 10%;
+    --card-foreground: 0 0% 93%;
 
-    --primary: 38 70% 55%;
-    --primary-foreground: 30 15% 8%;
+    --primary: 24 94% 53%;
+    --primary-foreground: 0 0% 6%;
 
-    --secondary: 150 20% 35%;
-    --secondary-foreground: 40 20% 92%;
+    --secondary: 0 0% 15%;
+    --secondary-foreground: 0 0% 93%;
 
-    --muted: 30 10% 20%;
-    --muted-foreground: 40 15% 60%;
+    --muted: 0 0% 15%;
+    --muted-foreground: 0 0% 60%;
 
-    --accent: 150 15% 25%;
-    --accent-foreground: 40 20% 92%;
+    --accent: 24 94% 53%;
+    --accent-foreground: 0 0% 93%;
 
-    --border: 30 10% 20%;
-    --input: 30 10% 18%;
-    --ring: 38 70% 55%;
+    --border: 0 0% 18%;
+    --input: 0 0% 15%;
+    --ring: 24 94% 53%;
   }
 }
 
@@ -66,7 +64,7 @@
   * {
     @apply border-border;
   }
-  
+
   html {
     scroll-behavior: smooth;
     -webkit-overflow-scrolling: touch;
@@ -78,7 +76,7 @@
     scroll-behavior: smooth;
     -webkit-overflow-scrolling: touch;
   }
-  
+
   body {
     @apply bg-background text-foreground antialiased;
     font-family: 'Inter', sans-serif;
@@ -86,32 +84,32 @@
   }
 
   h1, h2, h3, h4, h5, h6 {
-    font-family: 'Cormorant Garamond', serif;
-    @apply tracking-tight font-medium;
+    font-family: 'Inter', sans-serif;
+    @apply tracking-tight font-bold;
   }
 
   ::selection {
-    background: rgba(184, 134, 11, 0.2);
+    background: rgba(249, 115, 22, 0.2);
   }
 }
 
 @layer components {
   .text-gradient {
-    @apply bg-gradient-to-r from-[#b8860b] to-[#d4af37] bg-clip-text text-transparent;
+    @apply bg-gradient-to-r from-[#f97316] to-[#fb923c] bg-clip-text text-transparent;
   }
-  
+
   .glass {
     background: rgba(255, 255, 255, 0.6);
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
     border: 1px solid rgba(255, 255, 255, 0.3);
   }
-  
+
   [data-theme="dark"] .glass {
-    background: rgba(30, 25, 20, 0.7);
+    background: rgba(20, 20, 20, 0.7);
     border: 1px solid rgba(255, 255, 255, 0.08);
   }
-  
+
   .glass-card {
     background: rgba(255, 255, 255, 0.5);
     backdrop-filter: blur(16px);
@@ -119,9 +117,9 @@
     border: 1px solid rgba(255, 255, 255, 0.4);
     @apply rounded-lg;
   }
-  
+
   [data-theme="dark"] .glass-card {
-    background: rgba(40, 35, 30, 0.6);
+    background: rgba(26, 26, 26, 0.6);
     border: 1px solid rgba(255, 255, 255, 0.06);
   }
 }
@@ -176,10 +174,10 @@
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(184, 134, 11, 0.3);
+  background: rgba(249, 115, 22, 0.3);
   border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(184, 134, 11, 0.5);
+  background: rgba(249, 115, 22, 0.5);
 }

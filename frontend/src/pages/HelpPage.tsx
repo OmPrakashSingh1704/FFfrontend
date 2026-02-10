@@ -62,107 +62,193 @@ export function HelpPage() {
     : faqs
 
   return (
-    <section className="content-section">
-      <header className="content-header">
+    <div style={{ maxWidth: 960, margin: '0 auto' }}>
+      {/* Page Header */}
+      <div className="page-header">
         <div>
-          <h1>Help & Support</h1>
-          <p>Find answers, get in touch, or explore our resources.</p>
-        </div>
-      </header>
-
-      {/* Quick Links */}
-      <div className="help-links-grid">
-        <Link to="/app/chat" className="content-card help-link-card" data-testid="help-link-chat">
-          <MessageSquare size={24} strokeWidth={1.5} />
-          <h3>Live chat</h3>
-          <p>Message our support team directly through the chat.</p>
-        </Link>
-
-        <Link to="/app/settings" className="content-card help-link-card" data-testid="help-link-settings">
-          <Shield size={24} strokeWidth={1.5} />
-          <h3>Settings</h3>
-          <p>Manage your account, notifications, and connected apps.</p>
-        </Link>
-
-        <a
-          href="mailto:support@founderslib.com"
-          className="content-card help-link-card"
-          data-testid="help-link-email"
-        >
-          <Mail size={24} strokeWidth={1.5} />
-          <h3>Email support</h3>
-          <p>Send us a detailed message and we'll respond within 24 hours.</p>
-        </a>
-
-        <div className="content-card help-link-card">
-          <BookOpen size={24} strokeWidth={1.5} />
-          <h3>Documentation</h3>
-          <p>Browse guides, tutorials, and API reference docs.</p>
-          <span className="help-link-badge">Coming soon</span>
+          <h1 className="page-title">Help & Support</h1>
+          <p className="page-description">Find answers, get in touch, or explore our resources.</p>
         </div>
       </div>
 
-      {/* FAQ */}
-      <div className="content-card">
-        <div className="settings-section-header">
-          <HelpCircle size={18} strokeWidth={1.5} />
-          <h2>Frequently asked questions</h2>
-        </div>
+      {/* Quick Links */}
+      <div className="section">
+        <p className="section-label">Quick Links</p>
+        <div className="grid-2">
+          <Link to="/app/chat" className="card" data-testid="help-link-chat" style={{ textDecoration: 'none', color: 'inherit' }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+              <div style={{ width: 36, height: 36, borderRadius: 8, background: 'rgba(249, 115, 22, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <MessageSquare size={18} strokeWidth={1.5} style={{ color: 'var(--gold)' }} />
+              </div>
+              <div>
+                <h3 style={{ fontSize: '0.875rem', fontWeight: 600, marginBottom: 4 }}>Live Chat</h3>
+                <p style={{ fontSize: '0.8125rem', color: 'hsl(var(--muted-foreground))', lineHeight: 1.5 }}>
+                  Message our support team directly through the chat.
+                </p>
+              </div>
+            </div>
+          </Link>
 
-        <div className="help-search">
-          <Search size={16} strokeWidth={1.5} />
-          <input
-            type="text"
-            placeholder="Search questions…"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            data-testid="faq-search"
-          />
-        </div>
+          <Link to="/app/settings" className="card" data-testid="help-link-settings" style={{ textDecoration: 'none', color: 'inherit' }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+              <div style={{ width: 36, height: 36, borderRadius: 8, background: 'rgba(249, 115, 22, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <Shield size={18} strokeWidth={1.5} style={{ color: 'var(--gold)' }} />
+              </div>
+              <div>
+                <h3 style={{ fontSize: '0.875rem', fontWeight: 600, marginBottom: 4 }}>Settings</h3>
+                <p style={{ fontSize: '0.8125rem', color: 'hsl(var(--muted-foreground))', lineHeight: 1.5 }}>
+                  Manage your account, notifications, and connected apps.
+                </p>
+              </div>
+            </div>
+          </Link>
 
-        {filteredFaqs.length === 0 ? (
-          <p className="billing-muted">No matching questions found.</p>
-        ) : (
-          <div className="help-faq-list">
-            {filteredFaqs.map((faq, index) => {
-              const isOpen = openFaq === index
-              return (
-                <div key={index} className="help-faq-item">
-                  <button
-                    type="button"
-                    className="help-faq-question"
-                    data-testid={`faq-item-${index}`}
-                    onClick={() => setOpenFaq(isOpen ? null : index)}
-                  >
-                    <span>{faq.question}</span>
-                    <ChevronDown
-                      size={16}
-                      className={`help-faq-chevron${isOpen ? ' open' : ''}`}
-                    />
-                  </button>
-                  {isOpen && (
-                    <div className="help-faq-answer">
-                      <p>{faq.answer}</p>
-                    </div>
-                  )}
-                </div>
-              )
-            })}
+          <a href="mailto:support@founderslib.com" className="card" data-testid="help-link-email" style={{ textDecoration: 'none', color: 'inherit' }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+              <div style={{ width: 36, height: 36, borderRadius: 8, background: 'rgba(249, 115, 22, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <Mail size={18} strokeWidth={1.5} style={{ color: 'var(--gold)' }} />
+              </div>
+              <div>
+                <h3 style={{ fontSize: '0.875rem', fontWeight: 600, marginBottom: 4 }}>Email Support</h3>
+                <p style={{ fontSize: '0.8125rem', color: 'hsl(var(--muted-foreground))', lineHeight: 1.5 }}>
+                  Send us a detailed message and we'll respond within 24 hours.
+                </p>
+              </div>
+            </div>
+          </a>
+
+          <div className="card" style={{ position: 'relative' }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+              <div style={{ width: 36, height: 36, borderRadius: 8, background: 'rgba(249, 115, 22, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <BookOpen size={18} strokeWidth={1.5} style={{ color: 'var(--gold)' }} />
+              </div>
+              <div>
+                <h3 style={{ fontSize: '0.875rem', fontWeight: 600, marginBottom: 4 }}>Documentation</h3>
+                <p style={{ fontSize: '0.8125rem', color: 'hsl(var(--muted-foreground))', lineHeight: 1.5 }}>
+                  Browse guides, tutorials, and API reference docs.
+                </p>
+              </div>
+            </div>
+            <span className="badge info" style={{ position: 'absolute', top: 12, right: 12 }}>Coming soon</span>
           </div>
-        )}
+        </div>
+      </div>
+
+      {/* FAQ Section */}
+      <div className="section">
+        <div className="card">
+          <div className="card-header">
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <HelpCircle size={16} strokeWidth={1.5} style={{ color: 'var(--gold)' }} />
+              <span className="card-title">Frequently Asked Questions</span>
+            </div>
+          </div>
+
+          {/* Search */}
+          <div style={{ position: 'relative', marginBottom: 16 }}>
+            <Search
+              size={15}
+              strokeWidth={1.5}
+              style={{
+                position: 'absolute',
+                left: 10,
+                top: '50%',
+                transform: 'translateY(-50%)',
+                color: 'hsl(var(--muted-foreground))',
+              }}
+            />
+            <input
+              type="text"
+              className="input"
+              placeholder="Search questions..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              data-testid="faq-search"
+              style={{ paddingLeft: 32 }}
+            />
+          </div>
+
+          {/* FAQ list */}
+          {filteredFaqs.length === 0 ? (
+            <div className="empty-state" style={{ paddingTop: 32, paddingBottom: 32 }}>
+              <Search className="empty-icon" />
+              <p className="empty-title">No matching questions</p>
+              <p className="empty-description">Try adjusting your search terms.</p>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              {filteredFaqs.map((faq, index) => {
+                const isOpen = openFaq === index
+                return (
+                  <div
+                    key={index}
+                    style={{
+                      borderBottom: index < filteredFaqs.length - 1 ? '1px solid hsl(var(--border))' : 'none',
+                    }}
+                  >
+                    <button
+                      type="button"
+                      data-testid={`faq-item-${index}`}
+                      onClick={() => setOpenFaq(isOpen ? null : index)}
+                      style={{
+                        width: '100%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: '14px 0',
+                        background: 'transparent',
+                        border: 'none',
+                        cursor: 'pointer',
+                        color: 'hsl(var(--foreground))',
+                        fontSize: '0.875rem',
+                        fontWeight: 500,
+                        textAlign: 'left',
+                      }}
+                    >
+                      <span>{faq.question}</span>
+                      <ChevronDown
+                        size={16}
+                        strokeWidth={1.5}
+                        style={{
+                          color: 'hsl(var(--muted-foreground))',
+                          transition: 'transform 200ms ease',
+                          transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+                          flexShrink: 0,
+                          marginLeft: 12,
+                        }}
+                      />
+                    </button>
+                    {isOpen && (
+                      <div style={{ paddingBottom: 14 }}>
+                        <p style={{ fontSize: '0.8125rem', color: 'hsl(var(--muted-foreground))', lineHeight: 1.6 }}>
+                          {faq.answer}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Contact CTA */}
-      <div className="content-card help-contact-card">
-        <ExternalLink size={20} strokeWidth={1.5} />
-        <div>
-          <h3>Still need help?</h3>
-          <p>Our team is available Monday through Friday, 9 AM – 6 PM EST.</p>
+      <div className="card" style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
+        <div style={{ width: 40, height: 40, borderRadius: 10, background: 'rgba(249, 115, 22, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+          <ExternalLink size={18} strokeWidth={1.5} style={{ color: 'var(--gold)' }} />
         </div>
-        <a href="mailto:support@founderslib.com" className="btn primary">
+        <div style={{ flex: 1, minWidth: 200 }}>
+          <h3 style={{ fontSize: '0.9375rem', fontWeight: 600, marginBottom: 2 }}>Still need help?</h3>
+          <p style={{ fontSize: '0.8125rem', color: 'hsl(var(--muted-foreground))' }}>
+            Our team is available Monday through Friday, 9 AM - 6 PM EST.
+          </p>
+        </div>
+        <a href="mailto:support@founderslib.com" className="btn-sm primary" style={{ textDecoration: 'none' }}>
+          <Mail size={14} strokeWidth={1.5} />
           Contact support
         </a>
       </div>
-    </section>
+    </div>
   )
 }

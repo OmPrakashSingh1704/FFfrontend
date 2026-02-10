@@ -13,10 +13,10 @@ export function VerifyEmailPage() {
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [cooldown, setCooldown] = useState(0)
-  const inputRef = useRef<HTMLInputElement>(null)
+  const inputRefs = useRef<(HTMLInputElement | null)[]>([])
 
   useEffect(() => {
-    inputRef.current?.focus()
+    inputRefs.current[0]?.focus()
   }, [])
 
   useEffect(() => {
@@ -65,67 +65,114 @@ export function VerifyEmailPage() {
       setCooldown(60)
       setCode('')
       setError('')
+      inputRefs.current[0]?.focus()
     } catch {
       pushToast('Could not resend code. Please try again later.', 'error')
     }
   }
 
-  const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const value = event.target.value.replace(/\D/g, '').slice(0, 6)
-    setCode(value)
+  const handleDigitChange = (index: number, value: string) => {
+    const digit = value.replace(/\D/g, '').slice(-1)
+    const newCode = code.split('')
+    newCode[index] = digit
+    const joined = newCode.join('').slice(0, 6)
+    setCode(joined.padEnd(code.length > joined.length ? code.length : joined.length, ''))
+    setCode(joined)
     if (error) setError('')
+
+    if (digit && index < 5) {
+      inputRefs.current[index + 1]?.focus()
+    }
+  }
+
+  const handleKeyDown = (index: number, event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === 'Backspace' && !code[index] && index > 0) {
+      inputRefs.current[index - 1]?.focus()
+    }
+  }
+
+  const handlePaste = (event: React.ClipboardEvent) => {
+    event.preventDefault()
+    const pasted = event.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6)
+    setCode(pasted)
+    if (error) setError('')
+    const focusIndex = Math.min(pasted.length, 5)
+    inputRefs.current[focusIndex]?.focus()
   }
 
   return (
-    <section className="auth-card" data-testid="verify-email-card">
-      <header className="auth-header">
-        <div className="flex justify-center mb-4">
-          <Mail className="w-10 h-10" style={{ color: 'var(--gold)' }} />
+    <div className="min-h-screen flex items-center justify-center" style={{ background: 'hsl(var(--background))' }}>
+      <section className="card max-w-sm w-full mx-4 p-8" data-testid="verify-email-card">
+        <div className="text-center mb-8">
+          <div className="flex justify-center mb-4">
+            <div
+              className="w-14 h-14 rounded-full flex items-center justify-center"
+              style={{ background: 'rgba(249, 115, 22, 0.1)' }}
+            >
+              <Mail className="w-7 h-7" style={{ color: 'var(--gold)' }} />
+            </div>
+          </div>
+          <h1 className="text-2xl font-semibold tracking-tight" style={{ fontFamily: "'Inter', sans-serif" }}>
+            Check your email
+          </h1>
+          <p className="text-sm mt-2" style={{ color: 'hsl(var(--muted-foreground))' }}>
+            We sent a 6-digit code to{' '}
+            <strong style={{ color: 'var(--gold)' }}>{user?.email}</strong>
+          </p>
         </div>
-        <h1 className="text-gradient">Check your email</h1>
-        <p>
-          We sent a 6-digit code to{' '}
-          <strong>{user?.email}</strong>
+
+        <form onSubmit={handleSubmit} className="space-y-6" data-testid="verify-email-form">
+          {error ? <div className="form-error">{error}</div> : null}
+
+          <div className="flex justify-center gap-2" onPaste={handlePaste} data-testid="otp-input">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <input
+                key={i}
+                ref={(el) => { inputRefs.current[i] = el }}
+                type="text"
+                inputMode="numeric"
+                autoComplete={i === 0 ? 'one-time-code' : 'off'}
+                maxLength={1}
+                value={code[i] || ''}
+                onChange={(event) => handleDigitChange(i, event.target.value)}
+                onKeyDown={(event) => handleKeyDown(i, event)}
+                className="input w-12 h-12 text-center text-lg font-mono rounded-lg"
+                style={{ padding: 0 }}
+              />
+            ))}
+          </div>
+
+          <button
+            className="btn primary w-full"
+            type="submit"
+            disabled={submitting || code.length !== 6}
+            data-testid="verify-submit-btn"
+          >
+            {submitting ? 'Verifying...' : 'Verify email'}
+          </button>
+        </form>
+
+        <p className="text-center text-sm mt-6" style={{ color: 'hsl(var(--muted-foreground))' }}>
+          Didn't get the code?{' '}
+          <button
+            type="button"
+            onClick={handleResend}
+            disabled={cooldown > 0}
+            className="inline-flex items-center gap-1 font-medium transition-colors duration-200"
+            style={{
+              color: cooldown > 0 ? 'hsl(var(--muted-foreground))' : 'var(--gold)',
+              background: 'none',
+              border: 'none',
+              cursor: cooldown > 0 ? 'not-allowed' : 'pointer',
+              opacity: cooldown > 0 ? 0.5 : 1,
+            }}
+            data-testid="resend-otp-btn"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+            {cooldown > 0 ? `Resend in ${cooldown}s` : 'Resend code'}
+          </button>
         </p>
-      </header>
-      <form onSubmit={handleSubmit} className="auth-form" data-testid="verify-email-form">
-        {error ? <div className="form-error">{error}</div> : null}
-        <div className="otp-input-wrapper">
-          <input
-            ref={inputRef}
-            type="text"
-            inputMode="numeric"
-            autoComplete="one-time-code"
-            maxLength={6}
-            value={code}
-            onChange={handleChange}
-            placeholder="000000"
-            className="otp-input"
-            data-testid="otp-input"
-          />
-        </div>
-        <button
-          className="btn primary"
-          type="submit"
-          disabled={submitting || code.length !== 6}
-          data-testid="verify-submit-btn"
-        >
-          {submitting ? 'Verifying...' : 'Verify email'}
-        </button>
-      </form>
-      <p className="auth-footer">
-        Didn't get the code?{' '}
-        <button
-          type="button"
-          onClick={handleResend}
-          disabled={cooldown > 0}
-          className="resend-btn"
-          data-testid="resend-otp-btn"
-        >
-          <RefreshCw className="w-3.5 h-3.5 inline-block mr-1" />
-          {cooldown > 0 ? `Resend in ${cooldown}s` : 'Resend code'}
-        </button>
-      </p>
-    </section>
+      </section>
+    </div>
   )
 }

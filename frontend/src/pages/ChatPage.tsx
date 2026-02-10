@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { Plus, Search, Paperclip, ArrowUp, Phone, X, Bot, LogOut, Pencil, Trash2 } from 'lucide-react'
 import { apiRequest, uploadRequest } from '../lib/api'
 import { normalizeList } from '../lib/pagination'
 import { buildWsUrl } from '../lib/ws'
@@ -47,6 +48,27 @@ const normalizeIncomingMessage = (message: ChatMessage & { conversation_id?: str
   conversation: message.conversation ?? message.conversation_id,
 })
 
+function formatMessageTime(dateStr?: string) {
+  if (!dateStr) return ''
+  return new Date(dateStr).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+}
+
+function formatDateSeparator(dateStr: string) {
+  const date = new Date(dateStr)
+  const today = new Date()
+  const yesterday = new Date(today)
+  yesterday.setDate(yesterday.getDate() - 1)
+
+  if (date.toDateString() === today.toDateString()) return 'Today'
+  if (date.toDateString() === yesterday.toDateString()) return 'Yesterday'
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+}
+
+function getDateKey(dateStr?: string) {
+  if (!dateStr) return ''
+  return new Date(dateStr).toDateString()
+}
+
 export function ChatPage() {
   const { id } = useParams()
   const [searchParams] = useSearchParams()
@@ -87,6 +109,7 @@ export function ChatPage() {
   const [commandsLoading, setCommandsLoading] = useState(false)
   const [commandsOpen, setCommandsOpen] = useState(false)
   const [commandsError, setCommandsError] = useState<string | null>(null)
+  const [sidebarSearch, setSidebarSearch] = useState('')
 
   const scrollRef = useRef<HTMLDivElement | null>(null)
   const typingTimer = useRef<number | null>(null)
@@ -379,7 +402,6 @@ export function ChatPage() {
     const attachment = attachments[0]
     if (!trimmed && !attachment?.url) return
 
-    // Slash command handling — execute via dedicated endpoint
     if (trimmed.startsWith('/')) {
       const commandMatch = resolveCommand(trimmed)
       if (!commandsLoading && !commandsError && !commandMatch) {
@@ -400,7 +422,6 @@ export function ChatPage() {
             body: { content: trimmed, conversation_id: String(activeId) },
           })
 
-          // Display the bot reply message in chat
           if (data.message) {
             setMessages((prev) => {
               if (prev.some((msg) => String(msg.id) === String(data.message!.id))) return prev
@@ -432,7 +453,6 @@ export function ChatPage() {
       }
     }
 
-    // Regular message sending
     setSending(true)
     setError(null)
     try {
@@ -670,87 +690,115 @@ export function ChatPage() {
     }
   }
 
+  const filteredConversations = sidebarSearch
+    ? conversations.filter((c) =>
+        formatConversationName(c).toLowerCase().includes(sidebarSearch.toLowerCase()),
+      )
+    : conversations
+
+  // Build date-separated message groups
+  let lastDateKey = ''
+
   return (
-    <section className="content-section chat-page">
-      <header className="content-header">
-        <div>
-          <h1>Realtime Chat</h1>
-          <p>Build momentum with fast, contextual conversations.</p>
+    <div className="flex flex-col h-[calc(100vh-4rem)]" data-testid="chat-page">
+      {error ? (
+        <div className="px-4 py-2 text-sm" style={{ color: '#ef4444', background: 'rgba(239,68,68,0.08)' }}>
+          {error}
+          <button className="ml-2 underline text-xs" onClick={() => setError(null)}>Dismiss</button>
         </div>
-        <div className="chat-status">
-          <span className={`chat-status-dot ${wsStatus}`} />
-          <span>{wsStatus === 'open' ? 'Live' : 'Offline'}</span>
-        </div>
-      </header>
+      ) : null}
 
-      {loading ? <div className="page-loader">Loading conversations...</div> : null}
-      {error ? <div className="form-error">{error}</div> : null}
+      <div className="flex flex-1 min-h-0 overflow-hidden">
+        {/* Conversation Sidebar */}
+        <aside className="w-72 shrink-0 flex flex-col border-r" style={{ borderColor: 'hsl(var(--border))' }}>
+          <div className="p-3 flex items-center justify-between">
+            <h2 className="text-sm font-semibold">Messages</h2>
+            <div className="flex items-center gap-1">
+              <span className={`status-dot ${wsStatus === 'open' ? 'online' : 'offline'}`} />
+              <button
+                className="btn-sm ghost"
+                type="button"
+                onClick={() => setShowNewConversation(true)}
+                data-testid="new-conversation-btn"
+              >
+                <Plus className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
 
-      <div className="chat-shell">
-        <aside className="chat-sidebar">
-          <div className="chat-sidebar-header">
-            <h2>Conversations</h2>
-            <button className="btn ghost" type="button" onClick={() => setShowNewConversation(true)}>
-              New
-            </button>
+          <div className="px-3 pb-2">
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5" style={{ color: 'hsl(var(--muted-foreground))' }} />
+              <input
+                type="search"
+                className="input pl-8 text-xs"
+                placeholder="Search conversations..."
+                value={sidebarSearch}
+                onChange={(e) => setSidebarSearch(e.target.value)}
+              />
+            </div>
           </div>
-          <div className="chat-search">
-            <input type="search" placeholder="Search people or startups" />
-          </div>
-          <div className="chat-list">
-            {conversations.map((conversation) => {
-              const name = formatConversationName(conversation)
-              const active = String(conversation.id) === String(activeId)
-              return (
-                <button
-                  key={conversation.id}
-                  type="button"
-                  className={`chat-item ${active ? 'active' : ''}`}
-                  onClick={() => navigate(`/app/chat/${conversation.id}`)}
-                >
-                  <div className="chat-avatar">{name.slice(0, 2).toUpperCase()}</div>
-                  <div className="chat-item-body">
-                    <div className="chat-item-title">
-                      <span>{name}</span>
-                      {conversation.unread_count ? <span className="chat-pill">{conversation.unread_count}</span> : null}
-                    </div>
-                    <p>{conversation.last_message_preview || 'No messages yet.'}</p>
-                  </div>
-                </button>
-              )
-            })}
-            {conversations.length === 0 && !loading ? (
-              <div className="chat-empty">
-                <p>No conversations yet.</p>
-                <p>Start a thread with an investor or founder to begin the flow.</p>
+
+          <div className="flex-1 overflow-y-auto">
+            {loading ? (
+              <div className="p-4 text-xs" style={{ color: 'hsl(var(--muted-foreground))' }}>Loading...</div>
+            ) : filteredConversations.length === 0 ? (
+              <div className="p-4 text-center">
+                <p className="text-xs" style={{ color: 'hsl(var(--muted-foreground))' }}>No conversations yet.</p>
               </div>
-            ) : null}
+            ) : (
+              filteredConversations.map((conversation) => {
+                const name = formatConversationName(conversation)
+                const active = String(conversation.id) === String(activeId)
+                return (
+                  <button
+                    key={conversation.id}
+                    type="button"
+                    className={`list-item w-full text-left ${active ? 'active' : ''}`}
+                    onClick={() => navigate(`/app/chat/${conversation.id}`)}
+                  >
+                    <div className="avatar" style={{ width: '2rem', height: '2rem', fontSize: '0.65rem' }}>
+                      {name.slice(0, 2).toUpperCase()}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-sm font-medium truncate">{name}</span>
+                        {conversation.unread_count ? (
+                          <span className="w-2 h-2 rounded-full shrink-0" style={{ background: 'var(--gold)' }} />
+                        ) : null}
+                      </div>
+                      <p className="text-xs truncate mt-0.5" style={{ color: 'hsl(var(--muted-foreground))' }}>
+                        {conversation.last_message_preview || 'No messages'}
+                      </p>
+                    </div>
+                  </button>
+                )
+              })
+            )}
           </div>
         </aside>
 
-        <div className="chat-panel">
-          <header className="chat-panel-header">
-            <div>
-              <h2>{activeConversation ? formatConversationName(activeConversation) : 'Select a chat'}</h2>
-              <span>
-                {activeConversation?.participants?.length ?? activeConversation?.participant_count ?? 0} participant
-                {(activeConversation?.participants?.length ?? activeConversation?.participant_count ?? 0) !== 1 ? 's' : ''}
+        {/* Message Panel */}
+        <div className="flex-1 flex flex-col min-w-0">
+          {/* Panel Header */}
+          <header className="flex items-center justify-between px-4 py-3 border-b shrink-0" style={{ borderColor: 'hsl(var(--border))' }}>
+            <div className="min-w-0">
+              <h2 className="text-sm font-semibold truncate">{activeConversation ? formatConversationName(activeConversation) : 'Select a chat'}</h2>
+              <span className="text-xs" style={{ color: 'hsl(var(--muted-foreground))' }}>
+                {activeConversation?.participants?.length ?? activeConversation?.participant_count ?? 0} participant{(activeConversation?.participants?.length ?? activeConversation?.participant_count ?? 0) !== 1 ? 's' : ''}
               </span>
             </div>
-            <div className="chat-panel-actions">
-              <button className="btn ghost" type="button">
-                Archive
-              </button>
-              <button className="btn ghost" type="button" onClick={() => setShowBotModal(true)}>
-                Add bot
+            <div className="flex items-center gap-1">
+              <button className="btn-sm ghost" type="button" onClick={() => setShowBotModal(true)} title="Add bot">
+                <Bot className="w-3.5 h-3.5" />
               </button>
               {activeConversation ? (
-                <button className="btn ghost" type="button" onClick={() => void handleLeaveConversation()}>
-                  Leave
+                <button className="btn-sm ghost" type="button" onClick={() => void handleLeaveConversation()} title="Leave">
+                  <LogOut className="w-3.5 h-3.5" />
                 </button>
               ) : null}
               <button
-                className="btn primary"
+                className="btn-sm primary"
                 type="button"
                 onClick={() => {
                   if (activeConversation?.id) {
@@ -760,112 +808,209 @@ export function ChatPage() {
                   }
                 }}
               >
-                Start call
+                <Phone className="w-3.5 h-3.5" /> Call
               </button>
             </div>
           </header>
 
-          <div className="chat-messages">
-            {messages.map((message) => {
+          {/* Messages Area */}
+          <div className="flex-1 overflow-y-auto px-4 py-3">
+            {messages.map((message, idx) => {
               const isMe = String(message.sender_id ?? '') === String(user?.id ?? '')
               const senderLabel = message.sender_name || 'Unknown'
               const reactionSummary = buildReactionSummary(message)
               const userReactions = getUserReactions(message)
+              const prevMessage = messages[idx - 1]
+              const sameSender = prevMessage && String(prevMessage.sender_id) === String(message.sender_id)
+              const dateKey = getDateKey(message.created_at)
+              const showDateSep = dateKey !== lastDateKey
+              if (showDateSep) lastDateKey = dateKey
+
               return (
-                <div key={message.id} className={`chat-message ${isMe ? 'mine' : ''}`}>
-                  <div className="chat-message-meta">
-                    <span>{isMe ? 'You' : senderLabel}</span>
-                    <span>{message.created_at ? new Date(message.created_at).toLocaleTimeString() : ''}</span>
-                  </div>
-                  <div className="chat-message-bubble">
-                    {editingId === message.id ? (
-                      <div className="chat-edit">
-                        <textarea
-                          value={editingContent}
-                          onChange={(event) => setEditingContent(event.target.value)}
-                          rows={2}
-                        />
-                        <div className="chat-edit-actions">
-                          <button className="btn ghost" type="button" onClick={() => setEditingId(null)}>
-                            Cancel
-                          </button>
-                          <button className="btn primary" type="button" onClick={() => void handleEditMessage()}>
-                            Save
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <p>{message.content}</p>
-                    )}
-                    {message.attachment_url ? (
-                      <div className="chat-attachments">
-                        <a href={message.attachment_url} className="chat-attachment" target="_blank" rel="noreferrer">
-                          {message.attachment_name || 'Attachment'}
-                        </a>
-                      </div>
-                    ) : null}
-                    <div className="chat-reactions">
-                      {Object.entries(reactionSummary).map(([emoji, count]) => (
-                        <button
-                          key={emoji}
-                          type="button"
-                          className={`chat-reaction-btn ${userReactions.includes(emoji) ? 'active' : ''}`}
-                          onClick={() =>
-                            void handleReaction(
-                              message.id,
-                              emoji,
-                              userReactions.includes(emoji),
-                            )
-                          }
-                        >
-                          {emoji} {count}
-                        </button>
-                      ))}
-                      {['👍', '🔥', '🎯'].map((emoji) => (
-                        <button
-                          key={emoji}
-                          type="button"
-                          className="chat-reaction-btn"
-                          onClick={() =>
-                            void handleReaction(
-                              message.id,
-                              emoji,
-                              userReactions.includes(emoji),
-                            )
-                          }
-                        >
-                          {emoji}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  {isMe ? (
-                    <div className="chat-message-actions">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setEditingId(message.id)
-                          setEditingContent(message.content ?? '')
-                        }}
-                      >
-                        Edit
-                      </button>
-                      <button type="button" onClick={() => void handleDeleteMessage(message.id)}>
-                        Delete
-                      </button>
+                <div key={message.id}>
+                  {/* Date separator */}
+                  {showDateSep && message.created_at ? (
+                    <div className="flex items-center gap-3 my-4">
+                      <div className="flex-1 h-px" style={{ background: 'hsl(var(--border))' }} />
+                      <span className="text-xs font-medium" style={{ color: 'hsl(var(--muted-foreground))' }}>
+                        {formatDateSeparator(message.created_at)}
+                      </span>
+                      <div className="flex-1 h-px" style={{ background: 'hsl(var(--border))' }} />
                     </div>
                   ) : null}
+
+                  {/* Message */}
+                  <div className="group flex gap-3 py-1 hover:bg-[hsl(var(--muted)/0.3)] rounded-md px-2 -mx-2 transition-colors">
+                    {/* Avatar or spacer */}
+                    {sameSender && !showDateSep ? (
+                      <div className="w-8 shrink-0" />
+                    ) : (
+                      <div className="avatar shrink-0 mt-0.5" style={{ width: '2rem', height: '2rem', fontSize: '0.65rem' }}>
+                        {(isMe ? (user?.full_name || 'Y') : senderLabel).slice(0, 2).toUpperCase()}
+                      </div>
+                    )}
+
+                    <div className="flex-1 min-w-0">
+                      {/* Name + time (only for first message in a group) */}
+                      {(!sameSender || showDateSep) && (
+                        <div className="flex items-center gap-2 mb-0.5">
+                          <span className="text-sm font-medium">{isMe ? 'You' : senderLabel}</span>
+                          <span className="text-xs" style={{ color: 'hsl(var(--muted-foreground))' }}>
+                            {formatMessageTime(message.created_at)}
+                          </span>
+                        </div>
+                      )}
+
+                      {/* Content */}
+                      {editingId === message.id ? (
+                        <div className="mt-1">
+                          <textarea
+                            className="textarea text-sm"
+                            value={editingContent}
+                            onChange={(event) => setEditingContent(event.target.value)}
+                            rows={2}
+                          />
+                          <div className="flex gap-2 mt-1">
+                            <button className="btn-sm ghost" type="button" onClick={() => setEditingId(null)}>Cancel</button>
+                            <button className="btn-sm primary" type="button" onClick={() => void handleEditMessage()}>Save</button>
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="text-sm whitespace-pre-wrap break-words">{message.content}</p>
+                      )}
+
+                      {/* Attachment */}
+                      {message.attachment_url ? (
+                        <a
+                          href={message.attachment_url}
+                          className="inline-flex items-center gap-1.5 mt-1 text-xs px-2 py-1 rounded-md"
+                          style={{ background: 'hsl(var(--muted))', color: 'var(--gold)' }}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          <Paperclip className="w-3 h-3" />
+                          {message.attachment_name || 'Attachment'}
+                        </a>
+                      ) : null}
+
+                      {/* Reactions */}
+                      {(Object.keys(reactionSummary).length > 0) && (
+                        <div className="flex gap-1 mt-1 flex-wrap">
+                          {Object.entries(reactionSummary).map(([emoji, count]) => (
+                            <button
+                              key={emoji}
+                              type="button"
+                              className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-xs transition-colors"
+                              style={{
+                                background: userReactions.includes(emoji) ? 'rgba(249,115,22,0.15)' : 'hsl(var(--muted))',
+                                color: userReactions.includes(emoji) ? 'var(--gold)' : 'hsl(var(--foreground))',
+                              }}
+                              onClick={() => void handleReaction(message.id, emoji, userReactions.includes(emoji))}
+                            >
+                              {emoji} {count}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Quick react + actions (visible on hover) */}
+                      <div className="flex gap-1 mt-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                        {['👍', '🔥', '🎯'].map((emoji) => (
+                          <button
+                            key={emoji}
+                            type="button"
+                            className="text-xs px-1 py-0.5 rounded hover:bg-[hsl(var(--muted))] transition-colors"
+                            onClick={() => void handleReaction(message.id, emoji, userReactions.includes(emoji))}
+                          >
+                            {emoji}
+                          </button>
+                        ))}
+                        {isMe && editingId !== message.id ? (
+                          <>
+                            <button
+                              type="button"
+                              className="text-xs px-1 py-0.5 rounded hover:bg-[hsl(var(--muted))] transition-colors"
+                              onClick={() => { setEditingId(message.id); setEditingContent(message.content ?? '') }}
+                            >
+                              <Pencil className="w-3 h-3" />
+                            </button>
+                            <button
+                              type="button"
+                              className="text-xs px-1 py-0.5 rounded hover:bg-[hsl(var(--muted))] transition-colors"
+                              onClick={() => void handleDeleteMessage(message.id)}
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </button>
+                          </>
+                        ) : null}
+                      </div>
+                    </div>
+                  </div>
                 </div>
               )
             })}
-            {typingLabel ? <div className="chat-typing">{typingLabel} typing...</div> : null}
+
+            {typingLabel ? (
+              <div className="flex items-center gap-2 py-2 px-2 text-xs" style={{ color: 'hsl(var(--muted-foreground))' }}>
+                <span className="inline-flex gap-0.5">
+                  <span className="w-1 h-1 rounded-full animate-pulse" style={{ background: 'var(--gold)' }} />
+                  <span className="w-1 h-1 rounded-full animate-pulse" style={{ background: 'var(--gold)', animationDelay: '0.2s' }} />
+                  <span className="w-1 h-1 rounded-full animate-pulse" style={{ background: 'var(--gold)', animationDelay: '0.4s' }} />
+                </span>
+                {typingLabel} is typing...
+              </div>
+            ) : null}
             <div ref={scrollRef} />
           </div>
 
-          <div className="chat-composer">
-            <div className="chat-composer-tools">
-              <label className="btn ghost" htmlFor="chat-attachment">
-                Attach
+          {/* Composer */}
+          <div className="border-t px-4 py-3 shrink-0" style={{ borderColor: 'hsl(var(--border))' }}>
+            {attachments.length > 0 && (
+              <div className="flex items-center gap-2 mb-2 text-xs" style={{ color: 'hsl(var(--muted-foreground))' }}>
+                <Paperclip className="w-3 h-3" />
+                {attachments.map((item) => (
+                  <span key={item.url ?? item.name}>{item.name || 'Attachment ready'}</span>
+                ))}
+                <button className="ml-1" onClick={() => setAttachments([])}>
+                  <X className="w-3 h-3" />
+                </button>
+              </div>
+            )}
+
+            {commandsOpen && (
+              <div className="mb-2 rounded-lg overflow-hidden border" style={{ borderColor: 'hsl(var(--border))', background: 'hsl(var(--card))' }}>
+                {commandsLoading ? <div className="px-3 py-2 text-xs" style={{ color: 'hsl(var(--muted-foreground))' }}>Loading commands...</div> : null}
+                {!commandsLoading && filteredCommands.length === 0 ? (
+                  <div className="px-3 py-2 text-xs" style={{ color: 'hsl(var(--muted-foreground))' }}>No matching commands</div>
+                ) : null}
+                {filteredCommands.map((cmd) => (
+                  <button
+                    key={cmd.name}
+                    type="button"
+                    className="flex items-center justify-between w-full px-3 py-2 text-sm hover:bg-[hsl(var(--muted)/0.5)] transition-colors"
+                    onMouseDown={(event) => event.preventDefault()}
+                    onClick={() => {
+                      setMessageDraft(`/${cmd.name} `)
+                      setCommandsOpen(false)
+                    }}
+                    data-testid={`command-${cmd.name}`}
+                  >
+                    <div>
+                      <span className="font-medium">/{cmd.name}</span>
+                      {cmd.description ? (
+                        <span className="ml-2 text-xs" style={{ color: 'hsl(var(--muted-foreground))' }}>{cmd.description}</span>
+                      ) : null}
+                    </div>
+                    <span className="tag">{cmd.bot_name || 'Bot'}</span>
+                  </button>
+                ))}
+                {commandsError ? <div className="px-3 py-2 text-xs" style={{ color: '#ef4444' }}>{commandsError}</div> : null}
+              </div>
+            )}
+
+            <div className="flex items-end gap-2">
+              <label className="shrink-0 cursor-pointer p-2 rounded-lg hover:bg-[hsl(var(--muted))] transition-colors" htmlFor="chat-attachment">
+                <Paperclip className="w-4 h-4" style={{ color: 'hsl(var(--muted-foreground))' }} />
               </label>
               <input
                 id="chat-attachment"
@@ -876,154 +1021,128 @@ export function ChatPage() {
                   if (file) void handleUpload(file)
                 }}
               />
-              {attachments.length ? (
-                <div className="chat-attachment-preview">
-                  {attachments.map((item) => (
-                    <span key={item.url ?? item.name}>{item.name || 'Attachment ready'}</span>
-                  ))}
-                </div>
-              ) : null}
+              <textarea
+                className="textarea flex-1 text-sm min-h-[40px] max-h-32"
+                style={{ resize: 'none' }}
+                value={messageDraft}
+                onChange={(event) => handleTyping(event.target.value)}
+                onFocus={() => {
+                  if (messageDraft.trim().startsWith('/')) {
+                    setCommandsOpen(true)
+                  }
+                }}
+                onBlur={() => {
+                  window.setTimeout(() => setCommandsOpen(false), 150)
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' && !event.shiftKey) {
+                    event.preventDefault()
+                    void handleSend()
+                  }
+                }}
+                placeholder="Write a message..."
+                rows={1}
+              />
+              <button
+                className="shrink-0 w-8 h-8 rounded-lg flex items-center justify-center transition-colors"
+                style={{
+                  background: messageDraft.trim() || attachments.length ? 'var(--gold)' : 'hsl(var(--muted))',
+                  color: messageDraft.trim() || attachments.length ? 'white' : 'hsl(var(--muted-foreground))',
+                }}
+                type="button"
+                onClick={() => void handleSend()}
+                disabled={sending}
+              >
+                <ArrowUp className="w-4 h-4" />
+              </button>
             </div>
-          <div className="chat-composer-input">
-            <textarea
-              value={messageDraft}
-              onChange={(event) => handleTyping(event.target.value)}
-              onFocus={() => {
-                if (messageDraft.trim().startsWith('/')) {
-                  setCommandsOpen(true)
-                }
-              }}
-              onBlur={() => {
-                window.setTimeout(() => setCommandsOpen(false), 150)
-              }}
-              placeholder="Write a message..."
-              rows={3}
-            />
-            {commandsOpen ? (
-              <div className="chat-command-list">
-                {commandsLoading ? <div className="chat-command-item muted">Loading commands...</div> : null}
-                {!commandsLoading && filteredCommands.length === 0 ? (
-                  <div className="chat-command-item muted">No matching commands</div>
-                ) : null}
-                {filteredCommands.map((cmd) => (
-                  <button
-                    key={cmd.name}
-                    type="button"
-                    className="chat-command-item"
-                    onMouseDown={(event) => event.preventDefault()}
-                    onClick={() => {
-                      setMessageDraft(`/${cmd.name} `)
-                      setCommandsOpen(false)
-                    }}
-                    data-testid={`command-${cmd.name}`}
-                  >
-                    <div className="chat-command-info">
-                      <span className="chat-command-name">/{cmd.name}</span>
-                      {cmd.description ? (
-                        <span className="chat-command-desc">{cmd.description}</span>
-                      ) : null}
-                    </div>
-                    <span className="chat-command-meta">{cmd.bot_name || 'Bot'}</span>
-                  </button>
-                ))}
-                {commandsError ? <div className="chat-command-item muted">{commandsError}</div> : null}
-              </div>
-            ) : null}
-            <button className="btn primary" type="button" onClick={() => void handleSend()} disabled={sending}>
-              {sending ? 'Sending...' : 'Send'}
-            </button>
-          </div>
           </div>
         </div>
       </div>
+
+      {/* New Conversation Modal */}
       {showNewConversation ? (
-        <div className="chat-modal-overlay" role="dialog" aria-modal="true">
-          <div className="chat-modal">
-            <header>
-              <h3>New conversation</h3>
-              <button type="button" onClick={() => setShowNewConversation(false)}>
-                ✕
+        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.5)' }} role="dialog" aria-modal="true">
+          <div className="card w-full max-w-md mx-4">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-base font-semibold">New conversation</h3>
+              <button type="button" onClick={() => setShowNewConversation(false)} className="p-1 rounded hover:bg-[hsl(var(--muted))]">
+                <X className="w-4 h-4" />
               </button>
-            </header>
-            <label className="chat-field">
-              Title (optional)
-              <input value={newTitle} onChange={(event) => setNewTitle(event.target.value)} placeholder="Fundraising sync" />
-            </label>
-            <label className="chat-field">
-              Find people
-              <div className="chat-user-search">
+            </div>
+            <div className="form-group">
+              <label>Title (optional)</label>
+              <input className="input" value={newTitle} onChange={(event) => setNewTitle(event.target.value)} placeholder="Fundraising sync" />
+            </div>
+            <div className="form-group">
+              <label>Find people</label>
+              <div className="flex gap-2">
                 <input
+                  className="input flex-1"
                   value={userQuery}
                   onChange={(event) => setUserQuery(event.target.value)}
                   placeholder="Search by name or email"
                 />
-                <button className="btn ghost" type="button" onClick={() => void handleSearchUsers()}>
-                  {userLoading ? 'Searching...' : 'Search'}
+                <button className="btn-sm ghost" type="button" onClick={() => void handleSearchUsers()}>
+                  {userLoading ? '...' : 'Search'}
                 </button>
               </div>
-            </label>
-            <div className="chat-user-results">
-              {userResults.length === 0 && userQuery ? <p>No matches found.</p> : null}
+            </div>
+            <div className="max-h-40 overflow-y-auto mb-3">
+              {userResults.length === 0 && userQuery ? <p className="text-xs" style={{ color: 'hsl(var(--muted-foreground))' }}>No matches found.</p> : null}
               {userResults.map((candidate) => (
                 <button
                   key={candidate.id}
                   type="button"
-                  className={`chat-user-item ${selectedUsers.includes(candidate.id) ? 'selected' : ''}`}
+                  className={`list-item w-full ${selectedUsers.includes(candidate.id) ? 'active' : ''}`}
                   onClick={() => toggleSelectedUser(candidate.id)}
                 >
-                  <span className="chat-user-avatar">
+                  <div className="avatar" style={{ width: '1.5rem', height: '1.5rem', fontSize: '0.55rem' }}>
                     {(candidate.full_name || candidate.email || 'U').slice(0, 2).toUpperCase()}
-                  </span>
-                  <span className="chat-user-meta">
-                    <strong>{candidate.full_name || candidate.email}</strong>
-                    <small>{candidate.email}</small>
-                  </span>
-                  <span className={`chat-user-status ${candidate.is_online ? 'online' : 'offline'}`}>
-                    {candidate.is_online ? 'Online' : 'Offline'}
-                  </span>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <span className="text-sm font-medium truncate block">{candidate.full_name || candidate.email}</span>
+                    <span className="text-xs" style={{ color: 'hsl(var(--muted-foreground))' }}>{candidate.email}</span>
+                  </div>
+                  <span className={`status-dot ${candidate.is_online ? 'online' : 'offline'}`} />
                 </button>
               ))}
             </div>
-            <div className="chat-user-selected">
-              {selectedUsers.length ? (
-                <span>{selectedUsers.length} selected</span>
-              ) : (
-                <span>Or paste participant IDs below</span>
-              )}
+            <div className="text-xs mb-3" style={{ color: 'hsl(var(--muted-foreground))' }}>
+              {selectedUsers.length ? `${selectedUsers.length} selected` : 'Or paste participant IDs below'}
             </div>
-            <label className="chat-field">
-              Participant IDs (comma-separated)
+            <div className="form-group">
+              <label>Participant IDs (comma-separated)</label>
               <input
+                className="input"
                 value={newParticipants}
                 onChange={(event) => setNewParticipants(event.target.value)}
                 placeholder="12, 44"
               />
-            </label>
-            <div className="chat-modal-actions">
-              <button type="button" className="btn ghost" onClick={() => setShowNewConversation(false)}>
-                Cancel
-              </button>
-              <button type="button" className="btn primary" onClick={() => void handleCreateConversation()}>
-                Create
-              </button>
+            </div>
+            <div className="flex justify-end gap-2 mt-2">
+              <button type="button" className="btn-sm ghost" onClick={() => setShowNewConversation(false)}>Cancel</button>
+              <button type="button" className="btn-sm primary" onClick={() => void handleCreateConversation()}>Create</button>
             </div>
           </div>
         </div>
       ) : null}
 
+      {/* Bot Modal */}
       {showBotModal ? (
-        <div className="chat-modal-overlay" role="dialog" aria-modal="true">
-          <div className="chat-modal">
-            <header>
-              <h3>Add a bot</h3>
-              <button type="button" onClick={() => setShowBotModal(false)}>
-                ✕
+        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.5)' }} role="dialog" aria-modal="true">
+          <div className="card w-full max-w-sm mx-4">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-base font-semibold">Add a bot</h3>
+              <button type="button" onClick={() => setShowBotModal(false)} className="p-1 rounded hover:bg-[hsl(var(--muted))]">
+                <X className="w-4 h-4" />
               </button>
-            </header>
-            {botError ? <div className="form-error">{botError}</div> : null}
-            <label className="chat-field">
-              Select bot
+            </div>
+            {botError ? <div className="text-xs mb-2" style={{ color: '#ef4444' }}>{botError}</div> : null}
+            <div className="form-group">
+              <label>Select bot</label>
               <select
+                className="select"
                 value={selectedBotId}
                 onChange={(event) => setSelectedBotId(event.target.value)}
                 disabled={botLoading}
@@ -1036,23 +1155,19 @@ export function ChatPage() {
                   </option>
                 ))}
               </select>
-            </label>
+            </div>
             {selectedBotId ? (
-              <div className="text-xs text-slate-500">
+              <p className="text-xs mb-3" style={{ color: 'hsl(var(--muted-foreground))' }}>
                 {bots.find((bot) => bot.id === selectedBotId)?.description || 'No description provided.'}
-              </div>
+              </p>
             ) : null}
-            <div className="chat-modal-actions">
-              <button className="btn ghost" type="button" onClick={() => setShowBotModal(false)}>
-                Cancel
-              </button>
-              <button className="btn primary" type="button" onClick={() => void handleAddBot()} disabled={botLoading}>
-                Add bot
-              </button>
+            <div className="flex justify-end gap-2">
+              <button className="btn-sm ghost" type="button" onClick={() => setShowBotModal(false)}>Cancel</button>
+              <button className="btn-sm primary" type="button" onClick={() => void handleAddBot()} disabled={botLoading}>Add bot</button>
             </div>
           </div>
         </div>
       ) : null}
-    </section>
+    </div>
   )
 }

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { BarChart3, Activity, Users, MessageSquare, Zap, TrendingUp } from 'lucide-react'
+import { BarChart3, Activity, Users, MessageSquare, Zap, TrendingUp, ArrowUp, ArrowDown, Loader2 } from 'lucide-react'
 import { apiRequest } from '../lib/api'
 
 type OverviewMetrics = {
@@ -81,10 +81,10 @@ const metricOptions = [
 ]
 
 const formatNumber = (value?: number | null) =>
-  value === undefined || value === null ? '—' : value.toLocaleString()
+  value === undefined || value === null ? '\u2014' : value.toLocaleString()
 
 const formatChange = (value?: number | null) => {
-  if (value === null || value === undefined) return '—'
+  if (value === null || value === undefined) return '\u2014'
   const sign = value > 0 ? '+' : ''
   return `${sign}${value}%`
 }
@@ -132,20 +132,43 @@ function SeriesCard({ title, series }: { title: string; series: SeriesPoint[] })
   const maxValue = useMemo(() => Math.max(1, ...series.map((point) => point.value)), [series])
 
   return (
-    <div className="series-card">
-      <header>
-        <h3>{title}</h3>
-        <span>{series.length ? `${series.length} days` : 'No data yet'}</span>
-      </header>
+    <div className="card">
+      <div className="card-header">
+        <span className="card-title">{title}</span>
+        <span className="badge info">{series.length ? `${series.length} days` : 'No data yet'}</span>
+      </div>
       <Sparkline series={series.slice(-20)} />
-      <div className="series-bars">
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem', marginTop: '0.75rem' }}>
         {series.slice(-10).map((point) => (
-          <div key={point.date} className="series-bar">
-            <span className="series-label">{point.date}</span>
-            <div className="series-track">
-              <div className="series-fill" style={{ width: `${(point.value / maxValue) * 100}%` }} />
+          <div key={point.date} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <span style={{ fontSize: '0.6875rem', color: 'hsl(var(--muted-foreground))', width: '5rem', flexShrink: 0 }}>
+              {point.date}
+            </span>
+            <div style={{
+              flex: 1,
+              height: '0.375rem',
+              borderRadius: '0.25rem',
+              background: 'hsl(var(--muted))',
+              overflow: 'hidden',
+            }}>
+              <div style={{
+                height: '100%',
+                borderRadius: '0.25rem',
+                background: 'var(--gold)',
+                width: `${(point.value / maxValue) * 100}%`,
+                transition: 'width 0.3s ease',
+              }} />
             </div>
-            <span className="series-value">{formatNumber(point.value)}</span>
+            <span style={{
+              fontSize: '0.75rem',
+              fontWeight: 500,
+              fontFamily: "'JetBrains Mono', monospace",
+              width: '3rem',
+              textAlign: 'right',
+              flexShrink: 0,
+            }}>
+              {formatNumber(point.value)}
+            </span>
           </div>
         ))}
       </div>
@@ -229,181 +252,360 @@ export function AnalyticsPage() {
   }, [metric])
 
   return (
-    <section className="content-section analytics-page" data-testid="analytics-page">
-      <header className="content-header">
+    <div style={{ padding: '1.5rem' }} data-testid="analytics-page">
+      {/* Page Header with metric selector */}
+      <div className="page-header">
         <div>
-          <div className="flex items-center gap-2 mb-2">
-            <BarChart3 className="w-5 h-5 text-cyan-400" />
-            <span className="text-xs uppercase tracking-wider text-cyan-400">Insights</span>
-          </div>
-          <h1>Analytics</h1>
-          <p>Admin metrics across growth, engagement, and system health.</p>
+          <h1 className="page-title">Analytics</h1>
+          <p className="page-description">Admin metrics across growth, engagement, and system health.</p>
         </div>
-        <div className="analytics-controls">
-          <label>
-            Metric focus
-            <select 
-              value={metric} 
-              onChange={(event) => setMetric(event.target.value)}
-              data-testid="metric-select"
-            >
-              {metricOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </label>
+        <select
+          className="select"
+          style={{ width: 'auto', minWidth: '12rem' }}
+          value={metric}
+          onChange={(event) => setMetric(event.target.value)}
+          data-testid="metric-select"
+        >
+          {metricOptions.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {/* Loading */}
+      {loading && (
+        <div className="empty-state">
+          <Loader2 style={{ width: 24, height: 24, animation: 'spin 1s linear infinite' }} />
+          <p className="empty-description">Loading analytics...</p>
         </div>
-      </header>
+      )}
 
-      {loading ? <div className="page-loader">Loading analytics...</div> : null}
-      {error ? <div className="form-error">{error}</div> : null}
+      {/* Error */}
+      {error && (
+        <div className="card" style={{ borderColor: '#ef4444', marginBottom: '1.5rem' }}>
+          <p style={{ color: '#ef4444', fontSize: '0.875rem' }}>{error}</p>
+        </div>
+      )}
 
-      {!loading && !error ? (
+      {!loading && !error && (
         <>
-          <div className="analytics-grid" data-testid="metrics-grid">
-            <div className="metric-card">
-              <div className="flex items-center gap-2">
-                <Users className="w-4 h-4 text-cyan-400" />
-                <span className="metric-label">DAU</span>
+          {/* Overview Metrics - 6 stat cards in grid-3 (2 rows) */}
+          <div className="section">
+            <span className="section-label">Overview</span>
+            <div className="grid-3" data-testid="metrics-grid">
+              <div className="stat-card">
+                <div className="stat-header">
+                  <span className="stat-label">DAU</span>
+                  <div className="stat-icon">
+                    <Users style={{ width: 20, height: 20 }} strokeWidth={1.5} />
+                  </div>
+                </div>
+                <span className="stat-value">{formatNumber(overview?.current?.dau)}</span>
+                <span style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))' }}>
+                  Avg: {formatNumber(overview?.averages?.daily_active_users)}
+                </span>
               </div>
-              <span className="metric-value">{formatNumber(overview?.current?.dau)}</span>
-              <span className="metric-sub">Avg: {formatNumber(overview?.averages?.daily_active_users)}</span>
-            </div>
-            <div className="metric-card">
-              <div className="flex items-center gap-2">
-                <Activity className="w-4 h-4 text-violet-400" />
-                <span className="metric-label">WAU</span>
-              </div>
-              <span className="metric-value">{formatNumber(overview?.current?.wau)}</span>
-              <span className="metric-sub">MAU {formatNumber(overview?.current?.mau)}</span>
-            </div>
-            <div className="metric-card">
-              <div className="flex items-center gap-2">
-                <MessageSquare className="w-4 h-4 text-emerald-400" />
-                <span className="metric-label">Messages</span>
-              </div>
-              <span className="metric-value">{formatNumber(overview?.totals?.messages)}</span>
-              <span className="metric-sub">{overview?.period_days ?? 0} day total</span>
-            </div>
-            <div className="metric-card">
-              <div className="flex items-center gap-2">
-                <Users className="w-4 h-4 text-amber-400" />
-                <span className="metric-label">New users</span>
-              </div>
-              <span className="metric-value">{formatNumber(overview?.totals?.new_users)}</span>
-              <span className="metric-sub">{overview?.period_days ?? 0} day total</span>
-            </div>
-            <div className="metric-card">
-              <div className="flex items-center gap-2">
-                <MessageSquare className="w-4 h-4 text-pink-400" />
-                <span className="metric-label">Conversations</span>
-              </div>
-              <span className="metric-value">{formatNumber(overview?.totals?.conversations)}</span>
-              <span className="metric-sub">Created in period</span>
-            </div>
-            <div className="metric-card">
-              <div className="flex items-center gap-2">
-                <Zap className="w-4 h-4 text-cyan-400" />
-                <span className="metric-label">Intros</span>
-              </div>
-              <span className="metric-value">{formatNumber(overview?.totals?.intros)}</span>
-              <span className="metric-sub">Requested in period</span>
-            </div>
-          </div>
 
-          <div className="analytics-panels" data-testid="series-panels">
-            <SeriesCard title="New users (last 10 days)" series={userGrowth?.new_users_series ?? []} />
-            <SeriesCard title="Daily active users (last 10 days)" series={userGrowth?.dau_series ?? []} />
-          </div>
-
-          <div className="analytics-grid">
-            <div className="metric-card">
-              <div className="flex items-center gap-2">
-                <TrendingUp className="w-4 h-4 text-cyan-400" />
-                <span className="metric-label">Engagement</span>
+              <div className="stat-card">
+                <div className="stat-header">
+                  <span className="stat-label">WAU</span>
+                  <div className="stat-icon">
+                    <Activity style={{ width: 20, height: 20 }} strokeWidth={1.5} />
+                  </div>
+                </div>
+                <span className="stat-value">{formatNumber(overview?.current?.wau)}</span>
+                <span style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))' }}>
+                  MAU: {formatNumber(overview?.current?.mau)}
+                </span>
               </div>
-              <span className="metric-value">{formatNumber(engagement?.messages_sent)}</span>
-              <span className="metric-sub">Messages sent</span>
-            </div>
-            <div className="metric-card">
-              <span className="metric-label">Reactions</span>
-              <span className="metric-value">{formatNumber(engagement?.reactions_added)}</span>
-              <span className="metric-sub">Added in period</span>
-            </div>
-            <div className="metric-card">
-              <span className="metric-label">Feed posts</span>
-              <span className="metric-value">{formatNumber(engagement?.feed_posts)}</span>
-              <span className="metric-sub">Likes {formatNumber(engagement?.feed_likes)}</span>
-            </div>
-            <div className="metric-card">
-              <span className="metric-label">Avg messages/user</span>
-              <span className="metric-value">{formatNumber(engagement?.avg_messages_per_user)}</span>
-              <span className="metric-sub">Per day average</span>
-            </div>
-          </div>
 
-          <div className="analytics-panels">
-            <div className="metric-card metric-wide">
-              <div className="flex items-center gap-2">
-                <Activity className="w-4 h-4 text-emerald-400" />
-                <span className="metric-label">Live now</span>
+              <div className="stat-card">
+                <div className="stat-header">
+                  <span className="stat-label">Messages</span>
+                  <div className="stat-icon">
+                    <MessageSquare style={{ width: 20, height: 20 }} strokeWidth={1.5} />
+                  </div>
+                </div>
+                <span className="stat-value">{formatNumber(overview?.totals?.messages)}</span>
+                <span style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))' }}>
+                  {overview?.period_days ?? 0} day total
+                </span>
               </div>
-              <span className="metric-value">{formatNumber(realTime?.active_users_last_hour)}</span>
-              <span className="metric-sub">
-                Messages today {formatNumber(realTime?.messages_today)} · Updated{' '}
-                {realTime?.timestamp ? new Date(realTime.timestamp).toLocaleTimeString() : '—'}
-              </span>
-            </div>
-            <div className="series-card">
-              <header>
-                <h3>Weekly comparison</h3>
-                <span>{comparison?.period_days ?? 0} day window</span>
-              </header>
-              <div className="comparison-grid">
-                {comparison?.metrics
-                  ? Object.entries(comparison.metrics).map(([key, value]) => (
-                      <div key={key} className="comparison-card">
-                        <span>{key.replace('_', ' ')}</span>
-                        <strong>{formatNumber(value.current)}</strong>
-                        <em className={value.change_pct && value.change_pct < 0 ? 'trend down' : 'trend up'}>
-                          {formatChange(value.change_pct)}
-                        </em>
-                      </div>
-                    ))
-                  : null}
+
+              <div className="stat-card">
+                <div className="stat-header">
+                  <span className="stat-label">New Users</span>
+                  <div className="stat-icon">
+                    <Users style={{ width: 20, height: 20 }} strokeWidth={1.5} />
+                  </div>
+                </div>
+                <span className="stat-value">{formatNumber(overview?.totals?.new_users)}</span>
+                <span style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))' }}>
+                  {overview?.period_days ?? 0} day total
+                </span>
+              </div>
+
+              <div className="stat-card">
+                <div className="stat-header">
+                  <span className="stat-label">Conversations</span>
+                  <div className="stat-icon">
+                    <MessageSquare style={{ width: 20, height: 20 }} strokeWidth={1.5} />
+                  </div>
+                </div>
+                <span className="stat-value">{formatNumber(overview?.totals?.conversations)}</span>
+                <span style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))' }}>
+                  Created in period
+                </span>
+              </div>
+
+              <div className="stat-card">
+                <div className="stat-header">
+                  <span className="stat-label">Intros</span>
+                  <div className="stat-icon">
+                    <Zap style={{ width: 20, height: 20 }} strokeWidth={1.5} />
+                  </div>
+                </div>
+                <span className="stat-value">{formatNumber(overview?.totals?.intros)}</span>
+                <span style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))' }}>
+                  Requested in period
+                </span>
               </div>
             </div>
           </div>
 
-          <div className="series-card" data-testid="focused-metric-card">
-            <header>
-              <h3>Focused metric: {metricOptions.find((option) => option.value === metric)?.label}</h3>
-              <span>{seriesLoading ? 'Updating…' : `${series.length} datapoints`}</span>
-            </header>
-            <Sparkline series={series.slice(-30)} height={90} />
-            <div className="series-bars">
-              {series.slice(-14).map((point) => (
-                <div key={point.date} className="series-bar">
-                  <span className="series-label">{point.date}</span>
-                  <div className="series-track">
-                    <div
-                      className="series-fill"
+          {/* Growth Charts */}
+          <div className="section">
+            <span className="section-label">Growth Trends</span>
+            <div className="grid-2" data-testid="series-panels">
+              <SeriesCard title="New Users (last 10 days)" series={userGrowth?.new_users_series ?? []} />
+              <SeriesCard title="Daily Active Users (last 10 days)" series={userGrowth?.dau_series ?? []} />
+            </div>
+          </div>
+
+          {/* Engagement Metrics */}
+          <div className="section">
+            <span className="section-label">Engagement</span>
+            <div className="grid-4">
+              <div className="stat-card">
+                <div className="stat-header">
+                  <span className="stat-label">Messages Sent</span>
+                  <div className="stat-icon">
+                    <TrendingUp style={{ width: 20, height: 20 }} strokeWidth={1.5} />
+                  </div>
+                </div>
+                <span className="stat-value">{formatNumber(engagement?.messages_sent)}</span>
+              </div>
+
+              <div className="stat-card">
+                <div className="stat-header">
+                  <span className="stat-label">Reactions</span>
+                </div>
+                <span className="stat-value">{formatNumber(engagement?.reactions_added)}</span>
+                <span style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))' }}>Added in period</span>
+              </div>
+
+              <div className="stat-card">
+                <div className="stat-header">
+                  <span className="stat-label">Feed Posts</span>
+                </div>
+                <span className="stat-value">{formatNumber(engagement?.feed_posts)}</span>
+                <span style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))' }}>
+                  Likes: {formatNumber(engagement?.feed_likes)}
+                </span>
+              </div>
+
+              <div className="stat-card">
+                <div className="stat-header">
+                  <span className="stat-label">Avg Msgs/User</span>
+                </div>
+                <span className="stat-value">{formatNumber(engagement?.avg_messages_per_user)}</span>
+                <span style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))' }}>Per day average</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Real-Time + Weekly Comparison */}
+          <div className="section">
+            <div className="grid-2">
+              {/* Real-time card */}
+              <div className="card">
+                <div className="card-header">
+                  <span className="card-title" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <span
                       style={{
-                        width: `${
-                          series.length ? (point.value / Math.max(...series.map((p) => p.value), 1)) * 100 : 0
-                        }%`,
+                        width: '0.5rem',
+                        height: '0.5rem',
+                        borderRadius: '50%',
+                        background: '#22c55e',
+                        display: 'inline-block',
+                        boxShadow: '0 0 6px rgba(34, 197, 94, 0.6)',
+                        animation: 'pulse 2s ease-in-out infinite',
                       }}
                     />
-                  </div>
-                  <span className="series-value">{formatNumber(point.value)}</span>
+                    Live Now
+                  </span>
+                  <span className="badge success">Real-time</span>
                 </div>
-              ))}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                  <div>
+                    <span style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                      Active users (last hour)
+                    </span>
+                    <div style={{ fontSize: '2rem', fontWeight: 700 }}>
+                      {formatNumber(realTime?.active_users_last_hour)}
+                    </div>
+                  </div>
+                  <hr className="divider" style={{ margin: '0' }} />
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: '0.8125rem', color: 'hsl(var(--muted-foreground))' }}>
+                      Messages today
+                    </span>
+                    <span style={{ fontWeight: 600, fontFamily: "'JetBrains Mono', monospace", fontSize: '0.875rem' }}>
+                      {formatNumber(realTime?.messages_today)}
+                    </span>
+                  </div>
+                  <div style={{ fontSize: '0.6875rem', color: 'hsl(var(--muted-foreground))' }}>
+                    Updated: {realTime?.timestamp ? new Date(realTime.timestamp).toLocaleTimeString() : '\u2014'}
+                  </div>
+                </div>
+              </div>
+
+              {/* Weekly Comparison */}
+              <div className="card">
+                <div className="card-header">
+                  <span className="card-title">Weekly Comparison</span>
+                  <span className="badge info">{comparison?.period_days ?? 0} day window</span>
+                </div>
+                {comparison?.metrics ? (
+                  <table className="data-table">
+                    <thead>
+                      <tr>
+                        <th>Metric</th>
+                        <th style={{ textAlign: 'right' }}>Current</th>
+                        <th style={{ textAlign: 'right' }}>Previous</th>
+                        <th style={{ textAlign: 'right' }}>Change</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {Object.entries(comparison.metrics).map(([key, value]) => {
+                        const changePct = value.change_pct
+                        const isUp = changePct !== null && changePct > 0
+                        const isDown = changePct !== null && changePct < 0
+                        return (
+                          <tr key={key}>
+                            <td style={{ textTransform: 'capitalize', fontWeight: 500 }}>
+                              {key.replace(/_/g, ' ')}
+                            </td>
+                            <td style={{ textAlign: 'right', fontFamily: "'JetBrains Mono', monospace", fontSize: '0.8125rem' }}>
+                              {formatNumber(value.current)}
+                            </td>
+                            <td style={{ textAlign: 'right', fontFamily: "'JetBrains Mono', monospace", fontSize: '0.8125rem', color: 'hsl(var(--muted-foreground))' }}>
+                              {formatNumber(value.previous)}
+                            </td>
+                            <td style={{ textAlign: 'right' }}>
+                              <span style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '0.25rem',
+                                fontWeight: 600,
+                                fontSize: '0.8125rem',
+                                color: isUp ? '#22c55e' : isDown ? '#ef4444' : 'hsl(var(--muted-foreground))',
+                              }}>
+                                {isUp && <ArrowUp style={{ width: 12, height: 12 }} />}
+                                {isDown && <ArrowDown style={{ width: 12, height: 12 }} />}
+                                {formatChange(changePct)}
+                              </span>
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                ) : (
+                  <div className="empty-state" style={{ padding: '2rem 0' }}>
+                    <p className="empty-description">No comparison data available.</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Focused Metric */}
+          <div className="section">
+            <div className="card" data-testid="focused-metric-card">
+              <div className="card-header">
+                <span className="card-title">
+                  <BarChart3 style={{ width: 14, height: 14, display: 'inline', verticalAlign: 'middle', marginRight: '0.375rem' }} strokeWidth={1.5} />
+                  Focused Metric: {metricOptions.find((option) => option.value === metric)?.label}
+                </span>
+                <span className="badge info">
+                  {seriesLoading ? 'Updating...' : `${series.length} datapoints`}
+                </span>
+              </div>
+
+              {seriesLoading ? (
+                <div className="empty-state" style={{ padding: '2rem 0' }}>
+                  <Loader2 style={{ width: 20, height: 20, animation: 'spin 1s linear infinite' }} />
+                  <p className="empty-description">Loading metric data...</p>
+                </div>
+              ) : (
+                <>
+                  <div style={{ marginBottom: '1rem' }}>
+                    <Sparkline series={series.slice(-30)} height={90} />
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
+                    {series.slice(-14).map((point) => {
+                      const maxVal = Math.max(...series.map((p) => p.value), 1)
+                      return (
+                        <div key={point.date} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                          <span style={{ fontSize: '0.6875rem', color: 'hsl(var(--muted-foreground))', width: '5rem', flexShrink: 0 }}>
+                            {point.date}
+                          </span>
+                          <div style={{
+                            flex: 1,
+                            height: '0.375rem',
+                            borderRadius: '0.25rem',
+                            background: 'hsl(var(--muted))',
+                            overflow: 'hidden',
+                          }}>
+                            <div style={{
+                              height: '100%',
+                              borderRadius: '0.25rem',
+                              background: 'var(--gold)',
+                              width: `${(point.value / maxVal) * 100}%`,
+                              transition: 'width 0.3s ease',
+                            }} />
+                          </div>
+                          <span style={{
+                            fontSize: '0.75rem',
+                            fontWeight: 500,
+                            fontFamily: "'JetBrains Mono', monospace",
+                            width: '3rem',
+                            textAlign: 'right',
+                            flexShrink: 0,
+                          }}>
+                            {formatNumber(point.value)}
+                          </span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </>
-      ) : null}
-    </section>
+      )}
+
+      {/* Pulse animation for the live dot */}
+      <style>{`
+        @keyframes pulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.4; }
+        }
+      `}</style>
+    </div>
   )
 }

@@ -175,9 +175,9 @@ describe('IntrosPage', () => {
 
     // Dropdowns should eventually have options
     await waitFor(() => {
-      expect(screen.getByText('AcmeCo')).toBeInTheDocument()
+      expect(screen.getAllByText('AcmeCo').length).toBeGreaterThanOrEqual(1)
     })
 
-    expect(screen.getByText('Bob Investor (Big Fund)')).toBeInTheDocument()
+    expect(screen.getAllByText('Bob Investor (Big Fund)').length).toBeGreaterThanOrEqual(1)
   })
 })

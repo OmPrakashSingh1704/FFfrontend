@@ -1,5 +1,17 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
+import {
+  ArrowLeft,
+  MapPin,
+  Building2,
+  DollarSign,
+  Globe,
+  Linkedin,
+  ExternalLink,
+  User,
+  Target,
+  Layers,
+} from 'lucide-react'
 import { apiRequest } from '../lib/api'
 import type { InvestorProfile } from '../types/investor'
 
@@ -37,86 +49,191 @@ export function InvestorDetailPage() {
     }
   }, [id])
 
+  const getInitials = (name: string) => {
+    return name
+      .split(' ')
+      .map((n) => n[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2)
+  }
+
   return (
-    <section className="content-section">
-      <header className="content-header">
-        <div>
-          <h1>{investor?.display_name ?? 'Investor profile'}</h1>
-          <p>{investor?.headline ?? 'Investor details and focus areas.'}</p>
+    <div>
+      <Link to="/app/investors" className="back-btn">
+        <ArrowLeft style={{ width: '1rem', height: '1rem' }} strokeWidth={1.5} />
+        Back to Investors
+      </Link>
+
+      {loading && (
+        <div className="empty-state">
+          <User className="empty-icon" strokeWidth={1.5} />
+          <p className="empty-description">Loading investor...</p>
         </div>
-        <Link className="btn ghost" to="/app/investors">
-          Back to investors
-        </Link>
-      </header>
+      )}
 
-      {loading ? <div className="page-loader">Loading investor...</div> : null}
-      {error ? <div className="form-error">{error}</div> : null}
+      {error && <div className="badge error" style={{ marginBottom: '1rem' }}>{error}</div>}
 
-      {investor ? (
-        <div className="content-card">
-          <div className="detail-grid">
-            <div>
-              <span className="data-eyebrow">Type</span>
-              <p>{investor.investor_type || 'Not specified'}</p>
+      {investor && (
+        <>
+          {/* Profile Header */}
+          <div className="card" style={{ marginBottom: '1.5rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem' }}>
+              <div className="avatar xl">
+                {investor.user?.avatar_url ? (
+                  <img src={investor.user.avatar_url} alt={investor.display_name} />
+                ) : (
+                  getInitials(investor.display_name || 'I')
+                )}
+              </div>
+              <div>
+                <h1 style={{ fontSize: '1.25rem', fontWeight: 600, marginBottom: '0.25rem' }}>
+                  {investor.display_name ?? 'Investor profile'}
+                </h1>
+                {investor.headline && (
+                  <p style={{ fontSize: '0.875rem', color: 'hsl(var(--muted-foreground))' }}>
+                    {investor.headline}
+                  </p>
+                )}
+              </div>
             </div>
-            <div>
-              <span className="data-eyebrow">Fund</span>
-              <p>{investor.fund_name || 'Independent'}</p>
-            </div>
-            <div>
-              <span className="data-eyebrow">Check size</span>
-              <p>
-                {investor.check_size_min || investor.check_size_max
-                  ? `$${investor.check_size_min ?? '—'} - $${investor.check_size_max ?? '—'}`
-                  : 'Not specified'}
-              </p>
-            </div>
-            <div>
-              <span className="data-eyebrow">Location</span>
-              <p>{investor.location || 'Not shared'}</p>
+
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.375rem' }}>
+              {investor.investor_type && (
+                <span className="badge">{investor.investor_type}</span>
+              )}
+              {investor.fund_name && (
+                <span className="tag">
+                  <Building2 style={{ width: '0.75rem', height: '0.75rem' }} strokeWidth={1.5} />
+                  {investor.fund_name}
+                </span>
+              )}
+              {investor.location && (
+                <span className="tag">
+                  <MapPin style={{ width: '0.75rem', height: '0.75rem' }} strokeWidth={1.5} />
+                  {investor.location}
+                </span>
+              )}
             </div>
           </div>
 
-          {investor.industries_focus && investor.industries_focus.length > 0 ? (
-            <div>
-              <span className="data-eyebrow">Industries</span>
-              <div className="tag-list">
-                {investor.industries_focus.map((industry) => (
-                  <span key={industry} className="tag">
-                    {industry}
-                  </span>
-                ))}
+          {/* Details Section */}
+          <div className="section">
+            <div className="card">
+              <div className="grid-2">
+                <div>
+                  <div className="section-label" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <Building2 style={{ width: '0.875rem', height: '0.875rem' }} strokeWidth={1.5} />
+                    Type
+                  </div>
+                  <p style={{ fontSize: '0.875rem' }}>{investor.investor_type || 'Not specified'}</p>
+                </div>
+                <div>
+                  <div className="section-label" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <Building2 style={{ width: '0.875rem', height: '0.875rem' }} strokeWidth={1.5} />
+                    Fund
+                  </div>
+                  <p style={{ fontSize: '0.875rem' }}>{investor.fund_name || 'Independent'}</p>
+                </div>
+                <div>
+                  <div className="section-label" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <DollarSign style={{ width: '0.875rem', height: '0.875rem' }} strokeWidth={1.5} />
+                    Check Size
+                  </div>
+                  <p style={{ fontSize: '0.875rem' }}>
+                    {investor.check_size_min || investor.check_size_max
+                      ? `$${investor.check_size_min ?? '\u2014'} - $${investor.check_size_max ?? '\u2014'}`
+                      : 'Not specified'}
+                  </p>
+                </div>
+                <div>
+                  <div className="section-label" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <MapPin style={{ width: '0.875rem', height: '0.875rem' }} strokeWidth={1.5} />
+                    Location
+                  </div>
+                  <p style={{ fontSize: '0.875rem' }}>{investor.location || 'Not shared'}</p>
+                </div>
               </div>
             </div>
-          ) : null}
-
-          {investor.stages_focus && investor.stages_focus.length > 0 ? (
-            <div>
-              <span className="data-eyebrow">Stages</span>
-              <div className="tag-list">
-                {investor.stages_focus.map((stage) => (
-                  <span key={stage} className="tag">
-                    {stage}
-                  </span>
-                ))}
-              </div>
-            </div>
-          ) : null}
-
-          <div className="link-list">
-            {investor.linkedin_url ? (
-              <a href={investor.linkedin_url} target="_blank" rel="noreferrer">
-                LinkedIn
-              </a>
-            ) : null}
-            {investor.website_url ? (
-              <a href={investor.website_url} target="_blank" rel="noreferrer">
-                Website
-              </a>
-            ) : null}
           </div>
-        </div>
-      ) : null}
-    </section>
+
+          {/* Industries Focus */}
+          {investor.industries_focus && investor.industries_focus.length > 0 && (
+            <div className="section">
+              <div className="card">
+                <div className="section-label" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <Target style={{ width: '0.875rem', height: '0.875rem' }} strokeWidth={1.5} />
+                  Industries
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.375rem' }}>
+                  {investor.industries_focus.map((industry) => (
+                    <span key={industry} className="tag">
+                      {industry}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Stages Focus */}
+          {investor.stages_focus && investor.stages_focus.length > 0 && (
+            <div className="section">
+              <div className="card">
+                <div className="section-label" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <Layers style={{ width: '0.875rem', height: '0.875rem' }} strokeWidth={1.5} />
+                  Stages
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.375rem' }}>
+                  {investor.stages_focus.map((stage) => (
+                    <span key={stage} className="tag">
+                      {stage}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Links Section */}
+          {(investor.linkedin_url || investor.website_url) && (
+            <div className="section">
+              <div className="card">
+                <div className="section-label" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <Globe style={{ width: '0.875rem', height: '0.875rem' }} strokeWidth={1.5} />
+                  Links
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                  {investor.linkedin_url && (
+                    <a
+                      href={investor.linkedin_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="btn-sm ghost"
+                    >
+                      <Linkedin style={{ width: '0.875rem', height: '0.875rem' }} strokeWidth={1.5} />
+                      LinkedIn
+                      <ExternalLink style={{ width: '0.625rem', height: '0.625rem', opacity: 0.5 }} strokeWidth={1.5} />
+                    </a>
+                  )}
+                  {investor.website_url && (
+                    <a
+                      href={investor.website_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="btn-sm ghost"
+                    >
+                      <Globe style={{ width: '0.875rem', height: '0.875rem' }} strokeWidth={1.5} />
+                      Website
+                      <ExternalLink style={{ width: '0.625rem', height: '0.625rem', opacity: 0.5 }} strokeWidth={1.5} />
+                    </a>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+    </div>
   )
 }

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { ArrowLeft, Shield, Pin, PinOff, Trash2, UserCog, Landmark, FileText } from 'lucide-react'
 import { apiRequest } from '../lib/api'
 import { normalizeList } from '../lib/pagination'
 import { useToast } from '../context/ToastContext'
@@ -128,177 +129,227 @@ export function AdminModerationPage() {
   }
 
   return (
-    <section className="content-section admin-moderation-page">
-      <header className="content-header">
-        <div>
-          <h1>Moderation</h1>
-          <p>Review feed events and enforce platform policies.</p>
-        </div>
-        <div className="data-actions">
-          <Link className="btn ghost" to="/app/admin">
-            Back to admin
-          </Link>
-        </div>
-      </header>
+    <div data-testid="admin-moderation-page">
+      <Link className="back-btn" to="/app/admin">
+        <ArrowLeft size={16} strokeWidth={1.5} />
+        Back to Admin
+      </Link>
 
-      <div className="admin-filter-bar">
-        <label>
-          Filter feed event type
-          <select
-            value={eventType}
-            onChange={(event) => setEventType(event.target.value)}
-            disabled={eventTypesLoading || Boolean(eventTypesError)}
-          >
-            <option value="">
-              {eventTypesLoading ? 'Loading types…' : 'All types'}
-            </option>
-            {eventTypes.map((type) => (
-              <option key={type} value={type}>
-                {type.replaceAll('_', ' ')}
-              </option>
-            ))}
-          </select>
-        </label>
+      <div className="page-header">
+        <div>
+          <h1 className="page-title">Moderation</h1>
+          <p className="page-description">Review feed events and enforce platform policies.</p>
+        </div>
       </div>
 
-      {eventTypesError ? <div className="form-error">{eventTypesError}</div> : null}
-      {feedLoading ? <div className="page-loader">Loading feed events...</div> : null}
-      {feedError ? <div className="form-error">{feedError}</div> : null}
-
-      {!feedLoading && !feedError ? (
-        <div className="moderation-grid">
-          {feedEvents.map((event) => (
-            <article key={event.id} className="data-card moderation-card">
-              <div className="data-meta">
-                <span>{event.event_type}</span>
-                {event.is_pinned ? <span>pinned</span> : null}
-              </div>
-              <h3>{event.title || 'Feed event'}</h3>
-              <p>{event.content || ''}</p>
-              <div className="data-meta">
-                {event.created_at ? <span>{new Date(event.created_at).toLocaleDateString()}</span> : null}
-                {event.author?.full_name ? <span>by {event.author.full_name}</span> : null}
-              </div>
-              <div className="data-actions">
-                <button
-                  className="btn ghost"
-                  type="button"
-                  onClick={() => void moderate('feed', event.id, { action: event.is_pinned ? 'unpin' : 'pin' })}
-                >
-                  {event.is_pinned ? 'Unpin' : 'Pin'}
-                </button>
-                <button className="btn ghost" type="button" onClick={() => void moderate('feed', event.id, { action: 'delete' })}>
-                  Delete
-                </button>
-              </div>
-            </article>
-          ))}
-        </div>
-      ) : null}
-
-      <div className="moderation-actions">
-        <div className="admin-card">
-          <header>
-            <h2>User actions</h2>
-            <p>Suspend, activate, or delete a user.</p>
-          </header>
-          <div className="admin-form">
-            <label>
-              User ID
-              <input value={userId} onChange={(event) => setUserId(event.target.value)} placeholder="UUID" />
-            </label>
-            <label>
-              Action
-              <select value={userAction} onChange={(event) => setUserAction(event.target.value)}>
-                <option value="suspend">Suspend</option>
-                <option value="activate">Activate</option>
-                <option value="delete">Delete</option>
-              </select>
-            </label>
-            <button
-              className="btn primary"
-              type="button"
-              onClick={() => void moderate('user', userId, { action: userAction })}
-              disabled={!hasUserId}
-            >
-              Apply
-            </button>
-          </div>
-        </div>
-
-        <div className="admin-card">
-          <header>
-            <h2>Fund actions</h2>
-            <p>Activate or feature funding opportunities.</p>
-          </header>
-          <div className="admin-form">
-            <label>
-              Fund ID
-              <input value={fundId} onChange={(event) => setFundId(event.target.value)} placeholder="UUID" />
-            </label>
-            <label>
-              Action
-              <select value={fundAction} onChange={(event) => setFundAction(event.target.value)}>
-                <option value="activate">Activate</option>
-                <option value="deactivate">Deactivate</option>
-                <option value="feature">Feature</option>
-                <option value="unfeature">Unfeature</option>
-                <option value="sponsor">Sponsor</option>
-                <option value="unsponsor">Unsponsor</option>
-              </select>
-            </label>
-            <button
-              className="btn primary"
-              type="button"
-              onClick={() => void moderate('fund', fundId, { action: fundAction })}
-              disabled={!hasFundId}
-            >
-              Apply
-            </button>
-          </div>
-        </div>
-
-        <div className="admin-card">
-          <header>
-            <h2>Application actions</h2>
-            <p>Override application status with audit trail.</p>
-          </header>
-          <div className="admin-form">
-            <label>
-              Application ID
-              <input value={applicationId} onChange={(event) => setApplicationId(event.target.value)} placeholder="UUID" />
-            </label>
-            <label>
-              Status
-              <select value={applicationStatus} onChange={(event) => setApplicationStatus(event.target.value)}>
-                {applicationStatuses.map((option) => (
-                  <option key={option} value={option}>
-                    {option.replace('_', ' ')}
+      {/* Feed Events Section */}
+      <div className="section">
+        <div className="card">
+          <div className="card-header">
+            <h2 className="card-title">Feed Events</h2>
+            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+              <select
+                className="select"
+                value={eventType}
+                onChange={(event) => setEventType(event.target.value)}
+                disabled={eventTypesLoading || Boolean(eventTypesError)}
+                style={{ width: '200px' }}
+              >
+                <option value="">
+                  {eventTypesLoading ? 'Loading types...' : 'All types'}
+                </option>
+                {eventTypes.map((type) => (
+                  <option key={type} value={type}>
+                    {type.replaceAll('_', ' ')}
                   </option>
                 ))}
               </select>
-            </label>
-            <label>
-              Notes
-              <input value={applicationNotes} onChange={(event) => setApplicationNotes(event.target.value)} placeholder="Optional" />
-            </label>
-            <button
-              className="btn primary"
-              type="button"
-              onClick={() =>
-                void moderate('application', applicationId, {
-                  action: 'status',
-                  status: applicationStatus,
-                  notes: applicationNotes,
-                })
-              }
-              disabled={!hasApplicationId}
-            >
-              Apply
-            </button>
+            </div>
           </div>
+
+          {eventTypesError && <p style={{ color: '#ef4444', fontSize: '0.875rem', padding: '0 1rem' }}>{eventTypesError}</p>}
+
+          {feedLoading && (
+            <div className="empty-state" style={{ padding: '2rem 0' }}>
+              <Shield className="empty-icon" strokeWidth={1.5} />
+              <p className="empty-description">Loading feed events...</p>
+            </div>
+          )}
+          {feedError && <div className="empty-state" style={{ padding: '2rem 0' }}><p className="empty-description" style={{ color: '#ef4444' }}>{feedError}</p></div>}
+
+          {!feedLoading && !feedError && (
+            <>
+              {feedEvents.length === 0 ? (
+                <div className="empty-state" style={{ padding: '2rem 0' }}>
+                  <Shield className="empty-icon" strokeWidth={1.5} />
+                  <h3 className="empty-title">No feed events</h3>
+                  <p className="empty-description">No events match the current filter.</p>
+                </div>
+              ) : (
+                <table className="data-table" data-testid="moderation-feed-table">
+                  <thead>
+                    <tr>
+                      <th>Title</th>
+                      <th>Type</th>
+                      <th>Author</th>
+                      <th>Date</th>
+                      <th>Status</th>
+                      <th style={{ textAlign: 'right' }}>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {feedEvents.map((event) => (
+                      <tr key={event.id} data-testid={`feed-event-row-${event.id}`}>
+                        <td>
+                          <div style={{ fontWeight: 500 }}>{event.title || 'Feed event'}</div>
+                          {event.content && (
+                            <div style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))', marginTop: '0.125rem', maxWidth: '300px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {event.content}
+                            </div>
+                          )}
+                        </td>
+                        <td><span className="tag">{event.event_type || '—'}</span></td>
+                        <td>{event.author?.full_name || '—'}</td>
+                        <td style={{ whiteSpace: 'nowrap', fontSize: '0.75rem' }}>
+                          {event.created_at ? new Date(event.created_at).toLocaleDateString() : '—'}
+                        </td>
+                        <td>
+                          {event.is_pinned ? <span className="badge info">Pinned</span> : null}
+                        </td>
+                        <td style={{ textAlign: 'right', display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+                          <button
+                            className="btn-sm ghost"
+                            type="button"
+                            onClick={() => void moderate('feed', event.id, { action: event.is_pinned ? 'unpin' : 'pin' })}
+                          >
+                            {event.is_pinned ? <PinOff size={14} strokeWidth={1.5} /> : <Pin size={14} strokeWidth={1.5} />}
+                            {event.is_pinned ? 'Unpin' : 'Pin'}
+                          </button>
+                          <button className="btn-sm ghost" type="button" onClick={() => void moderate('feed', event.id, { action: 'delete' })}>
+                            <Trash2 size={14} strokeWidth={1.5} />
+                            Delete
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </>
+          )}
         </div>
       </div>
-    </section>
+
+      {/* Moderation Action Cards */}
+      <div className="grid-3">
+        {/* User Actions */}
+        <div className="card">
+          <div className="card-header">
+            <h2 className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <UserCog size={16} strokeWidth={1.5} />
+              User Actions
+            </h2>
+          </div>
+          <p style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))', marginBottom: '1rem' }}>Suspend, activate, or delete a user.</p>
+          <div className="form-group">
+            <label>User ID</label>
+            <input className="input" value={userId} onChange={(event) => setUserId(event.target.value)} placeholder="UUID" />
+          </div>
+          <div className="form-group">
+            <label>Action</label>
+            <select className="select" value={userAction} onChange={(event) => setUserAction(event.target.value)}>
+              <option value="suspend">Suspend</option>
+              <option value="activate">Activate</option>
+              <option value="delete">Delete</option>
+            </select>
+          </div>
+          <button
+            className="btn-sm primary"
+            type="button"
+            onClick={() => void moderate('user', userId, { action: userAction })}
+            disabled={!hasUserId}
+          >
+            Apply
+          </button>
+        </div>
+
+        {/* Fund Actions */}
+        <div className="card">
+          <div className="card-header">
+            <h2 className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <Landmark size={16} strokeWidth={1.5} />
+              Fund Actions
+            </h2>
+          </div>
+          <p style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))', marginBottom: '1rem' }}>Activate or feature funding opportunities.</p>
+          <div className="form-group">
+            <label>Fund ID</label>
+            <input className="input" value={fundId} onChange={(event) => setFundId(event.target.value)} placeholder="UUID" />
+          </div>
+          <div className="form-group">
+            <label>Action</label>
+            <select className="select" value={fundAction} onChange={(event) => setFundAction(event.target.value)}>
+              <option value="activate">Activate</option>
+              <option value="deactivate">Deactivate</option>
+              <option value="feature">Feature</option>
+              <option value="unfeature">Unfeature</option>
+              <option value="sponsor">Sponsor</option>
+              <option value="unsponsor">Unsponsor</option>
+            </select>
+          </div>
+          <button
+            className="btn-sm primary"
+            type="button"
+            onClick={() => void moderate('fund', fundId, { action: fundAction })}
+            disabled={!hasFundId}
+          >
+            Apply
+          </button>
+        </div>
+
+        {/* Application Actions */}
+        <div className="card">
+          <div className="card-header">
+            <h2 className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <FileText size={16} strokeWidth={1.5} />
+              Application Actions
+            </h2>
+          </div>
+          <p style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))', marginBottom: '1rem' }}>Override application status with audit trail.</p>
+          <div className="form-group">
+            <label>Application ID</label>
+            <input className="input" value={applicationId} onChange={(event) => setApplicationId(event.target.value)} placeholder="UUID" />
+          </div>
+          <div className="form-group">
+            <label>Status</label>
+            <select className="select" value={applicationStatus} onChange={(event) => setApplicationStatus(event.target.value)}>
+              {applicationStatuses.map((option) => (
+                <option key={option} value={option}>
+                  {option.replaceAll('_', ' ')}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="form-group">
+            <label>Notes</label>
+            <input className="input" value={applicationNotes} onChange={(event) => setApplicationNotes(event.target.value)} placeholder="Optional" />
+          </div>
+          <button
+            className="btn-sm primary"
+            type="button"
+            onClick={() =>
+              void moderate('application', applicationId, {
+                action: 'status',
+                status: applicationStatus,
+                notes: applicationNotes,
+              })
+            }
+            disabled={!hasApplicationId}
+          >
+            Apply
+          </button>
+        </div>
+      </div>
+    </div>
   )
 }

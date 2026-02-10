@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
+import { Phone, Video, Mic, MicOff, VideoOff, PhoneOff, RefreshCw, ChevronDown, ChevronUp, Clock } from 'lucide-react'
 import { apiRequest } from '../lib/api'
 import { addActiveCallId, removeActiveCallId } from '../lib/callSession'
 import { buildWsUrl } from '../lib/ws'
@@ -31,6 +32,7 @@ export function CallsPage() {
   const [mediaError, setMediaError] = useState<string | null>(null)
   const [isMuted, setIsMuted] = useState(false)
   const [isVideoOff, setIsVideoOff] = useState(false)
+  const [showSignalingLog, setShowSignalingLog] = useState(false)
 
   const localVideoRef = useRef<HTMLVideoElement | null>(null)
   const remoteVideoRef = useRef<HTMLVideoElement | null>(null)
@@ -387,162 +389,340 @@ export function CallsPage() {
     return () => cleanupMedia()
   }, [cleanupMedia])
 
+  const formatDuration = (startedAt?: string, endedAt?: string) => {
+    if (!startedAt) return '--'
+    const start = new Date(startedAt).getTime()
+    const end = endedAt ? new Date(endedAt).getTime() : Date.now()
+    const seconds = Math.floor((end - start) / 1000)
+    const mins = Math.floor(seconds / 60)
+    const secs = seconds % 60
+    return `${mins}:${String(secs).padStart(2, '0')}`
+  }
+
   return (
-    <section className="content-section calls-page">
-      <header className="content-header">
+    <div style={{ padding: '1.5rem' }}>
+      {/* Page Header */}
+      <div className="page-header">
         <div>
-          <h1>Calls & Rooms</h1>
-          <p>Start a focused audio or video call when the thread is ready.</p>
+          <h1 className="page-title">Calls & Rooms</h1>
+          <p className="page-description">Start a focused audio or video call when the thread is ready.</p>
         </div>
-        <div className="chat-status">
-          <span className={`chat-status-dot ${wsStatus}`} />
-          <span>{wsStatus === 'open' ? 'Signaling live' : 'Signaling offline'}</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <span className={`status-dot ${wsStatus === 'open' ? 'online' : 'offline'}`} />
+          <span style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))' }}>
+            {wsStatus === 'open' ? 'Signaling live' : 'Signaling offline'}
+          </span>
         </div>
-      </header>
+      </div>
 
-      {loading ? <div className="page-loader">Loading call data...</div> : null}
-      {error ? <div className="form-error">{error}</div> : null}
+      {/* Error */}
+      {error ? (
+        <div className="card" style={{ borderColor: '#ef4444', padding: '1rem', marginBottom: '1rem' }}>
+          <p style={{ color: '#ef4444', fontSize: '0.875rem' }}>{error}</p>
+        </div>
+      ) : null}
 
-      <div className="calls-grid">
-        <div className="call-card">
-          <h2>Start a call</h2>
-          <p>Send a real-time invite to a founder or investor.</p>
-          <div className="form-grid">
-            <label>
-              Conversation id
-              <input value={conversationId} onChange={(event) => setConversationId(event.target.value)} placeholder="UUID" />
-            </label>
-            <label>
-              Call type
-              <div className="segmented">
+      {/* Start Call Card */}
+      <div className="section">
+        <div className="card">
+          <div className="card-header">
+            <span className="card-title">Start a Call</span>
+            <Phone style={{ width: 16, height: 16, color: 'var(--gold)' }} />
+          </div>
+          <p style={{ fontSize: '0.8125rem', color: 'hsl(var(--muted-foreground))', marginBottom: '1rem' }}>
+            Send a real-time invite to a founder or investor.
+          </p>
+
+          <div className="grid-2" style={{ marginBottom: '1rem' }}>
+            <div className="form-group">
+              <label>Conversation ID</label>
+              <input
+                className="input"
+                value={conversationId}
+                onChange={(event) => setConversationId(event.target.value)}
+                placeholder="UUID"
+              />
+            </div>
+            <div className="form-group">
+              <label>Call Type</label>
+              <div className="tabs">
                 {(['video', 'voice'] as const).map((option) => (
                   <button
                     key={option}
                     type="button"
-                    className={`segmented-btn ${callType === option ? 'active' : ''}`}
+                    className={`tab ${callType === option ? 'active' : ''}`}
                     onClick={() => setCallType(option)}
                   >
-                    {option}
+                    {option === 'video' ? (
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
+                        <Video style={{ width: 14, height: 14 }} /> Video
+                      </span>
+                    ) : (
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
+                        <Phone style={{ width: 14, height: 14 }} /> Audio
+                      </span>
+                    )}
                   </button>
                 ))}
               </div>
-            </label>
-            <label>
-              Target user IDs (optional)
+            </div>
+          </div>
+
+          <div className="grid-2" style={{ marginBottom: '1rem' }}>
+            <div className="form-group">
+              <label>Target User IDs (optional)</label>
               <input
+                className="input"
                 value={targetUserIds}
                 onChange={(event) => setTargetUserIds(event.target.value)}
                 placeholder="uuid-1, uuid-2"
               />
-            </label>
-            <label>
-              Target user emails (optional)
+            </div>
+            <div className="form-group">
+              <label>Target User Emails (optional)</label>
               <input
+                className="input"
                 value={targetUserEmails}
                 onChange={(event) => setTargetUserEmails(event.target.value)}
                 placeholder="user@example.com, founder@site.com"
               />
-            </label>
+            </div>
           </div>
-          <button className="btn primary" type="button" onClick={() => void handleStartCall()}>
-            Send invite
+
+          <button className="btn-sm primary" type="button" onClick={() => void handleStartCall()}>
+            <Phone style={{ width: 14, height: 14 }} />
+            Send Invite
           </button>
         </div>
+      </div>
 
-        <div className="call-card">
-          <h2>Active call</h2>
-          {activeCall ? (
-            <div className="call-active">
-              <div>
-                <strong>{activeCall.call_type?.toUpperCase() || 'CALL'}</strong>
-                <p>Status: {callStatus?.status || activeCall.status || 'Connecting'}</p>
-              </div>
-              <div className="call-actions">
-                <button className="btn ghost" type="button" onClick={() => void handleRefreshStatus()}>
-                  Refresh
-                </button>
-                <button className="btn ghost" type="button" onClick={() => void handleEndCall()}>
-                  End call
-                </button>
-              </div>
-            </div>
-          ) : (
-            <p>No active call yet. Select a conversation to start one.</p>
-          )}
-          {activeCall ? (
-            <div className="call-media">
-              <div className="call-media-stage">
-                {remoteStream ? (
-                  <video ref={remoteVideoRef} autoPlay playsInline className="call-video remote" />
-                ) : (
-                  <div className="call-media-placeholder">Waiting for remote video...</div>
-                )}
-                <video ref={localVideoRef} autoPlay playsInline muted className="call-video local" />
-              </div>
-              {mediaError ? <p className="form-error">{mediaError}</p> : null}
-              <div className="call-media-actions">
-                <button
-                  className="btn ghost"
-                  type="button"
-                  onClick={() => {
-                    const tracks = localStream?.getAudioTracks() ?? []
-                    tracks.forEach((track) => {
-                      track.enabled = isMuted
-                    })
-                    setIsMuted((prev) => !prev)
-                  }}
-                  disabled={!localStream}
-                >
-                  {isMuted ? 'Unmute' : 'Mute'}
-                </button>
-                <button
-                  className="btn ghost"
-                  type="button"
-                  onClick={() => {
-                    const tracks = localStream?.getVideoTracks() ?? []
-                    tracks.forEach((track) => {
-                      track.enabled = isVideoOff
-                    })
-                    setIsVideoOff((prev) => !prev)
-                  }}
-                  disabled={!localStream || activeCallType === 'voice'}
-                >
-                  {isVideoOff ? 'Camera on' : 'Camera off'}
-                </button>
-              </div>
-            </div>
-          ) : null}
-        </div>
-
-        <div className="call-card">
-          <h2>Recent signaling</h2>
-          <div className="call-log">
-            {events.length === 0 ? <p>No live events yet.</p> : null}
-            {events.map((event, index) => (
-              <div key={`${event.type}-${index}`} className="call-log-item">
-                <span>{event.type}</span>
-                <span>{event.call_id ? `Call ${event.call_id}` : ''}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="call-card">
-          <h2>Call history</h2>
-          <div className="call-history">
-            {history.length === 0 && !loading ? <p>No calls yet.</p> : null}
-            {history.map((call) => (
-              <div key={call.call_id} className="call-history-item">
-                <div>
-                  <strong>{call.call_type || 'Call'}</strong>
-                  <p>Conversation: {call.conversation_id || '—'}</p>
+      {/* Active Call Area */}
+      {activeCall ? (
+        <div className="section">
+          <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+            {/* Call Media Stage */}
+            <div
+              style={{
+                position: 'relative',
+                width: '100%',
+                minHeight: '20rem',
+                background: '#0a0a0a',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              {remoteStream ? (
+                <video
+                  ref={remoteVideoRef}
+                  autoPlay
+                  playsInline
+                  style={{ width: '100%', height: '100%', objectFit: 'cover', maxHeight: '28rem' }}
+                />
+              ) : (
+                <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: '0.875rem' }}>
+                  Waiting for remote video...
                 </div>
-                <span>{call.started_at ? new Date(call.started_at).toLocaleString() : ''}</span>
+              )}
+              {/* Local video PiP */}
+              <video
+                ref={localVideoRef}
+                autoPlay
+                playsInline
+                muted
+                style={{
+                  position: 'absolute',
+                  bottom: '1rem',
+                  right: '1rem',
+                  width: '10rem',
+                  height: '7.5rem',
+                  objectFit: 'cover',
+                  borderRadius: '0.5rem',
+                  border: '2px solid hsl(var(--border))',
+                  background: '#111',
+                }}
+              />
+            </div>
+
+            {/* Floating Controls Bar */}
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '0.75rem',
+                padding: '0.75rem 1.25rem',
+                borderTop: '1px solid hsl(var(--border))',
+                background: 'hsl(var(--card))',
+              }}
+            >
+              <div style={{ flex: 1 }}>
+                <span style={{ fontWeight: 600, fontSize: '0.875rem' }}>
+                  {activeCall.call_type?.toUpperCase() || 'CALL'}
+                </span>
+                <span style={{ marginLeft: '0.5rem', fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))' }}>
+                  {callStatus?.status || activeCall.status || 'Connecting'}
+                </span>
               </div>
-            ))}
+              <button
+                className="btn-sm ghost"
+                type="button"
+                onClick={() => {
+                  const tracks = localStream?.getAudioTracks() ?? []
+                  tracks.forEach((track) => {
+                    track.enabled = isMuted
+                  })
+                  setIsMuted((prev) => !prev)
+                }}
+                disabled={!localStream}
+              >
+                {isMuted ? <MicOff style={{ width: 16, height: 16 }} /> : <Mic style={{ width: 16, height: 16 }} />}
+              </button>
+              <button
+                className="btn-sm ghost"
+                type="button"
+                onClick={() => {
+                  const tracks = localStream?.getVideoTracks() ?? []
+                  tracks.forEach((track) => {
+                    track.enabled = isVideoOff
+                  })
+                  setIsVideoOff((prev) => !prev)
+                }}
+                disabled={!localStream || activeCallType === 'voice'}
+              >
+                {isVideoOff ? <VideoOff style={{ width: 16, height: 16 }} /> : <Video style={{ width: 16, height: 16 }} />}
+              </button>
+              <button className="btn-sm ghost" type="button" onClick={() => void handleRefreshStatus()}>
+                <RefreshCw style={{ width: 14, height: 14 }} />
+              </button>
+              <button
+                className="btn-sm primary"
+                type="button"
+                onClick={() => void handleEndCall()}
+                style={{ background: '#ef4444' }}
+              >
+                <PhoneOff style={{ width: 14, height: 14 }} />
+                End
+              </button>
+            </div>
+
+            {/* Media Error */}
+            {mediaError ? (
+              <div style={{ padding: '0.75rem 1.25rem', borderTop: '1px solid hsl(var(--border))' }}>
+                <p style={{ color: '#ef4444', fontSize: '0.8125rem' }}>{mediaError}</p>
+              </div>
+            ) : null}
           </div>
+        </div>
+      ) : null}
+
+      {/* Recent Calls - Data Table */}
+      <div className="section">
+        <span className="section-label">Call History</span>
+        {loading ? (
+          <div className="empty-state" style={{ padding: '2rem 0' }}>
+            <p className="empty-description">Loading call data...</p>
+          </div>
+        ) : history.length === 0 ? (
+          <div className="card">
+            <div className="empty-state" style={{ padding: '2rem 0' }}>
+              <Phone className="empty-icon" />
+              <p className="empty-description">No calls yet.</p>
+            </div>
+          </div>
+        ) : (
+          <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Type</th>
+                  <th>Conversation</th>
+                  <th>Duration</th>
+                  <th>Time</th>
+                </tr>
+              </thead>
+              <tbody>
+                {history.map((call) => (
+                  <tr key={call.call_id}>
+                    <td>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        {call.call_type === 'video' ? (
+                          <Video style={{ width: 14, height: 14, color: 'var(--gold)' }} />
+                        ) : (
+                          <Phone style={{ width: 14, height: 14, color: 'var(--gold)' }} />
+                        )}
+                        <span style={{ textTransform: 'capitalize' }}>{call.call_type || 'Call'}</span>
+                      </div>
+                    </td>
+                    <td style={{ color: 'hsl(var(--muted-foreground))' }}>
+                      {call.conversation_id ? call.conversation_id.slice(0, 8) + '...' : '--'}
+                    </td>
+                    <td>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
+                        <Clock style={{ width: 12, height: 12, color: 'hsl(var(--muted-foreground))' }} />
+                        {formatDuration(call.started_at ?? undefined, undefined)}
+                      </span>
+                    </td>
+                    <td style={{ color: 'hsl(var(--muted-foreground))', fontSize: '0.8125rem' }}>
+                      {call.started_at ? new Date(call.started_at).toLocaleString() : '--'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* Signaling Log - Collapsible */}
+      <div className="section">
+        <div className="card">
+          <button
+            type="button"
+            onClick={() => setShowSignalingLog((prev) => !prev)}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              width: '100%',
+              background: 'none',
+              border: 'none',
+              padding: 0,
+              cursor: 'pointer',
+              color: 'inherit',
+            }}
+          >
+            <span className="card-title">Recent Signaling Events</span>
+            {showSignalingLog
+              ? <ChevronUp style={{ width: 16, height: 16, color: 'hsl(var(--muted-foreground))' }} />
+              : <ChevronDown style={{ width: 16, height: 16, color: 'hsl(var(--muted-foreground))' }} />
+            }
+          </button>
+
+          {showSignalingLog && (
+            <div style={{ marginTop: '0.75rem' }}>
+              {events.length === 0 ? (
+                <p style={{ fontSize: '0.8125rem', color: 'hsl(var(--muted-foreground))' }}>No live events yet.</p>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                  {events.map((event, index) => (
+                    <div
+                      key={`${event.type}-${index}`}
+                      className="list-item"
+                      style={{ cursor: 'default', padding: '0.375rem 0.5rem' }}
+                    >
+                      <span className="badge info" style={{ fontSize: '0.6875rem' }}>{event.type}</span>
+                      <span style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))' }}>
+                        {event.call_id ? `Call ${String(event.call_id).slice(0, 8)}...` : ''}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
-    </section>
+    </div>
   )
 }

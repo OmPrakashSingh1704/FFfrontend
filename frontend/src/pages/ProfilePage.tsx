@@ -26,6 +26,7 @@ import {
   Building2,
   ChevronDown,
   ChevronRight,
+  Award,
 } from 'lucide-react'
 import type { StartupListItem } from '../types/startup'
 
@@ -220,30 +221,49 @@ export function ProfilePage() {
       })
     : null
 
+  const initials = (user?.full_name ?? 'U')
+    .split(' ')
+    .map((w) => w[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase()
+
   return (
-    <section className="content-section">
-      {/* Profile Header */}
-      <div className="profile-page-header content-card" style={{ padding: 0, overflow: 'hidden' }}>
+    <div style={{ maxWidth: 900, margin: '0 auto' }}>
+      {/* Page Header */}
+      <div className="page-header">
+        <div>
+          <h1 className="page-title">Profile</h1>
+          <p className="page-description">View and manage your personal information</p>
+        </div>
+      </div>
+
+      {/* Profile Header Card */}
+      <div className="card" style={{ marginBottom: '1.5rem', overflow: 'hidden', padding: 0 }}>
+        {/* Background banner */}
         <div
-          className="profile-page-bg"
-          style={
-            backgroundUrl
-              ? { backgroundImage: `url(${backgroundUrl})` }
-              : undefined
-          }
+          style={{
+            height: 120,
+            background: backgroundUrl
+              ? `url(${backgroundUrl}) center/cover`
+              : 'linear-gradient(135deg, hsl(var(--muted)), hsl(var(--card)))',
+            position: 'relative',
+          }}
         >
           <button
-            className="profile-page-bg-upload btn ghost"
+            className="btn-sm ghost"
             type="button"
             data-testid="upload-background"
             disabled={uploading !== null}
             onClick={() => backgroundInputRef.current?.click()}
+            style={{ position: 'absolute', top: 8, right: 8, background: 'rgba(0,0,0,0.4)', color: '#fff', border: 'none' }}
           >
             {uploading === 'background' ? (
-              <Loader2 size={16} className="animate-spin" />
+              <Loader2 size={14} className="animate-spin" />
             ) : (
-              <Camera size={16} />
+              <Camera size={14} />
             )}
+            Change
           </button>
           <input
             type="file"
@@ -254,79 +274,110 @@ export function ProfilePage() {
           />
         </div>
 
-        <div className="profile-page-avatar-section">
-          <div className="profile-page-avatar">
-            {avatarUrl ? (
-              <img src={avatarUrl} alt={user?.full_name ?? 'Avatar'} />
-            ) : (
-              <User size={40} strokeWidth={1.5} />
-            )}
-            <button
-              className="profile-page-avatar-upload"
-              type="button"
-              data-testid="upload-profile-picture"
-              disabled={uploading !== null}
-              onClick={() => profileInputRef.current?.click()}
-            >
-              {uploading === 'profile' ? (
-                <Loader2 size={14} className="animate-spin" />
-              ) : (
-                <Camera size={14} />
-              )}
-            </button>
-            <input
-              type="file"
-              accept="image/*"
-              ref={profileInputRef}
-              className="sr-only"
-              onChange={(e) => handleUpload('profile', e.target.files?.[0])}
-            />
+        {/* Avatar + Info */}
+        <div style={{ padding: '0 1.5rem 1.5rem', marginTop: -32 }}>
+          <div style={{ display: 'flex', alignItems: 'flex-end', gap: '1rem', marginBottom: '1rem' }}>
+            <div style={{ position: 'relative' }}>
+              <div className="avatar xl" style={{ border: '3px solid hsl(var(--card))' }}>
+                {avatarUrl ? (
+                  <img src={avatarUrl} alt={user?.full_name ?? 'Avatar'} />
+                ) : (
+                  <span>{initials}</span>
+                )}
+              </div>
+              <button
+                type="button"
+                data-testid="upload-profile-picture"
+                disabled={uploading !== null}
+                onClick={() => profileInputRef.current?.click()}
+                style={{
+                  position: 'absolute',
+                  bottom: 0,
+                  right: -4,
+                  width: 24,
+                  height: 24,
+                  borderRadius: '50%',
+                  background: 'var(--gold)',
+                  color: '#fff',
+                  border: '2px solid hsl(var(--card))',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  padding: 0,
+                }}
+              >
+                {uploading === 'profile' ? (
+                  <Loader2 size={10} className="animate-spin" />
+                ) : (
+                  <Camera size={10} />
+                )}
+              </button>
+              <input
+                type="file"
+                accept="image/*"
+                ref={profileInputRef}
+                className="sr-only"
+                onChange={(e) => handleUpload('profile', e.target.files?.[0])}
+              />
+            </div>
+
+            <div style={{ flex: 1, paddingBottom: 4 }}>
+              <h2 className="text-xl font-semibold" style={{ marginBottom: 2 }}>
+                {user?.full_name || 'User'}
+              </h2>
+              <p style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'hsl(var(--muted-foreground))', fontSize: '0.875rem' }}>
+                <Mail size={14} strokeWidth={1.5} />
+                {user?.email}
+              </p>
+            </div>
+
+            <span className="badge info" style={{ alignSelf: 'center' }}>
+              {user?.role ?? 'Member'}
+            </span>
           </div>
 
-          <div className="profile-page-info">
-            <h1>{user?.full_name || 'User'}</h1>
-            <p className="profile-page-email">
-              <Mail size={14} strokeWidth={1.5} />
-              {user?.email}
-            </p>
-          </div>
-        </div>
-
-        <div className="profile-page-stats">
-          <div className="profile-page-stat">
-            <Shield size={16} strokeWidth={1.5} />
-            <span className="profile-page-stat-label">Role</span>
-            <span className="profile-page-stat-value">{user?.role ?? 'Member'}</span>
-          </div>
-          <div className="profile-page-stat">
-            <Star size={16} strokeWidth={1.5} />
-            <span className="profile-page-stat-label">League</span>
-            <span className="profile-page-stat-value">{user?.league ?? '—'}</span>
-          </div>
-          {memberSince && (
-            <div className="profile-page-stat">
-              <Calendar size={16} strokeWidth={1.5} />
-              <span className="profile-page-stat-label">Member since</span>
-              <span className="profile-page-stat-value">{memberSince}</span>
+          {/* Stats Row */}
+          <div className="grid-4">
+            <div className="stat-card">
+              <div className="stat-header">
+                <span className="stat-label">League</span>
+                <div className="stat-icon"><Award size={16} strokeWidth={1.5} /></div>
+              </div>
+              <span className="stat-value">{user?.league ?? '--'}</span>
             </div>
-          )}
-          {user?.credits != null && (
-            <div className="profile-page-stat">
-              <Star size={16} strokeWidth={1.5} />
-              <span className="profile-page-stat-label">Credits</span>
-              <span className="profile-page-stat-value">{user.credits}</span>
+            <div className="stat-card">
+              <div className="stat-header">
+                <span className="stat-label">Credits</span>
+                <div className="stat-icon"><Star size={16} strokeWidth={1.5} /></div>
+              </div>
+              <span className="stat-value">{user?.credits ?? 0}</span>
             </div>
-          )}
+            <div className="stat-card">
+              <div className="stat-header">
+                <span className="stat-label">Member since</span>
+                <div className="stat-icon"><Calendar size={16} strokeWidth={1.5} /></div>
+              </div>
+              <span className="stat-value" style={{ fontSize: '0.875rem' }}>{memberSince ?? '--'}</span>
+            </div>
+            <div className="stat-card">
+              <div className="stat-header">
+                <span className="stat-label">Role</span>
+                <div className="stat-icon"><Shield size={16} strokeWidth={1.5} /></div>
+              </div>
+              <span className="stat-value" style={{ textTransform: 'capitalize' }}>{user?.role ?? 'Member'}</span>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Edit Form */}
-      <div className="content-card">
-        <div className="profile-edit-header">
-          <h2>Profile details</h2>
+      {/* Edit Profile Card */}
+      <div className="card" style={{ marginBottom: '1.5rem' }}>
+        <div className="card-header">
+          <span className="card-title">Profile Details</span>
           {!editing && (
             <button
-              className="btn ghost"
+              className="btn-sm ghost"
               type="button"
               data-testid="edit-profile"
               onClick={() => {
@@ -335,7 +386,7 @@ export function ProfilePage() {
                 setEditing(true)
               }}
             >
-              <Pencil size={14} strokeWidth={1.5} />
+              <Pencil size={12} strokeWidth={1.5} />
               Edit
             </button>
           )}
@@ -343,43 +394,44 @@ export function ProfilePage() {
 
         {editing ? (
           <form
-            className="profile-edit-form"
             onSubmit={(e) => {
               e.preventDefault()
               void handleSave()
             }}
           >
-            <label className="profile-field">
-              <span className="profile-field-label">
-                <User size={14} strokeWidth={1.5} />
+            <div className="form-group">
+              <label>
+                <User size={14} strokeWidth={1.5} style={{ display: 'inline', verticalAlign: -2, marginRight: 6 }} />
                 Full name
-              </span>
+              </label>
               <input
+                className="input"
                 type="text"
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
                 data-testid="input-full-name"
                 placeholder="Your full name"
               />
-            </label>
+            </div>
 
-            <label className="profile-field">
-              <span className="profile-field-label">
-                <Phone size={14} strokeWidth={1.5} />
+            <div className="form-group">
+              <label>
+                <Phone size={14} strokeWidth={1.5} style={{ display: 'inline', verticalAlign: -2, marginRight: 6 }} />
                 Phone
-              </span>
+              </label>
               <input
+                className="input"
                 type="tel"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
                 data-testid="input-phone"
                 placeholder="Phone number"
               />
-            </label>
+            </div>
 
-            <div className="profile-edit-actions">
+            <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end', marginTop: '1rem' }}>
               <button
-                className="btn ghost"
+                className="btn-sm ghost"
                 type="button"
                 onClick={() => setEditing(false)}
                 disabled={saving}
@@ -387,19 +439,19 @@ export function ProfilePage() {
                 Cancel
               </button>
               <button
-                className="btn primary"
+                className="btn-sm primary"
                 type="submit"
                 data-testid="save-profile"
                 disabled={saving}
               >
                 {saving ? (
                   <>
-                    <Loader2 size={14} className="animate-spin" />
-                    Saving…
+                    <Loader2 size={12} className="animate-spin" />
+                    Saving...
                   </>
                 ) : (
                   <>
-                    <Save size={14} />
+                    <Save size={12} />
                     Save
                   </>
                 )}
@@ -407,52 +459,55 @@ export function ProfilePage() {
             </div>
           </form>
         ) : (
-          <div className="profile-view-fields">
-            <div className="profile-view-row">
-              <span className="profile-field-label">
-                <User size={14} strokeWidth={1.5} />
-                Full name
-              </span>
-              <span>{user?.full_name || '—'}</span>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+            <div className="list-item" style={{ cursor: 'default' }}>
+              <User size={14} strokeWidth={1.5} style={{ color: 'hsl(var(--muted-foreground))' }} />
+              <span style={{ flex: 1, color: 'hsl(var(--muted-foreground))', fontSize: '0.875rem' }}>Full name</span>
+              <span style={{ fontSize: '0.875rem' }}>{user?.full_name || '--'}</span>
             </div>
-            <div className="profile-view-row">
-              <span className="profile-field-label">
-                <Mail size={14} strokeWidth={1.5} />
-                Email
-              </span>
-              <span>{user?.email}</span>
+            <hr className="divider" style={{ margin: 0 }} />
+            <div className="list-item" style={{ cursor: 'default' }}>
+              <Mail size={14} strokeWidth={1.5} style={{ color: 'hsl(var(--muted-foreground))' }} />
+              <span style={{ flex: 1, color: 'hsl(var(--muted-foreground))', fontSize: '0.875rem' }}>Email</span>
+              <span style={{ fontSize: '0.875rem' }}>{user?.email}</span>
             </div>
-            <div className="profile-view-row">
-              <span className="profile-field-label">
-                <Phone size={14} strokeWidth={1.5} />
-                Phone
-              </span>
-              <span>{user?.phone || '—'}</span>
+            <hr className="divider" style={{ margin: 0 }} />
+            <div className="list-item" style={{ cursor: 'default' }}>
+              <Phone size={14} strokeWidth={1.5} style={{ color: 'hsl(var(--muted-foreground))' }} />
+              <span style={{ flex: 1, color: 'hsl(var(--muted-foreground))', fontSize: '0.875rem' }}>Phone</span>
+              <span style={{ fontSize: '0.875rem' }}>{user?.phone || '--'}</span>
             </div>
           </div>
         )}
       </div>
 
       {/* My Startups & Documents */}
-      <div className="content-card">
-        <div className="startup-docs-header">
-          <h2>
-            <Building2 size={18} style={{ display: 'inline', verticalAlign: '-3px', marginRight: 8 }} />
+      <div className="card">
+        <div className="card-header">
+          <span className="card-title">
+            <Building2 size={14} strokeWidth={1.5} style={{ display: 'inline', verticalAlign: -2, marginRight: 6 }} />
             My Startups &amp; Documents
-          </h2>
+          </span>
         </div>
 
         {loadingStartups ? (
-          <div className="page-loader">Loading startups...</div>
+          <div className="empty-state" style={{ paddingTop: '2rem', paddingBottom: '2rem' }}>
+            <Loader2 size={20} className="animate-spin" style={{ color: 'hsl(var(--muted-foreground))' }} />
+            <span className="empty-description">Loading startups...</span>
+          </div>
         ) : myStartups.length === 0 ? (
-          <p className="startup-docs-empty">
-            You are not a member of any startup yet.{' '}
-            <Link to="/app/startups" style={{ textDecoration: 'underline' }}>
-              Browse startups
-            </Link>
-          </p>
+          <div className="empty-state" style={{ paddingTop: '2rem', paddingBottom: '2rem' }}>
+            <div className="empty-icon"><Building2 size={24} /></div>
+            <span className="empty-title">No startups yet</span>
+            <span className="empty-description">
+              You are not a member of any startup yet.{' '}
+              <Link to="/app/startups" style={{ color: 'var(--gold)', textDecoration: 'underline' }}>
+                Browse startups
+              </Link>
+            </span>
+          </div>
         ) : (
-          <div className="profile-startups-list">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
             {/* Hidden file input shared across startups */}
             <input
               ref={docInputRef}
@@ -470,60 +525,66 @@ export function ProfilePage() {
               const isUploadingThis = uploadingDoc === s.id
 
               return (
-                <div key={s.id} className="profile-startup-card" data-testid={`startup-${s.id}`}>
+                <div
+                  key={s.id}
+                  className="card"
+                  data-testid={`startup-${s.id}`}
+                  style={{ padding: 0, overflow: 'hidden' }}
+                >
                   <button
-                    className="profile-startup-toggle"
+                    className="list-item"
                     onClick={() => void toggleStartup(s.id)}
                     data-testid={`toggle-startup-${s.id}`}
+                    style={{ width: '100%', padding: '0.75rem 1rem', borderRadius: isExpanded ? '0.75rem 0.75rem 0 0' : undefined }}
                   >
-                    <div className="profile-startup-info">
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flex: 1, minWidth: 0 }}>
                       {s.logo_url ? (
                         <img
                           src={resolveMediaUrl(s.logo_url) ?? ''}
                           alt={s.name}
-                          className="profile-startup-logo"
+                          style={{ width: 32, height: 32, borderRadius: '0.5rem', objectFit: 'cover' }}
                         />
                       ) : (
-                        <div className="profile-startup-logo-placeholder">
-                          <Building2 size={16} />
+                        <div className="avatar" style={{ borderRadius: '0.5rem' }}>
+                          <Building2 size={14} />
                         </div>
                       )}
-                      <div>
-                        <span className="profile-startup-name">{s.name}</span>
+                      <div style={{ textAlign: 'left', minWidth: 0 }}>
+                        <span style={{ display: 'block', fontWeight: 500, fontSize: '0.875rem' }}>{s.name}</span>
                         {s.industry && (
-                          <span className="profile-startup-meta">{s.industry}</span>
+                          <span style={{ display: 'block', fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))' }}>{s.industry}</span>
                         )}
                       </div>
                     </div>
-                    <div className="profile-startup-right">
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                       {docs.length > 0 && (
-                        <span className="profile-startup-doc-count">
-                          {docs.length} doc{docs.length !== 1 ? 's' : ''}
-                        </span>
+                        <span className="badge">{docs.length} doc{docs.length !== 1 ? 's' : ''}</span>
                       )}
                       {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
                     </div>
                   </button>
 
                   {isExpanded && (
-                    <div className="profile-startup-docs">
+                    <div style={{ padding: '0 1rem 1rem', borderTop: '1px solid hsl(var(--border))' }}>
                       {/* Upload controls */}
-                      <div className="startup-docs-upload-controls" style={{ marginBottom: '0.75rem' }}>
+                      <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center', padding: '0.75rem 0' }}>
                         <select
+                          className="select"
                           value={docType}
                           onChange={(e) => setDocType(e.target.value)}
-                          className="startup-docs-select"
                           data-testid={`doc-type-${s.id}`}
+                          style={{ flex: 1, minWidth: 140 }}
                         >
                           {Object.entries(DOC_TYPE_LABELS).map(([val, label]) => (
                             <option key={val} value={val}>{label}</option>
                           ))}
                         </select>
                         <select
+                          className="select"
                           value={accessLevel}
                           onChange={(e) => setAccessLevel(e.target.value)}
-                          className="startup-docs-select"
                           data-testid={`doc-access-${s.id}`}
+                          style={{ flex: 1, minWidth: 120 }}
                         >
                           <option value="private">Private</option>
                           <option value="team">Team</option>
@@ -531,7 +592,7 @@ export function ProfilePage() {
                           <option value="public">Public</option>
                         </select>
                         <button
-                          className="btn primary"
+                          className="btn-sm ghost"
                           disabled={isUploadingThis}
                           onClick={() => {
                             activeStartupRef.current = s.id
@@ -540,9 +601,9 @@ export function ProfilePage() {
                           data-testid={`upload-doc-${s.id}`}
                         >
                           {isUploadingThis ? (
-                            <Loader2 size={16} className="icon-spin" />
+                            <Loader2 size={12} className="animate-spin" />
                           ) : (
-                            <Upload size={16} />
+                            <Upload size={12} />
                           )}
                           {isUploadingThis ? 'Uploading...' : 'Upload'}
                         </button>
@@ -550,50 +611,52 @@ export function ProfilePage() {
 
                       {/* Docs list */}
                       {isLoadingThis ? (
-                        <div className="page-loader" style={{ padding: '1rem 0' }}>
-                          Loading documents...
+                        <div className="empty-state" style={{ padding: '1rem 0' }}>
+                          <Loader2 size={16} className="animate-spin" style={{ color: 'hsl(var(--muted-foreground))' }} />
+                          <span className="empty-description">Loading documents...</span>
                         </div>
                       ) : docs.length === 0 ? (
-                        <p className="startup-docs-empty" style={{ padding: '1rem 0' }}>
-                          No documents yet. Upload a pitch deck to get started.
-                        </p>
+                        <div className="empty-state" style={{ padding: '1rem 0' }}>
+                          <span className="empty-description">No documents yet. Upload a pitch deck to get started.</span>
+                        </div>
                       ) : (
-                        <div className="startup-docs-list">
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                           {docs.map((doc) => {
                             const AccessIcon = ACCESS_ICONS[doc.access_level ?? 'private'] ?? Lock
                             return (
-                              <div key={doc.id} className="startup-doc-row" data-testid={`doc-${doc.id}`}>
-                                <div className="startup-doc-info">
-                                  <FileText size={18} />
-                                  <div>
-                                    <span className="startup-doc-name">{doc.name}</span>
-                                    <span className="startup-doc-meta">
-                                      {DOC_TYPE_LABELS[doc.document_type ?? ''] ?? doc.document_type}
-                                      {doc.file_size ? ` \u00B7 ${formatFileSize(doc.file_size)}` : ''}
-                                    </span>
-                                  </div>
+                              <div key={doc.id} className="list-item" data-testid={`doc-${doc.id}`} style={{ cursor: 'default' }}>
+                                <FileText size={16} strokeWidth={1.5} style={{ color: 'var(--gold)', flexShrink: 0 }} />
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                  <span style={{ display: 'block', fontWeight: 500, fontSize: '0.875rem' }}>{doc.name}</span>
+                                  <span style={{ display: 'block', fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))' }}>
+                                    {DOC_TYPE_LABELS[doc.document_type ?? ''] ?? doc.document_type}
+                                    {doc.file_size ? ` \u00B7 ${formatFileSize(doc.file_size)}` : ''}
+                                  </span>
                                 </div>
-                                <div className="startup-doc-actions">
-                                  <span className="startup-doc-access" title={doc.access_level ?? 'private'}>
-                                    <AccessIcon size={14} />
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                                  <span className="tag" title={doc.access_level ?? 'private'}>
+                                    <AccessIcon size={10} style={{ marginRight: 4 }} />
+                                    {doc.access_level ?? 'private'}
                                   </span>
                                   {doc.file_url ? (
                                     <a
                                       href={doc.file_url}
                                       target="_blank"
                                       rel="noreferrer"
-                                      className="btn ghost small"
+                                      className="btn-sm ghost"
                                       data-testid={`view-doc-${doc.id}`}
+                                      style={{ padding: '0.25rem' }}
                                     >
-                                      <ExternalLink size={14} />
+                                      <ExternalLink size={12} />
                                     </a>
                                   ) : null}
                                   <button
-                                    className="btn ghost small danger"
+                                    className="btn-sm ghost"
                                     onClick={() => void handleDocDelete(s.id, doc.id)}
                                     data-testid={`delete-doc-${doc.id}`}
+                                    style={{ padding: '0.25rem', color: '#ef4444' }}
                                   >
-                                    <Trash2 size={14} />
+                                    <Trash2 size={12} />
                                   </button>
                                 </div>
                               </div>
@@ -609,6 +672,6 @@ export function ProfilePage() {
           </div>
         )}
       </div>
-    </section>
+    </div>
   )
 }

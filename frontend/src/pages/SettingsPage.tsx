@@ -60,9 +60,20 @@ const TOKEN_BASED_PLATFORMS = new Set(['telegram', 'whatsapp_business'])
 // Platforms that use QR code scanning (not yet supported in frontend)
 const QR_BASED_PLATFORMS = new Set(['whatsapp_web'])
 
+type TabKey = 'account' | 'notifications' | 'integrations' | 'privacy'
+
+const TABS: { key: TabKey; label: string; icon: typeof Shield }[] = [
+  { key: 'account', label: 'Account', icon: Shield },
+  { key: 'notifications', label: 'Notifications', icon: Bell },
+  { key: 'integrations', label: 'Integrations', icon: Link2 },
+  { key: 'privacy', label: 'Privacy', icon: Eye },
+]
+
 export function SettingsPage() {
   const { user } = useAuth()
   const { pushToast } = useToast()
+
+  const [activeTab, setActiveTab] = useState<TabKey>('account')
 
   // Notification preferences
   const [prefs, setPrefs] = useState<NotificationPreferences>({
@@ -345,287 +356,333 @@ export function SettingsPage() {
   const connectedPlatforms = new Set(accounts.map((a) => a.platform))
   const unconnectedPlatforms = available.filter((p) => !connectedPlatforms.has(p.platform))
 
+  const notifItems: { key: keyof NotificationPreferences; label: string; desc: string; testid: string }[] = [
+    { key: 'email_notifications', label: 'Email notifications', desc: 'Receive important updates via email', testid: 'toggle-email-notifications' },
+    { key: 'push_notifications', label: 'Push notifications', desc: 'Browser and mobile push alerts', testid: 'toggle-push-notifications' },
+    { key: 'chat_notifications', label: 'Chat notifications', desc: 'Alerts for new messages and calls', testid: 'toggle-chat-notifications' },
+    { key: 'marketing_emails', label: 'Marketing emails', desc: 'Product updates and newsletters', testid: 'toggle-marketing-emails' },
+  ]
+
   return (
-    <section className="content-section">
-      <header className="content-header">
+    <div style={{ maxWidth: 900, margin: '0 auto' }}>
+      {/* Page Header */}
+      <div className="page-header">
         <div>
-          <h1>Settings</h1>
-          <p>Manage your account preferences and integrations.</p>
-        </div>
-      </header>
-
-      {/* Account Info */}
-      <div className="content-card">
-        <div className="settings-section-header">
-          <Shield size={18} strokeWidth={1.5} />
-          <h2>Account</h2>
-        </div>
-        <div className="settings-info-grid">
-          <div className="settings-info-row">
-            <span className="settings-info-label">Email</span>
-            <span className="settings-info-value">{user?.email}</span>
-          </div>
-          <div className="settings-info-row">
-            <span className="settings-info-label">Email verified</span>
-            <span className="settings-info-value">
-              {user?.email_verified ? 'Yes' : 'No'}
-            </span>
-          </div>
-          <div className="settings-info-row">
-            <span className="settings-info-label">Status</span>
-            <span className="settings-info-value capitalize">{user?.status ?? 'Active'}</span>
-          </div>
-          <div className="settings-info-row">
-            <span className="settings-info-label">Role</span>
-            <span className="settings-info-value capitalize">{user?.role ?? 'Member'}</span>
-          </div>
+          <h1 className="page-title">Settings</h1>
+          <p className="page-description">Manage your account preferences and integrations</p>
         </div>
       </div>
 
-      {/* Notification Preferences */}
-      <div className="content-card">
-        <div className="settings-section-header">
-          <Bell size={18} strokeWidth={1.5} />
-          <h2>Notifications</h2>
-        </div>
-
-        {loadingPrefs ? (
-          <div className="page-loader">Loading preferences…</div>
-        ) : (
-          <>
-            <div className="settings-toggle-list">
-              <label className="settings-toggle-row" data-testid="toggle-email-notifications">
-                <div>
-                  <span className="settings-toggle-label">Email notifications</span>
-                  <span className="settings-toggle-desc">Receive important updates via email</span>
-                </div>
-                <input
-                  type="checkbox"
-                  className="settings-checkbox"
-                  checked={prefs.email_notifications ?? true}
-                  onChange={() => togglePref('email_notifications')}
-                />
-              </label>
-              <label className="settings-toggle-row" data-testid="toggle-push-notifications">
-                <div>
-                  <span className="settings-toggle-label">Push notifications</span>
-                  <span className="settings-toggle-desc">Browser and mobile push alerts</span>
-                </div>
-                <input
-                  type="checkbox"
-                  className="settings-checkbox"
-                  checked={prefs.push_notifications ?? true}
-                  onChange={() => togglePref('push_notifications')}
-                />
-              </label>
-              <label className="settings-toggle-row" data-testid="toggle-chat-notifications">
-                <div>
-                  <span className="settings-toggle-label">Chat notifications</span>
-                  <span className="settings-toggle-desc">Alerts for new messages and calls</span>
-                </div>
-                <input
-                  type="checkbox"
-                  className="settings-checkbox"
-                  checked={prefs.chat_notifications ?? true}
-                  onChange={() => togglePref('chat_notifications')}
-                />
-              </label>
-              <label className="settings-toggle-row" data-testid="toggle-marketing-emails">
-                <div>
-                  <span className="settings-toggle-label">Marketing emails</span>
-                  <span className="settings-toggle-desc">Product updates and newsletters</span>
-                </div>
-                <input
-                  type="checkbox"
-                  className="settings-checkbox"
-                  checked={prefs.marketing_emails ?? false}
-                  onChange={() => togglePref('marketing_emails')}
-                />
-              </label>
-            </div>
-
-            <div className="settings-save-row">
-              <button
-                className="btn primary"
-                type="button"
-                data-testid="save-preferences"
-                disabled={savingPrefs}
-                onClick={() => void handleSavePrefs()}
-              >
-                {savingPrefs ? (
-                  <>
-                    <Loader2 size={14} className="animate-spin" />
-                    Saving…
-                  </>
-                ) : (
-                  <>
-                    <Save size={14} />
-                    Save preferences
-                  </>
-                )}
-              </button>
-            </div>
-          </>
-        )}
+      {/* Tab Bar */}
+      <div className="tabs" style={{ marginBottom: '1.5rem' }}>
+        {TABS.map((t) => (
+          <button
+            key={t.key}
+            className={`tab${activeTab === t.key ? ' active' : ''}`}
+            onClick={() => setActiveTab(t.key)}
+            type="button"
+          >
+            <t.icon size={14} strokeWidth={1.5} style={{ display: 'inline', verticalAlign: -2, marginRight: 6 }} />
+            {t.label}
+          </button>
+        ))}
       </div>
 
-      {/* Connected Integrations */}
-      <div className="content-card">
-        <div className="settings-section-header">
-          <Link2 size={18} strokeWidth={1.5} />
-          <h2>Connected accounts</h2>
-        </div>
-
-        {loadingAccounts ? (
-          <div className="page-loader">Loading integrations…</div>
-        ) : accounts.length === 0 ? (
-          <div className="empty-state">
-            <div className="empty-state-icon">
-              <Unplug className="w-8 h-8" />
-            </div>
-            <h3>No connected accounts</h3>
-            <p>Connect external platforms to extend your FoundersLib experience.</p>
+      {/* ===== Account Tab ===== */}
+      {activeTab === 'account' && (
+        <div className="card">
+          <div className="card-header">
+            <span className="card-title">Account Information</span>
           </div>
-        ) : (
-          <div className="settings-accounts-list">
-            {accounts.map((account) => (
-              <div key={account.id} className="settings-account-row">
-                <div className="settings-account-info">
-                  <span className="settings-account-platform">
-                    {account.display_name ?? PLATFORM_LABELS[account.platform] ?? account.platform}
-                  </span>
-                  {account.external_email && (
-                    <span className="settings-account-user">{account.external_email}</span>
-                  )}
-                  {account.error_message && (
-                    <span className="settings-account-error">{account.error_message}</span>
-                  )}
-                </div>
-                <div className="settings-account-actions">
-                  {account.is_active === false && (
-                    <span className="settings-account-badge inactive">Inactive</span>
-                  )}
-                  <button
-                    className="btn ghost"
-                    type="button"
-                    data-testid={`disconnect-${account.platform}`}
-                    disabled={disconnecting === account.id}
-                    onClick={() => void handleDisconnect(account.id)}
-                  >
-                    {disconnecting === account.id ? (
-                      <Loader2 size={14} className="animate-spin" />
-                    ) : (
-                      'Disconnect'
-                    )}
-                  </button>
-                </div>
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            <div className="list-item" style={{ cursor: 'default' }}>
+              <span style={{ flex: 1, color: 'hsl(var(--muted-foreground))', fontSize: '0.875rem' }}>Email</span>
+              <span style={{ fontSize: '0.875rem' }}>{user?.email}</span>
+            </div>
+            <hr className="divider" style={{ margin: 0 }} />
+            <div className="list-item" style={{ cursor: 'default' }}>
+              <span style={{ flex: 1, color: 'hsl(var(--muted-foreground))', fontSize: '0.875rem' }}>Email verified</span>
+              <span className={`badge ${user?.email_verified ? 'success' : 'warning'}`}>
+                {user?.email_verified ? 'Yes' : 'No'}
+              </span>
+            </div>
+            <hr className="divider" style={{ margin: 0 }} />
+            <div className="list-item" style={{ cursor: 'default' }}>
+              <span style={{ flex: 1, color: 'hsl(var(--muted-foreground))', fontSize: '0.875rem' }}>Status</span>
+              <span className="badge success" style={{ textTransform: 'capitalize' }}>{user?.status ?? 'Active'}</span>
+            </div>
+            <hr className="divider" style={{ margin: 0 }} />
+            <div className="list-item" style={{ cursor: 'default' }}>
+              <span style={{ flex: 1, color: 'hsl(var(--muted-foreground))', fontSize: '0.875rem' }}>Role</span>
+              <span className="badge info" style={{ textTransform: 'capitalize' }}>{user?.role ?? 'Member'}</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ===== Notifications Tab ===== */}
+      {activeTab === 'notifications' && (
+        <div className="card">
+          <div className="card-header">
+            <span className="card-title">Notification Preferences</span>
+          </div>
+
+          {loadingPrefs ? (
+            <div className="empty-state" style={{ padding: '2rem 0' }}>
+              <Loader2 size={20} className="animate-spin" style={{ color: 'hsl(var(--muted-foreground))' }} />
+              <span className="empty-description">Loading preferences...</span>
+            </div>
+          ) : (
+            <>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                {notifItems.map((item) => {
+                  const isOn = prefs[item.key] ?? false
+                  return (
+                    <div
+                      key={item.key}
+                      className="list-item"
+                      data-testid={item.testid}
+                      onClick={() => togglePref(item.key)}
+                      style={{ justifyContent: 'space-between' }}
+                    >
+                      <div>
+                        <span style={{ display: 'block', fontWeight: 500, fontSize: '0.875rem' }}>{item.label}</span>
+                        <span style={{ display: 'block', fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))' }}>{item.desc}</span>
+                      </div>
+                      <div
+                        className={`toggle-switch${isOn ? ' active' : ''}`}
+                        role="switch"
+                        aria-checked={isOn}
+                      >
+                        <span className="toggle-dot" />
+                      </div>
+                    </div>
+                  )
+                })}
               </div>
-            ))}
-          </div>
-        )}
-      </div>
 
-      {/* Available Platforms to Connect */}
-      <div className="content-card">
-        <div className="settings-section-header">
-          <Plus size={18} strokeWidth={1.5} />
-          <h2>Connect a platform</h2>
+              <hr className="divider" />
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                <button
+                  className="btn-sm primary"
+                  type="button"
+                  data-testid="save-preferences"
+                  disabled={savingPrefs}
+                  onClick={() => void handleSavePrefs()}
+                >
+                  {savingPrefs ? (
+                    <>
+                      <Loader2 size={12} className="animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <Save size={12} />
+                      Save preferences
+                    </>
+                  )}
+                </button>
+              </div>
+            </>
+          )}
         </div>
+      )}
 
-        {loadingAvailable ? (
-          <div className="page-loader">Loading platforms…</div>
-        ) : unconnectedPlatforms.length === 0 && available.length > 0 ? (
-          <p className="billing-muted">All available platforms are already connected.</p>
-        ) : unconnectedPlatforms.length === 0 ? (
-          <p className="billing-muted">No integrations are available at this time.</p>
-        ) : (
-          <div className="settings-platforms-grid">
-            {unconnectedPlatforms.map((integration) => {
-              const isTokenBased = TOKEN_BASED_PLATFORMS.has(integration.platform)
-              const isQrBased = QR_BASED_PLATFORMS.has(integration.platform)
-              return (
-                <div key={integration.platform} className="settings-platform-card">
-                  <div className="settings-platform-info">
-                    <span className="settings-platform-name">
-                      {integration.display_name ?? PLATFORM_LABELS[integration.platform] ?? integration.platform}
-                    </span>
-                    {isTokenBased && (
-                      <span className="settings-platform-auth-hint">Requires API token</span>
-                    )}
-                    {isQrBased && (
-                      <span className="settings-platform-auth-hint">Requires QR code scan</span>
-                    )}
-                    <div className="settings-platform-caps">
-                      {integration.supports_threads && <span className="settings-cap-badge">Threads</span>}
-                      {integration.supports_reactions && <span className="settings-cap-badge">Reactions</span>}
-                      {integration.supports_typing && <span className="settings-cap-badge">Typing</span>}
-                      {integration.supports_read_receipts && <span className="settings-cap-badge">Read receipts</span>}
+      {/* ===== Integrations Tab ===== */}
+      {activeTab === 'integrations' && (
+        <>
+          {/* Connected Accounts */}
+          <div className="card" style={{ marginBottom: '1.5rem' }}>
+            <div className="card-header">
+              <span className="card-title">Connected Accounts</span>
+            </div>
+
+            {loadingAccounts ? (
+              <div className="empty-state" style={{ padding: '2rem 0' }}>
+                <Loader2 size={20} className="animate-spin" style={{ color: 'hsl(var(--muted-foreground))' }} />
+                <span className="empty-description">Loading integrations...</span>
+              </div>
+            ) : accounts.length === 0 ? (
+              <div className="empty-state" style={{ padding: '2rem 0' }}>
+                <div className="empty-icon"><Unplug size={24} /></div>
+                <span className="empty-title">No connected accounts</span>
+                <span className="empty-description">Connect external platforms to extend your FoundersLib experience.</span>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                {accounts.map((account) => (
+                  <div key={account.id} className="list-item" style={{ cursor: 'default', justifyContent: 'space-between' }}>
+                    <div style={{ minWidth: 0 }}>
+                      <span style={{ display: 'block', fontWeight: 500, fontSize: '0.875rem' }}>
+                        {account.display_name ?? PLATFORM_LABELS[account.platform] ?? account.platform}
+                      </span>
+                      {account.external_email && (
+                        <span style={{ display: 'block', fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))' }}>{account.external_email}</span>
+                      )}
+                      {account.error_message && (
+                        <span style={{ display: 'block', fontSize: '0.75rem', color: '#ef4444' }}>{account.error_message}</span>
+                      )}
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      {account.is_active === false && (
+                        <span className="badge warning">Inactive</span>
+                      )}
+                      <button
+                        className="btn-sm ghost"
+                        type="button"
+                        data-testid={`disconnect-${account.platform}`}
+                        disabled={disconnecting === account.id}
+                        onClick={() => void handleDisconnect(account.id)}
+                      >
+                        {disconnecting === account.id ? (
+                          <Loader2 size={12} className="animate-spin" />
+                        ) : (
+                          'Disconnect'
+                        )}
+                      </button>
                     </div>
                   </div>
-                  <button
-                    className="btn primary"
-                    type="button"
-                    data-testid={`connect-${integration.platform}`}
-                    disabled={connecting !== null}
-                    onClick={() => void handleConnect(integration.platform)}
-                  >
-                    {connecting === integration.platform ? (
-                      <>
-                        <Loader2 size={14} className="animate-spin" />
-                        Connecting…
-                      </>
-                    ) : (
-                      <>
-                        {isTokenBased ? <Key size={14} /> : <Plus size={14} />}
-                        Connect
-                      </>
-                    )}
-                  </button>
-                </div>
-              )
-            })}
+                ))}
+              </div>
+            )}
           </div>
-        )}
-      </div>
 
-      {/* Privacy */}
-      <div className="content-card">
-        <div className="settings-section-header">
-          <Eye size={18} strokeWidth={1.5} />
-          <h2>Privacy</h2>
-        </div>
-        <div className="settings-info-grid">
-          <div className="settings-info-row">
-            <span className="settings-info-label">Profile visibility</span>
-            <span className="settings-info-value">Public</span>
+          {/* Available Platforms */}
+          <div className="card">
+            <div className="card-header">
+              <span className="card-title">Connect a Platform</span>
+            </div>
+
+            {loadingAvailable ? (
+              <div className="empty-state" style={{ padding: '2rem 0' }}>
+                <Loader2 size={20} className="animate-spin" style={{ color: 'hsl(var(--muted-foreground))' }} />
+                <span className="empty-description">Loading platforms...</span>
+              </div>
+            ) : unconnectedPlatforms.length === 0 && available.length > 0 ? (
+              <p style={{ fontSize: '0.875rem', color: 'hsl(var(--muted-foreground))', textAlign: 'center', padding: '1rem 0' }}>
+                All available platforms are already connected.
+              </p>
+            ) : unconnectedPlatforms.length === 0 ? (
+              <p style={{ fontSize: '0.875rem', color: 'hsl(var(--muted-foreground))', textAlign: 'center', padding: '1rem 0' }}>
+                No integrations are available at this time.
+              </p>
+            ) : (
+              <div className="grid-3">
+                {unconnectedPlatforms.map((integration) => {
+                  const isTokenBased = TOKEN_BASED_PLATFORMS.has(integration.platform)
+                  const isQrBased = QR_BASED_PLATFORMS.has(integration.platform)
+                  return (
+                    <div key={integration.platform} className="card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '0.75rem' }}>
+                      <div>
+                        <span style={{ display: 'block', fontWeight: 500, fontSize: '0.875rem', marginBottom: 4 }}>
+                          {integration.display_name ?? PLATFORM_LABELS[integration.platform] ?? integration.platform}
+                        </span>
+                        {isTokenBased && (
+                          <span className="tag" style={{ marginBottom: 6 }}>Requires API token</span>
+                        )}
+                        {isQrBased && (
+                          <span className="tag" style={{ marginBottom: 6 }}>Requires QR code scan</span>
+                        )}
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 4 }}>
+                          {integration.supports_threads && <span className="badge">Threads</span>}
+                          {integration.supports_reactions && <span className="badge">Reactions</span>}
+                          {integration.supports_typing && <span className="badge">Typing</span>}
+                          {integration.supports_read_receipts && <span className="badge">Read receipts</span>}
+                        </div>
+                      </div>
+                      <button
+                        className="btn-sm primary"
+                        type="button"
+                        data-testid={`connect-${integration.platform}`}
+                        disabled={connecting !== null}
+                        onClick={() => void handleConnect(integration.platform)}
+                        style={{ alignSelf: 'flex-start' }}
+                      >
+                        {connecting === integration.platform ? (
+                          <>
+                            <Loader2 size={12} className="animate-spin" />
+                            Connecting...
+                          </>
+                        ) : (
+                          <>
+                            {isTokenBased ? <Key size={12} /> : <Plus size={12} />}
+                            Connect
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
           </div>
-          <div className="settings-info-row">
-            <span className="settings-info-label">Search indexing</span>
-            <span className="settings-info-value">Enabled</span>
+        </>
+      )}
+
+      {/* ===== Privacy Tab ===== */}
+      {activeTab === 'privacy' && (
+        <div className="card">
+          <div className="card-header">
+            <span className="card-title">Privacy Settings</span>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            <div className="list-item" style={{ justifyContent: 'space-between' }}>
+              <div>
+                <span style={{ display: 'block', fontWeight: 500, fontSize: '0.875rem' }}>Profile visibility</span>
+                <span style={{ display: 'block', fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))' }}>Control who can see your profile</span>
+              </div>
+              <div className="toggle-switch active" role="switch" aria-checked={true}>
+                <span className="toggle-dot" />
+              </div>
+            </div>
+            <hr className="divider" style={{ margin: 0 }} />
+            <div className="list-item" style={{ justifyContent: 'space-between' }}>
+              <div>
+                <span style={{ display: 'block', fontWeight: 500, fontSize: '0.875rem' }}>Search indexing</span>
+                <span style={{ display: 'block', fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))' }}>Allow your profile to appear in search results</span>
+              </div>
+              <div className="toggle-switch active" role="switch" aria-checked={true}>
+                <span className="toggle-dot" />
+              </div>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Token Input Modal */}
       {tokenModal && (
-        <div className="settings-modal-overlay" onClick={() => !submittingToken && setTokenModal(null)}>
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.6)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 50,
+          }}
+          onClick={() => !submittingToken && setTokenModal(null)}
+        >
           <div
-            className="settings-modal content-card"
+            className="card"
+            style={{ width: '100%', maxWidth: 480, margin: '1rem' }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="settings-modal-header">
-              <h2>Connect {tokenModal.label}</h2>
+            <div className="card-header">
+              <span className="card-title">Connect {tokenModal.label}</span>
               <button
                 type="button"
-                className="settings-modal-close"
+                className="btn-sm ghost"
                 onClick={() => setTokenModal(null)}
                 disabled={submittingToken}
+                style={{ padding: '0.25rem' }}
               >
-                <X size={18} />
+                <X size={16} />
               </button>
             </div>
 
-            <p className="settings-modal-desc">
+            <p style={{ fontSize: '0.875rem', color: 'hsl(var(--muted-foreground))', marginBottom: '1rem' }}>
               {tokenModal.platform === 'telegram'
                 ? 'Enter your Telegram Bot Token. You can get one by messaging @BotFather on Telegram.'
                 : tokenModal.platform === 'whatsapp_business'
@@ -634,19 +691,19 @@ export function SettingsPage() {
             </p>
 
             <form
-              className="settings-modal-form"
               onSubmit={(e) => {
                 e.preventDefault()
                 void handleTokenSubmit()
               }}
             >
-              <label className="profile-field">
-                <span className="profile-field-label">
-                  <Key size={14} strokeWidth={1.5} />
+              <div className="form-group">
+                <label>
+                  <Key size={14} strokeWidth={1.5} style={{ display: 'inline', verticalAlign: -2, marginRight: 6 }} />
                   {tokenModal.platform === 'telegram' ? 'Bot Token' : 'Access Token'}
-                </span>
+                </label>
                 <input
                   ref={tokenInputRef}
+                  className="input"
                   type="password"
                   value={tokenValue}
                   onChange={(e) => setTokenValue(e.target.value)}
@@ -659,15 +716,16 @@ export function SettingsPage() {
                   disabled={submittingToken}
                   autoComplete="off"
                 />
-              </label>
+              </div>
 
               {tokenModal.platform === 'whatsapp_business' && (
-                <label className="profile-field">
-                  <span className="profile-field-label">
-                    <Shield size={14} strokeWidth={1.5} />
+                <div className="form-group">
+                  <label>
+                    <Shield size={14} strokeWidth={1.5} style={{ display: 'inline', verticalAlign: -2, marginRight: 6 }} />
                     Phone Number ID
-                  </span>
+                  </label>
                   <input
+                    className="input"
                     type="text"
                     value={phoneNumberId}
                     onChange={(e) => setPhoneNumberId(e.target.value)}
@@ -676,12 +734,12 @@ export function SettingsPage() {
                     disabled={submittingToken}
                     autoComplete="off"
                   />
-                </label>
+                </div>
               )}
 
-              <div className="profile-edit-actions">
+              <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end', marginTop: '1rem' }}>
                 <button
-                  className="btn ghost"
+                  className="btn-sm ghost"
                   type="button"
                   onClick={() => setTokenModal(null)}
                   disabled={submittingToken}
@@ -689,7 +747,7 @@ export function SettingsPage() {
                   Cancel
                 </button>
                 <button
-                  className="btn primary"
+                  className="btn-sm primary"
                   type="submit"
                   data-testid="submit-token"
                   disabled={
@@ -700,12 +758,12 @@ export function SettingsPage() {
                 >
                   {submittingToken ? (
                     <>
-                      <Loader2 size={14} className="animate-spin" />
-                      Connecting…
+                      <Loader2 size={12} className="animate-spin" />
+                      Connecting...
                     </>
                   ) : (
                     <>
-                      <Plus size={14} />
+                      <Plus size={12} />
                       Connect
                     </>
                   )}
@@ -718,38 +776,52 @@ export function SettingsPage() {
 
       {/* WhatsApp QR Code Modal */}
       {qrModal && (
-        <div className="settings-modal-overlay" onClick={() => { stopQrPolling(); setQrModal(false) }}>
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.6)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 50,
+          }}
+          onClick={() => { stopQrPolling(); setQrModal(false) }}
+        >
           <div
-            className="settings-modal content-card"
+            className="card"
+            style={{ width: '100%', maxWidth: 420, margin: '1rem', textAlign: 'center' }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="settings-modal-header">
-              <h2>Connect WhatsApp</h2>
+            <div className="card-header">
+              <span className="card-title">Connect WhatsApp</span>
               <button
                 type="button"
-                className="settings-modal-close"
+                className="btn-sm ghost"
                 onClick={() => { stopQrPolling(); setQrModal(false) }}
+                style={{ padding: '0.25rem' }}
               >
-                <X size={18} />
+                <X size={16} />
               </button>
             </div>
 
-            <div className="qr-modal-body">
+            <div style={{ padding: '1rem 0' }}>
               {qrStatus === 'loading' && (
-                <div className="qr-modal-loading">
-                  <Loader2 size={32} className="animate-spin" />
-                  <p>Generating QR code…</p>
+                <div className="empty-state" style={{ padding: '2rem 0' }}>
+                  <Loader2 size={32} className="animate-spin" style={{ color: 'hsl(var(--muted-foreground))' }} />
+                  <span className="empty-description">Generating QR code...</span>
                 </div>
               )}
 
               {qrStatus === 'error' && (
-                <div className="qr-modal-error">
-                  <QrCode size={32} />
-                  <p>{qrError ?? 'Something went wrong.'}</p>
+                <div className="empty-state" style={{ padding: '2rem 0' }}>
+                  <div className="empty-icon"><QrCode size={32} /></div>
+                  <span className="empty-description">{qrError ?? 'Something went wrong.'}</span>
                   <button
-                    className="btn ghost"
+                    className="btn-sm ghost"
                     type="button"
                     onClick={() => void openQrModal()}
+                    style={{ marginTop: '0.5rem' }}
                   >
                     Try again
                   </button>
@@ -758,51 +830,54 @@ export function SettingsPage() {
 
               {(qrStatus === 'pending' || qrStatus === 'scanned') && (
                 <>
-                  <div className="qr-modal-instructions">
-                    <Smartphone size={18} strokeWidth={1.5} />
-                    <div>
+                  <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-start', textAlign: 'left', marginBottom: '1rem', padding: '0.75rem', background: 'hsl(var(--muted) / 0.5)', borderRadius: '0.5rem' }}>
+                    <Smartphone size={18} strokeWidth={1.5} style={{ marginTop: 2, flexShrink: 0, color: 'var(--gold)' }} />
+                    <div style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))' }}>
                       <p><strong>1.</strong> Open WhatsApp on your phone</p>
                       <p><strong>2.</strong> Go to Settings &gt; Linked Devices</p>
                       <p><strong>3.</strong> Tap "Link a Device" and scan this code</p>
                     </div>
                   </div>
 
-                  <div className="qr-modal-code" data-testid="whatsapp-qr">
+                  <div data-testid="whatsapp-qr" style={{ display: 'flex', justifyContent: 'center', padding: '1rem' }}>
                     {qrCode ? (
                       <img
                         src={qrCode.startsWith('data:') ? qrCode : `data:image/png;base64,${qrCode}`}
                         alt="WhatsApp QR Code"
+                        style={{ maxWidth: 200, borderRadius: '0.5rem' }}
                       />
                     ) : (
-                      <div className="qr-modal-placeholder">
-                        <QrCode size={64} />
+                      <div style={{ width: 200, height: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'hsl(var(--muted))', borderRadius: '0.5rem' }}>
+                        <QrCode size={64} style={{ color: 'hsl(var(--muted-foreground))' }} />
                       </div>
                     )}
                   </div>
 
                   {qrStatus === 'scanned' && (
-                    <div className="qr-modal-scanned">
-                      <Loader2 size={16} className="animate-spin" />
-                      <span>QR code scanned — finishing setup…</span>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', fontSize: '0.875rem', color: 'var(--gold)' }}>
+                      <Loader2 size={14} className="animate-spin" />
+                      <span>QR code scanned -- finishing setup...</span>
                     </div>
                   )}
 
                   {qrStatus === 'pending' && (
-                    <p className="qr-modal-hint">Waiting for scan…</p>
+                    <p style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))' }}>Waiting for scan...</p>
                   )}
                 </>
               )}
 
               {qrStatus === 'connected' && (
-                <div className="qr-modal-success">
-                  <div className="qr-modal-success-icon">✓</div>
-                  <p>WhatsApp connected successfully!</p>
+                <div className="empty-state" style={{ padding: '2rem 0' }}>
+                  <div style={{ width: 48, height: 48, borderRadius: '50%', background: 'rgba(34, 197, 94, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#22c55e', fontSize: '1.5rem', fontWeight: 700 }}>
+                    &#10003;
+                  </div>
+                  <span className="empty-title">WhatsApp connected successfully!</span>
                 </div>
               )}
             </div>
           </div>
         </div>
       )}
-    </section>
+    </div>
   )
 }

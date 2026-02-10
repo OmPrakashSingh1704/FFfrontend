@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Plus, Send, X, ExternalLink } from 'lucide-react'
+import { Plus, Send, X, ExternalLink, ArrowRight, Clock, Calendar } from 'lucide-react'
 import { apiRequest } from '../lib/api'
 import { normalizeList } from '../lib/pagination'
 import { useToast } from '../context/ToastContext'
@@ -8,6 +8,12 @@ import type { StartupListItem } from '../types/startup'
 import type { InvestorProfile } from '../types/investor'
 
 type IntroTab = 'sent' | 'received'
+
+const statusBadgeClass: Record<string, string> = {
+  pending: 'warning',
+  accepted: 'success',
+  declined: 'error',
+}
 
 export function IntrosPage() {
   const { pushToast } = useToast()
@@ -126,189 +132,266 @@ export function IntrosPage() {
   }
 
   return (
-    <section className="content-section">
-      <header className="content-header">
+    <div style={{ padding: '1.5rem' }}>
+      {/* Page Header */}
+      <div className="page-header">
         <div>
-          <h1>Intros</h1>
-          <p>Track warm introductions and follow-ups.</p>
+          <h1 className="page-title">Introductions</h1>
+          <p className="page-description">Track warm introductions and follow-ups.</p>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
           {tab === 'sent' && (
             <button
               type="button"
-              className="btn primary"
+              className="btn-sm primary"
               onClick={openCreateForm}
               data-testid="request-intro-btn"
             >
-              <Plus style={{ width: 16, height: 16, marginRight: 4 }} />
+              <Plus style={{ width: 14, height: 14 }} />
               Request Intro
             </button>
           )}
-          <div className="segmented">
-            {(['sent', 'received'] as IntroTab[]).map((option) => (
-              <button
-                key={option}
-                type="button"
-                className={`segmented-btn ${tab === option ? 'active' : ''}`}
-                onClick={() => { setTab(option); setShowForm(false) }}
-                data-testid={`tab-${option}`}
-              >
-                {option}
-              </button>
-            ))}
-          </div>
         </div>
-      </header>
+      </div>
 
-      {/* Create Intro Form */}
+      {/* Tabs */}
+      <div className="tabs" style={{ marginBottom: '1.5rem' }}>
+        {(['sent', 'received'] as IntroTab[]).map((option) => (
+          <button
+            key={option}
+            type="button"
+            className={`tab ${tab === option ? 'active' : ''}`}
+            onClick={() => { setTab(option); setShowForm(false) }}
+            data-testid={`tab-${option}`}
+          >
+            {option.charAt(0).toUpperCase() + option.slice(1)}
+          </button>
+        ))}
+      </div>
+
+      {/* Create Intro Modal Overlay */}
       {showForm && tab === 'sent' && (
-        <div className="inline-form" data-testid="create-intro-form">
-          <div className="inline-form-header">
-            <h3>Request an Introduction</h3>
-            <button type="button" className="btn ghost sm" onClick={() => setShowForm(false)} data-testid="close-form-btn">
-              <X style={{ width: 16, height: 16 }} />
-            </button>
+        <div
+          data-testid="create-intro-form"
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 50,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: 'rgba(0, 0, 0, 0.6)',
+            backdropFilter: 'blur(4px)',
+          }}
+          onClick={(e) => { if (e.target === e.currentTarget) setShowForm(false) }}
+        >
+          <div className="card" style={{ width: '100%', maxWidth: '32rem', maxHeight: '90vh', overflowY: 'auto' }}>
+            <div className="card-header">
+              <h2 style={{ fontSize: '1.125rem', fontWeight: 600 }}>Request an Introduction</h2>
+              <button type="button" className="btn-sm ghost" onClick={() => setShowForm(false)} data-testid="close-form-btn">
+                <X style={{ width: 16, height: 16 }} />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreate}>
+              <div className="form-group">
+                <label>Startup *</label>
+                <select
+                  className="select"
+                  value={createForm.startup_id}
+                  onChange={(e) => setCreateForm((f) => ({ ...f, startup_id: e.target.value }))}
+                  data-testid="startup-select"
+                >
+                  <option value="">Select your startup</option>
+                  {myStartups.map((s) => (
+                    <option key={s.id} value={s.id}>{s.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="form-group">
+                <label>Investor *</label>
+                <select
+                  className="select"
+                  value={createForm.investor_profile_id}
+                  onChange={(e) => setCreateForm((f) => ({ ...f, investor_profile_id: e.target.value }))}
+                  data-testid="investor-select"
+                >
+                  <option value="">Select an investor</option>
+                  {investors.map((inv) => (
+                    <option key={inv.id} value={inv.id}>
+                      {inv.display_name}{inv.fund_name ? ` (${inv.fund_name})` : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="form-group">
+                <label>Pitch Summary *</label>
+                <textarea
+                  className="textarea"
+                  rows={3}
+                  value={createForm.pitch_summary}
+                  onChange={(e) => setCreateForm((f) => ({ ...f, pitch_summary: e.target.value }))}
+                  placeholder="Briefly describe your startup and what makes it compelling..."
+                  data-testid="pitch-summary-input"
+                />
+              </div>
+              <div className="form-group">
+                <label>Relevance Justification *</label>
+                <textarea
+                  className="textarea"
+                  rows={2}
+                  value={createForm.relevance_justification}
+                  onChange={(e) => setCreateForm((f) => ({ ...f, relevance_justification: e.target.value }))}
+                  placeholder="Why is this investor a good fit?"
+                  data-testid="relevance-input"
+                />
+              </div>
+              <div className="form-group">
+                <label>Deck URL</label>
+                <input
+                  className="input"
+                  type="url"
+                  value={createForm.deck_url}
+                  onChange={(e) => setCreateForm((f) => ({ ...f, deck_url: e.target.value }))}
+                  placeholder="https://..."
+                  data-testid="deck-url-input"
+                />
+              </div>
+              <div className="form-group">
+                <label>Additional Notes</label>
+                <textarea
+                  className="textarea"
+                  rows={2}
+                  value={createForm.additional_notes}
+                  onChange={(e) => setCreateForm((f) => ({ ...f, additional_notes: e.target.value }))}
+                  placeholder="Anything else the investor should know..."
+                  data-testid="additional-notes-input"
+                />
+              </div>
+              <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end', marginTop: '1rem' }}>
+                <button type="button" className="btn ghost" onClick={() => setShowForm(false)}>
+                  Cancel
+                </button>
+                <button type="submit" className="btn primary" disabled={formLoading} data-testid="submit-intro-btn">
+                  <Send style={{ width: 14, height: 14, marginRight: 4 }} />
+                  {formLoading ? 'Sending...' : 'Send Request'}
+                </button>
+              </div>
+            </form>
           </div>
-          <form onSubmit={handleCreate}>
-            <div className="form-field">
-              <label>Startup *</label>
-              <select
-                value={createForm.startup_id}
-                onChange={(e) => setCreateForm((f) => ({ ...f, startup_id: e.target.value }))}
-                data-testid="startup-select"
-              >
-                <option value="">Select your startup</option>
-                {myStartups.map((s) => (
-                  <option key={s.id} value={s.id}>{s.name}</option>
-                ))}
-              </select>
-            </div>
-            <div className="form-field">
-              <label>Investor *</label>
-              <select
-                value={createForm.investor_profile_id}
-                onChange={(e) => setCreateForm((f) => ({ ...f, investor_profile_id: e.target.value }))}
-                data-testid="investor-select"
-              >
-                <option value="">Select an investor</option>
-                {investors.map((inv) => (
-                  <option key={inv.id} value={inv.id}>
-                    {inv.display_name}{inv.fund_name ? ` (${inv.fund_name})` : ''}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="form-field">
-              <label>Pitch Summary *</label>
-              <textarea
-                rows={3}
-                value={createForm.pitch_summary}
-                onChange={(e) => setCreateForm((f) => ({ ...f, pitch_summary: e.target.value }))}
-                placeholder="Briefly describe your startup and what makes it compelling..."
-                data-testid="pitch-summary-input"
-              />
-            </div>
-            <div className="form-field">
-              <label>Relevance Justification *</label>
-              <textarea
-                rows={2}
-                value={createForm.relevance_justification}
-                onChange={(e) => setCreateForm((f) => ({ ...f, relevance_justification: e.target.value }))}
-                placeholder="Why is this investor a good fit?"
-                data-testid="relevance-input"
-              />
-            </div>
-            <div className="form-field">
-              <label>Deck URL</label>
-              <input
-                type="url"
-                value={createForm.deck_url}
-                onChange={(e) => setCreateForm((f) => ({ ...f, deck_url: e.target.value }))}
-                placeholder="https://..."
-                data-testid="deck-url-input"
-              />
-            </div>
-            <div className="form-field">
-              <label>Additional Notes</label>
-              <textarea
-                rows={2}
-                value={createForm.additional_notes}
-                onChange={(e) => setCreateForm((f) => ({ ...f, additional_notes: e.target.value }))}
-                placeholder="Anything else the investor should know..."
-                data-testid="additional-notes-input"
-              />
-            </div>
-            <div className="inline-form-actions">
-              <button type="submit" className="btn primary" disabled={formLoading} data-testid="submit-intro-btn">
-                <Send style={{ width: 14, height: 14, marginRight: 4 }} />
-                {formLoading ? 'Sending...' : 'Send Request'}
-              </button>
-              <button type="button" className="btn ghost" onClick={() => setShowForm(false)}>
-                Cancel
-              </button>
-            </div>
-          </form>
         </div>
       )}
 
-      {loading ? <div className="page-loader">Loading intros...</div> : null}
-      {error ? <div className="form-error">{error}</div> : null}
-
-      {!loading && !error && items.length === 0 ? (
-        <div className="empty-state" data-testid="empty-intros">
-          <h3>No intros yet</h3>
-          <p>{tab === 'sent' ? 'Send your first intro request to connect with investors!' : 'No intro requests received yet.'}</p>
+      {/* Loading / Error */}
+      {loading ? (
+        <div className="empty-state" data-testid="intros-loading">
+          <p className="empty-description">Loading intros...</p>
         </div>
       ) : null}
 
+      {error ? (
+        <div className="card" style={{ borderColor: '#ef4444', padding: '1rem', marginBottom: '1rem' }}>
+          <p style={{ color: '#ef4444', fontSize: '0.875rem' }}>{error}</p>
+        </div>
+      ) : null}
+
+      {/* Empty State */}
+      {!loading && !error && items.length === 0 ? (
+        <div className="empty-state" data-testid="empty-intros">
+          <Send className="empty-icon" />
+          <h3 className="empty-title">No intros yet</h3>
+          <p className="empty-description">
+            {tab === 'sent' ? 'Send your first intro request to connect with investors!' : 'No intro requests received yet.'}
+          </p>
+        </div>
+      ) : null}
+
+      {/* Intro List */}
       {!loading && !error && items.length > 0 ? (
-        <div className="data-grid">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
           {items.map((intro) => (
-            <article key={intro.id} className="data-card" data-testid="intro-card">
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-                <span className={`status-badge ${intro.status}`}>{intro.status}</span>
+            <div key={intro.id} className="card" data-testid="intro-card">
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
+                {/* Status Badge */}
+                <span className={`badge ${statusBadgeClass[intro.status] || ''}`}>
+                  {intro.status}
+                </span>
                 {intro.credits_spent > 0 && tab === 'sent' ? (
-                  <span className="data-eyebrow">{intro.credits_spent} credits</span>
+                  <span className="tag">{intro.credits_spent} credits</span>
                 ) : null}
               </div>
 
               {tab === 'sent' ? (
-                <>
-                  <h3>{intro.startup_name} → {intro.investor_profile?.display_name || 'Investor'}</h3>
-                  <p>{intro.pitch_summary ? `${intro.pitch_summary.slice(0, 150)}${intro.pitch_summary.length > 150 ? '...' : ''}` : 'No pitch summary.'}</p>
+                <div>
+                  {/* Flow indicator: Startup -> Investor */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                    <span style={{ fontWeight: 600, fontSize: '0.9375rem' }}>{intro.startup_name}</span>
+                    <ArrowRight style={{ width: 16, height: 16, color: 'var(--gold)', flexShrink: 0 }} />
+                    <span style={{ fontWeight: 600, fontSize: '0.9375rem' }}>{intro.investor_profile?.display_name || 'Investor'}</span>
+                  </div>
+                  <p style={{ color: 'hsl(var(--muted-foreground))', fontSize: '0.875rem', lineHeight: 1.5 }}>
+                    {intro.pitch_summary ? `${intro.pitch_summary.slice(0, 150)}${intro.pitch_summary.length > 150 ? '...' : ''}` : 'No pitch summary.'}
+                  </p>
                   {intro.investor_response_message && (
-                    <p style={{ marginTop: 8, fontStyle: 'italic' }}>Response: {intro.investor_response_message}</p>
+                    <div style={{ marginTop: '0.75rem', padding: '0.625rem 0.75rem', borderRadius: '0.5rem', background: 'hsl(var(--muted))', fontSize: '0.875rem' }}>
+                      <span style={{ fontWeight: 500 }}>Response:</span>{' '}
+                      <span style={{ fontStyle: 'italic', color: 'hsl(var(--muted-foreground))' }}>{intro.investor_response_message}</span>
+                    </div>
                   )}
-                </>
+                </div>
               ) : (
-                <>
-                  <h3>{intro.founder_user?.full_name || 'Founder'} — {intro.startup_name}</h3>
-                  {intro.startup_tagline && <p style={{ marginBottom: 4 }}>{intro.startup_tagline}</p>}
-                  {intro.startup_industry && <span className="data-eyebrow">{intro.startup_industry}</span>}
-                  <p style={{ marginTop: 8 }}>{intro.pitch_summary ? `${intro.pitch_summary.slice(0, 200)}${intro.pitch_summary.length > 200 ? '...' : ''}` : ''}</p>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
+                    <span style={{ fontWeight: 600, fontSize: '0.9375rem' }}>{intro.founder_user?.full_name || 'Founder'}</span>
+                    <span style={{ color: 'hsl(var(--muted-foreground))' }}>--</span>
+                    <span style={{ fontWeight: 600, fontSize: '0.9375rem' }}>{intro.startup_name}</span>
+                  </div>
+                  {intro.startup_tagline && (
+                    <p style={{ color: 'hsl(var(--muted-foreground))', fontSize: '0.8125rem', marginBottom: '0.25rem' }}>{intro.startup_tagline}</p>
+                  )}
+                  {intro.startup_industry && <span className="tag">{intro.startup_industry}</span>}
+                  <p style={{ marginTop: '0.5rem', color: 'hsl(var(--muted-foreground))', fontSize: '0.875rem', lineHeight: 1.5 }}>
+                    {intro.pitch_summary ? `${intro.pitch_summary.slice(0, 200)}${intro.pitch_summary.length > 200 ? '...' : ''}` : ''}
+                  </p>
                   {intro.deck_url && (
-                    <a href={intro.deck_url} target="_blank" rel="noopener noreferrer" className="btn ghost sm" style={{ marginTop: 8, display: 'inline-flex' }} data-testid="deck-link">
-                      <ExternalLink style={{ width: 14, height: 14, marginRight: 4 }} />
+                    <a href={intro.deck_url} target="_blank" rel="noopener noreferrer" className="btn-sm ghost" style={{ marginTop: '0.5rem', display: 'inline-flex' }} data-testid="deck-link">
+                      <ExternalLink style={{ width: 14, height: 14 }} />
                       View Deck
                     </a>
                   )}
-                </>
+                </div>
               )}
 
-              <div className="data-meta">
-                <span>Created: {new Date(intro.created_at).toLocaleDateString()}</span>
-                {intro.expires_at && <span>Expires: {new Date(intro.expires_at).toLocaleDateString()}</span>}
-                {intro.responded_at && <span>Responded: {new Date(intro.responded_at).toLocaleDateString()}</span>}
+              {/* Timestamps */}
+              <hr className="divider" />
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))' }}>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
+                  <Calendar style={{ width: 12, height: 12 }} />
+                  Created: {new Date(intro.created_at).toLocaleDateString()}
+                </span>
+                {intro.expires_at && (
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
+                    <Clock style={{ width: 12, height: 12 }} />
+                    Expires: {new Date(intro.expires_at).toLocaleDateString()}
+                  </span>
+                )}
+                {intro.responded_at && (
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
+                    <Clock style={{ width: 12, height: 12 }} />
+                    Responded: {new Date(intro.responded_at).toLocaleDateString()}
+                  </span>
+                )}
               </div>
 
               {/* Respond actions for received pending intros */}
               {tab === 'received' && intro.status === 'pending' && (
-                <div className="data-card-actions" style={{ flexDirection: 'column' }}>
+                <div style={{ marginTop: '0.75rem' }}>
                   {respondingTo === intro.id ? (
-                    <>
-                      <div className="form-field">
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                      <div className="form-group" style={{ marginBottom: 0 }}>
                         <label>Response message (optional)</label>
                         <textarea
+                          className="textarea"
                           rows={2}
                           value={responseMessage}
                           onChange={(e) => setResponseMessage(e.target.value)}
@@ -319,7 +402,7 @@ export function IntrosPage() {
                       <div style={{ display: 'flex', gap: '0.5rem' }}>
                         <button
                           type="button"
-                          className="btn accept sm"
+                          className="btn-sm primary"
                           disabled={respondLoading}
                           onClick={() => handleRespond(intro.id, 'accept')}
                           data-testid="confirm-accept-btn"
@@ -328,7 +411,7 @@ export function IntrosPage() {
                         </button>
                         <button
                           type="button"
-                          className="btn decline sm"
+                          className="btn-sm ghost"
                           disabled={respondLoading}
                           onClick={() => handleRespond(intro.id, 'decline')}
                           data-testid="confirm-decline-btn"
@@ -337,18 +420,18 @@ export function IntrosPage() {
                         </button>
                         <button
                           type="button"
-                          className="btn ghost sm"
+                          className="btn-sm ghost"
                           onClick={() => { setRespondingTo(null); setResponseMessage('') }}
                         >
                           Cancel
                         </button>
                       </div>
-                    </>
+                    </div>
                   ) : (
                     <div style={{ display: 'flex', gap: '0.5rem' }}>
                       <button
                         type="button"
-                        className="btn accept sm"
+                        className="btn-sm primary"
                         onClick={() => setRespondingTo(intro.id)}
                         data-testid="accept-btn"
                       >
@@ -356,7 +439,7 @@ export function IntrosPage() {
                       </button>
                       <button
                         type="button"
-                        className="btn decline sm"
+                        className="btn-sm ghost"
                         onClick={() => setRespondingTo(intro.id)}
                         data-testid="decline-btn"
                       >
@@ -366,10 +449,10 @@ export function IntrosPage() {
                   )}
                 </div>
               )}
-            </article>
+            </div>
           ))}
         </div>
       ) : null}
-    </section>
+    </div>
   )
 }

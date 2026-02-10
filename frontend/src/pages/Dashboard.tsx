@@ -2,8 +2,9 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   Activity, Users, Briefcase, TrendingUp, Bell,
-  BarChart3, Search, FileText, Upload, Wallet, ArrowRight,
-  Zap, Target, Shield, Heart, CheckCircle, FolderHeart
+  Search, FileText, Upload, Wallet, ArrowRight,
+  Zap, Target, Shield, Heart, CheckCircle, FolderHeart,
+  Calendar
 } from 'lucide-react'
 import { apiRequest } from '../lib/api'
 import { normalizeList } from '../lib/pagination'
@@ -33,6 +34,13 @@ type DashboardStats = {
   label: string
   value: string | number
   icon: typeof Zap
+}
+
+function getGreeting() {
+  const hour = new Date().getHours()
+  if (hour < 12) return 'Good morning'
+  if (hour < 17) return 'Good afternoon'
+  return 'Good evening'
 }
 
 export function Dashboard() {
@@ -90,7 +98,6 @@ export function Dashboard() {
           ])
         }
       } catch {
-        // Graceful fallback — show empty stats
         setStats([])
       } finally {
         if (!cancelled) {
@@ -103,18 +110,30 @@ export function Dashboard() {
     return () => { cancelled = true }
   }, [isInvestor])
 
+  const today = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
+
   return (
     <div className="dashboard-page" data-testid="dashboard">
-      {/* Welcome Section */}
-      <section className="dashboard-welcome">
-        <h1>Welcome back{user?.full_name ? `, ${user.full_name}` : ''}</h1>
-        <p>Your fundraising command center. Track signals, manage intros, and close with confidence.</p>
-      </section>
+      {/* Greeting Bar */}
+      <div className="flex items-center gap-4 mb-8">
+        <div className="avatar lg">
+          {user?.full_name ? user.full_name.slice(0, 2).toUpperCase() : 'U'}
+        </div>
+        <div className="flex-1 min-w-0">
+          <h1 className="page-title">{getGreeting()}{user?.full_name ? `, ${user.full_name}` : ''}</h1>
+          <p className="page-description flex items-center gap-1.5">
+            <Calendar className="w-3.5 h-3.5" />
+            {today}
+          </p>
+        </div>
+      </div>
 
       {/* Stats Grid */}
-      <section className="dashboard-stats" data-testid="dashboard-stats">
+      <section className="grid-4 mb-8" data-testid="dashboard-stats">
         {loading ? (
-          <div className="page-loader" style={{ gridColumn: '1 / -1' }}>Loading stats...</div>
+          <div className="stat-card" style={{ gridColumn: '1 / -1' }}>
+            <div className="stat-label">Loading stats...</div>
+          </div>
         ) : stats.length > 0 ? (
           stats.map((stat) => (
             <div key={stat.label} className="stat-card" data-testid={`stat-${stat.label.toLowerCase().replace(/\s+/g, '-')}`}>
@@ -126,114 +145,128 @@ export function Dashboard() {
             </div>
           ))
         ) : (
-          <div className="page-loader" style={{ gridColumn: '1 / -1' }}>Unable to load stats.</div>
+          <div className="stat-card" style={{ gridColumn: '1 / -1' }}>
+            <div className="stat-label">Unable to load stats.</div>
+          </div>
         )}
       </section>
 
-      {/* Investor: Deal Flow Preview */}
+      <hr className="divider" />
+
+      {/* Investor: Deal Flow Table */}
       {isInvestor && !loading && dealFlow.length > 0 && (
-        <section className="dashboard-section">
-          <div className="preview-header">
-            <h2>Pending Deal Flow</h2>
-            <Link to="/app/intros" data-testid="view-all-deal-flow">View all</Link>
+        <section className="section">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold">Pending Deal Flow</h2>
+            <Link to="/app/intros" className="btn-sm ghost" data-testid="view-all-deal-flow">
+              View all <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
           </div>
-          <div className="data-grid">
-            {dealFlow.map((intro) => (
-              <article key={intro.id} className="data-card" data-testid="deal-flow-card">
-                <span className="data-eyebrow">{intro.startup_industry || 'Startup'}</span>
-                <h3>{intro.startup_name}</h3>
-                <p>{intro.pitch_summary ? `${intro.pitch_summary.slice(0, 120)}${intro.pitch_summary.length > 120 ? '...' : ''}` : ''}</p>
-                <div className="data-meta">
-                  <span>{intro.founder_user?.full_name}</span>
-                  <span>{new Date(intro.created_at).toLocaleDateString()}</span>
-                </div>
-              </article>
-            ))}
+          <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Startup</th>
+                  <th>Industry</th>
+                  <th>Founder</th>
+                  <th>Date</th>
+                </tr>
+              </thead>
+              <tbody>
+                {dealFlow.map((intro) => (
+                  <tr key={intro.id} data-testid="deal-flow-card">
+                    <td className="font-medium">{intro.startup_name}</td>
+                    <td><span className="tag">{intro.startup_industry || 'Startup'}</span></td>
+                    <td>{intro.founder_user?.full_name || '—'}</td>
+                    <td className="text-xs" style={{ color: 'hsl(var(--muted-foreground))' }}>
+                      {new Date(intro.created_at).toLocaleDateString()}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </section>
       )}
 
-      {/* Investor: Portfolio Preview */}
+      {/* Investor: Portfolio Table */}
       {isInvestor && !loading && portfolio.length > 0 && (
-        <section className="dashboard-section">
-          <div className="preview-header">
-            <h2>Portfolio</h2>
-            <Link to="/app/startups" data-testid="view-all-portfolio">View all</Link>
+        <section className="section">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold">Portfolio</h2>
+            <Link to="/app/startups" className="btn-sm ghost" data-testid="view-all-portfolio">
+              View all <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
           </div>
-          <div className="data-grid">
-            {portfolio.map((startup) => (
-              <article key={startup.id} className="data-card" data-testid="portfolio-card">
-                <span className="data-eyebrow">{startup.industry || 'Startup'}</span>
-                <h3>{startup.name}</h3>
-                <p>{startup.tagline || ''}</p>
-                <div className="data-meta">
-                  {startup.current_stage ? <span>{startup.current_stage}</span> : null}
-                </div>
-              </article>
-            ))}
+          <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Industry</th>
+                  <th>Stage</th>
+                  <th>Tagline</th>
+                </tr>
+              </thead>
+              <tbody>
+                {portfolio.map((startup) => (
+                  <tr key={startup.id} data-testid="portfolio-card">
+                    <td className="font-medium">{startup.name}</td>
+                    <td><span className="tag">{startup.industry || '—'}</span></td>
+                    <td>{startup.current_stage || '—'}</td>
+                    <td className="text-xs" style={{ color: 'hsl(var(--muted-foreground))' }}>
+                      {startup.tagline || ''}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </section>
       )}
 
       {/* Quick Actions */}
-      <section className="dashboard-section">
-        <h2>Quick Actions</h2>
-        <div className="action-grid" data-testid="quick-actions">
+      <section className="section">
+        <h2 className="section-label">Quick Actions</h2>
+        <div className="grid-3" data-testid="quick-actions">
           {quickActions.map((action) => (
             <Link
               key={action.path}
               to={action.path}
-              className="action-card"
+              className="card flex items-center gap-4 group"
               data-testid={`quick-action-${action.label.toLowerCase().replace(' ', '-')}`}
             >
-              <div className="action-icon">
-                <action.icon />
+              <div className="avatar">
+                <action.icon className="w-4 h-4" />
               </div>
-              <div className="action-content">
-                <span className="action-label">{action.label}</span>
-                <p>{action.description}</p>
+              <div className="flex-1 min-w-0">
+                <span className="text-sm font-medium block">{action.label}</span>
+                <p className="text-xs mt-0.5" style={{ color: 'hsl(var(--muted-foreground))' }}>{action.description}</p>
               </div>
-              <ArrowRight className="action-arrow" />
+              <ArrowRight className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: 'var(--gold)' }} />
             </Link>
           ))}
         </div>
       </section>
 
+      <hr className="divider" />
+
       {/* Browse Section */}
-      <section className="dashboard-section">
-        <h2>Browse</h2>
-        <div className="browse-grid" data-testid="browse-links">
+      <section className="section">
+        <h2 className="section-label">Browse</h2>
+        <div className="grid-3" data-testid="browse-links">
           {browseLinks.map((link) => (
             <Link
               key={link.path}
               to={link.path}
-              className="browse-card"
+              className="card flex items-center gap-3 group"
               data-testid={`browse-${link.label.toLowerCase()}`}
             >
-              <link.icon className="browse-icon" />
-              <span>{link.label}</span>
-              <ArrowRight className="browse-arrow" />
+              <link.icon className="w-4 h-4" style={{ color: 'var(--gold)' }} />
+              <span className="text-sm font-medium flex-1">{link.label}</span>
+              <ArrowRight className="w-3.5 h-3.5 opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: 'hsl(var(--muted-foreground))' }} />
             </Link>
           ))}
-        </div>
-      </section>
-
-      {/* Analytics Preview */}
-      <section className="dashboard-section">
-        <div className="analytics-preview">
-          <div className="analytics-header">
-            <div>
-              <h2>Activity Overview</h2>
-              <p>Your platform activity at a glance</p>
-            </div>
-            <Link to="/app/analytics" className="btn ghost" data-testid="view-analytics-btn">
-              <BarChart3 />
-              View Analytics
-            </Link>
-          </div>
-          <div className="analytics-placeholder">
-            <span>Analytics visualization coming soon</span>
-          </div>
         </div>
       </section>
     </div>

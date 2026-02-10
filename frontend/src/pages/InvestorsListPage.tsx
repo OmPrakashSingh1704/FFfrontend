@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { TrendingUp, MapPin, Building2, UserPlus, ArrowRight, MessageCircle } from 'lucide-react'
+import { TrendingUp, MapPin, Building2, MessageCircle } from 'lucide-react'
 import { apiRequest } from '../lib/api'
 import { normalizeList } from '../lib/pagination'
 import type { InvestorProfile } from '../types/investor'
@@ -46,77 +46,125 @@ export function InvestorsListPage() {
     navigate(`/app/chat?newChat=${userId}&name=${encodeURIComponent(investor.display_name || 'Investor')}`)
   }
 
+  const getInitials = (name: string) => {
+    return name
+      .split(' ')
+      .map((n) => n[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2)
+  }
+
   return (
-    <section className="content-section" data-testid="investors-list">
-      <header className="content-header">
+    <div data-testid="investors-list">
+      <div className="page-header">
         <div>
-          <div className="flex items-center gap-2 mb-2">
-            <TrendingUp className="w-5 h-5 text-cyan-400" />
-            <span className="text-xs uppercase tracking-wider text-cyan-400">Directory</span>
-          </div>
-          <h1>Investors</h1>
-          <p>Discover investors and their focus areas.</p>
+          <h1 className="page-title">
+            Investors
+            {!loading && !error && (
+              <span className="badge info" style={{ marginLeft: '0.5rem', verticalAlign: 'middle' }}>
+                {investors.length}
+              </span>
+            )}
+          </h1>
+          <p className="page-description">Discover investors and their focus areas.</p>
         </div>
-        <Link className="btn ghost" to="/onboarding" data-testid="update-profile-btn">
-          <UserPlus className="w-4 h-4 mr-2" />
-          Update my profile
-        </Link>
-      </header>
+      </div>
 
-      {loading ? <div className="page-loader">Loading investors...</div> : null}
-      {error ? <div className="form-error">{error}</div> : null}
+      {loading && (
+        <div className="empty-state">
+          <TrendingUp className="empty-icon" strokeWidth={1.5} />
+          <p className="empty-description">Loading investors...</p>
+        </div>
+      )}
 
-      {!loading && !error ? (
-        <div className="data-grid" data-testid="investors-grid">
-          {investors.map((investor) => (
-            <div 
-              key={investor.id} 
-              className="data-card group"
-              data-testid={`investor-card-${investor.id}`}
-            >
-              <Link to={`/app/investors/${investor.id}`} className="data-card-content">
-                <div className="flex items-center justify-between">
-                  <span className="data-eyebrow">Investor</span>
-                  <ArrowRight className="w-4 h-4 text-slate-500 opacity-0 group-hover:opacity-100 transition-opacity" />
+      {error && <div className="badge error" style={{ marginBottom: '1rem' }}>{error}</div>}
+
+      {!loading && !error && investors.length === 0 && (
+        <div className="empty-state">
+          <TrendingUp className="empty-icon" strokeWidth={1.5} />
+          <h3 className="empty-title">No investors found</h3>
+          <p className="empty-description">Check back soon!</p>
+        </div>
+      )}
+
+      {!loading && !error && investors.length > 0 && (
+        <div className="grid-3" data-testid="investors-grid">
+          {investors.map((investor) => {
+            const name = investor.display_name || 'Investor'
+            return (
+              <Link
+                key={investor.id}
+                to={`/app/investors/${investor.id}`}
+                className="card"
+                style={{ textDecoration: 'none', color: 'inherit', display: 'block' }}
+                data-testid={`investor-card-${investor.id}`}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.75rem' }}>
+                  <div className="avatar">
+                    {investor.user?.avatar_url ? (
+                      <img src={investor.user.avatar_url} alt={name} />
+                    ) : (
+                      getInitials(name)
+                    )}
+                  </div>
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <div style={{ fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {name}
+                    </div>
+                    {investor.investor_type && (
+                      <span className="badge" style={{ marginTop: '0.25rem' }}>{investor.investor_type}</span>
+                    )}
+                  </div>
                 </div>
-                <h3>{investor.display_name}</h3>
-                <p>{investor.headline || investor.investment_thesis || 'Investor profile'}</p>
-                <div className="data-meta">
-                  {investor.investor_type ? (
-                    <span className="flex items-center gap-1">
-                      <Building2 className="w-3 h-3" />
-                      {investor.investor_type}
+
+                {(investor.headline || investor.investment_thesis) && (
+                  <p style={{
+                    fontSize: '0.875rem',
+                    color: 'hsl(var(--muted-foreground))',
+                    marginBottom: '0.75rem',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    display: '-webkit-box',
+                    WebkitLineClamp: 2,
+                    WebkitBoxOrient: 'vertical',
+                  }}>
+                    {investor.headline || investor.investment_thesis}
+                  </p>
+                )}
+
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.375rem' }}>
+                  {investor.fund_name && (
+                    <span className="tag">
+                      <Building2 style={{ width: '0.75rem', height: '0.75rem' }} strokeWidth={1.5} />
+                      {investor.fund_name}
                     </span>
-                  ) : null}
-                  {investor.fund_name ? <span>{investor.fund_name}</span> : null}
-                  {investor.location ? (
-                    <span className="flex items-center gap-1">
-                      <MapPin className="w-3 h-3" />
+                  )}
+                  {investor.location && (
+                    <span className="tag">
+                      <MapPin style={{ width: '0.75rem', height: '0.75rem' }} strokeWidth={1.5} />
                       {investor.location}
                     </span>
-                  ) : null}
+                  )}
                 </div>
-              </Link>
-              <div className="data-card-actions">
-                <button 
+
+                <hr className="divider" />
+
+                <button
                   type="button"
-                  className="btn-chat"
+                  className="btn-sm ghost"
+                  style={{ width: '100%', justifyContent: 'center' }}
                   onClick={(e) => handleStartChat(e, investor)}
                   data-testid={`chat-investor-${investor.id}`}
                 >
-                  <MessageCircle className="w-4 h-4" />
+                  <MessageCircle style={{ width: '0.875rem', height: '0.875rem' }} strokeWidth={1.5} />
                   Start Chat
                 </button>
-              </div>
-            </div>
-          ))}
-          {investors.length === 0 ? (
-            <div className="col-span-full text-center py-12 text-slate-500">
-              No investors found. Check back soon!
-            </div>
-          ) : null}
+              </Link>
+            )
+          })}
         </div>
-      ) : null}
-    </section>
+      )}
+    </div>
   )
 }

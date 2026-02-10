@@ -1,5 +1,18 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
+import {
+  ArrowLeft,
+  Building2,
+  DollarSign,
+  Calendar,
+  TrendingUp,
+  Target,
+  Globe,
+  ExternalLink,
+  User,
+  Wallet,
+  Send,
+} from 'lucide-react'
 import { apiRequest } from '../lib/api'
 import type { FundDetail } from '../types/fund'
 
@@ -38,80 +51,162 @@ export function FundDetailPage() {
   }, [id])
 
   return (
-    <section className="content-section">
-      <header className="content-header">
-        <div>
-          <h1>{fund?.name ?? 'Fund'}</h1>
-          <p>{fund?.description ?? 'Opportunity details and requirements.'}</p>
+    <div>
+      <Link to="/app/funds" className="back-btn">
+        <ArrowLeft style={{ width: '1rem', height: '1rem' }} strokeWidth={1.5} />
+        Back to Funds
+      </Link>
+
+      {loading && (
+        <div className="empty-state">
+          <Wallet className="empty-icon" strokeWidth={1.5} />
+          <p className="empty-description">Loading fund...</p>
         </div>
-        <Link className="btn ghost" to="/app/funds">
-          Back to funds
-        </Link>
-      </header>
+      )}
 
-      {loading ? <div className="page-loader">Loading fund...</div> : null}
-      {error ? <div className="form-error">{error}</div> : null}
+      {error && <div className="badge error" style={{ marginBottom: '1rem' }}>{error}</div>}
 
-      {fund ? (
-        <div className="content-card">
-          <div className="detail-grid">
-            <div>
-              <span className="data-eyebrow">Organization</span>
-              <p>{fund.organization || '—'}</p>
-            </div>
-            <div>
-              <span className="data-eyebrow">Ticket size</span>
-              <p>
-                {fund.min_ticket_size || fund.max_ticket_size
-                  ? `$${fund.min_ticket_size ?? '—'} - $${fund.max_ticket_size ?? '—'}`
-                  : 'Not specified'}
-              </p>
-            </div>
-            <div>
-              <span className="data-eyebrow">Stages</span>
-              <p>{fund.stages?.join(', ') || 'Not specified'}</p>
-            </div>
-            <div>
-              <span className="data-eyebrow">Industries</span>
-              <p>{fund.industries?.join(', ') || 'Not specified'}</p>
-            </div>
-            <div>
-              <span className="data-eyebrow">Deadline</span>
-              <p>{fund.deadline ? new Date(fund.deadline).toLocaleDateString() : 'Open'}</p>
+      {fund && (
+        <>
+          {/* Fund Header */}
+          <div className="card" style={{ marginBottom: '1.5rem' }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <h1 style={{ fontSize: '1.25rem', fontWeight: 600, marginBottom: '0.25rem' }}>
+                  {fund.name}
+                </h1>
+                {fund.organization && (
+                  <p style={{ fontSize: '0.875rem', color: 'hsl(var(--muted-foreground))', marginBottom: '0.5rem' }}>
+                    {fund.organization}
+                  </p>
+                )}
+                {fund.description && (
+                  <p style={{ fontSize: '0.875rem', color: 'hsl(var(--muted-foreground))', lineHeight: 1.6 }}>
+                    {fund.description}
+                  </p>
+                )}
+              </div>
+              {fund.application_link && (
+                <a
+                  href={fund.application_link}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="btn-sm primary"
+                  style={{ flexShrink: 0 }}
+                >
+                  <Send style={{ width: '0.875rem', height: '0.875rem' }} strokeWidth={1.5} />
+                  Apply Now
+                </a>
+              )}
             </div>
           </div>
 
-          {fund.posted_by ? (
-            <div>
-              <span className="data-eyebrow">Posted by</span>
-              <p>{fund.posted_by.display_name}</p>
+          {/* Details Section */}
+          <div className="section">
+            <div className="card">
+              <div className="grid-2">
+                <div>
+                  <div className="section-label" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <Building2 style={{ width: '0.875rem', height: '0.875rem' }} strokeWidth={1.5} />
+                    Organization
+                  </div>
+                  <p style={{ fontSize: '0.875rem' }}>{fund.organization || '\u2014'}</p>
+                </div>
+                <div>
+                  <div className="section-label" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <DollarSign style={{ width: '0.875rem', height: '0.875rem' }} strokeWidth={1.5} />
+                    Ticket Size
+                  </div>
+                  <p style={{ fontSize: '0.875rem' }}>
+                    {fund.min_ticket_size || fund.max_ticket_size
+                      ? `$${fund.min_ticket_size ?? '\u2014'} - $${fund.max_ticket_size ?? '\u2014'}`
+                      : 'Not specified'}
+                  </p>
+                </div>
+                <div>
+                  <div className="section-label" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <TrendingUp style={{ width: '0.875rem', height: '0.875rem' }} strokeWidth={1.5} />
+                    Stages
+                  </div>
+                  <p style={{ fontSize: '0.875rem' }}>{fund.stages?.join(', ') || 'Not specified'}</p>
+                </div>
+                <div>
+                  <div className="section-label" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <Target style={{ width: '0.875rem', height: '0.875rem' }} strokeWidth={1.5} />
+                    Industries
+                  </div>
+                  <p style={{ fontSize: '0.875rem' }}>{fund.industries?.join(', ') || 'Not specified'}</p>
+                </div>
+                <div>
+                  <div className="section-label" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <Calendar style={{ width: '0.875rem', height: '0.875rem' }} strokeWidth={1.5} />
+                    Deadline
+                  </div>
+                  <p style={{ fontSize: '0.875rem' }}>
+                    {fund.deadline ? new Date(fund.deadline).toLocaleDateString() : 'Open'}
+                  </p>
+                </div>
+              </div>
             </div>
-          ) : null}
-
-          {fund.tags && fund.tags.length > 0 ? (
-            <div className="tag-list">
-              {fund.tags.map((tag) => (
-                <span key={tag} className="tag">
-                  {tag}
-                </span>
-              ))}
-            </div>
-          ) : null}
-
-          <div className="link-list">
-            {fund.website_url ? (
-              <a href={fund.website_url} target="_blank" rel="noreferrer">
-                Website
-              </a>
-            ) : null}
-            {fund.application_link ? (
-              <a href={fund.application_link} target="_blank" rel="noreferrer">
-                Apply
-              </a>
-            ) : null}
           </div>
-        </div>
-      ) : null}
-    </section>
+
+          {/* Posted By */}
+          {fund.posted_by && (
+            <div className="section">
+              <div className="card">
+                <div className="section-label" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <User style={{ width: '0.875rem', height: '0.875rem' }} strokeWidth={1.5} />
+                  Posted By
+                </div>
+                <p style={{ fontSize: '0.875rem' }}>{fund.posted_by.display_name}</p>
+              </div>
+            </div>
+          )}
+
+          {/* Tags */}
+          {fund.tags && fund.tags.length > 0 && (
+            <div className="section">
+              <div className="card">
+                <div className="section-label">Tags</div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.375rem' }}>
+                  {fund.tags.map((tag) => (
+                    <span key={tag} className="tag">
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Links */}
+          {(fund.website_url || fund.application_link) && (
+            <div className="section">
+              <div className="card">
+                <div className="section-label" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <Globe style={{ width: '0.875rem', height: '0.875rem' }} strokeWidth={1.5} />
+                  Links
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                  {fund.website_url && (
+                    <a href={fund.website_url} target="_blank" rel="noreferrer" className="btn-sm ghost">
+                      <Globe style={{ width: '0.875rem', height: '0.875rem' }} strokeWidth={1.5} />
+                      Website
+                      <ExternalLink style={{ width: '0.625rem', height: '0.625rem', opacity: 0.5 }} strokeWidth={1.5} />
+                    </a>
+                  )}
+                  {fund.application_link && (
+                    <a href={fund.application_link} target="_blank" rel="noreferrer" className="btn-sm primary">
+                      <Send style={{ width: '0.875rem', height: '0.875rem' }} strokeWidth={1.5} />
+                      Apply
+                    </a>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+    </div>
   )
 }

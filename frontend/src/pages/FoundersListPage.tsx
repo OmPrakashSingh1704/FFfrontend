@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Users, MapPin, TrendingUp, ArrowRight, UserPlus, MessageCircle } from 'lucide-react'
+import { Users, MapPin, TrendingUp, MessageCircle } from 'lucide-react'
 import { apiRequest } from '../lib/api'
 import { normalizeList } from '../lib/pagination'
 import type { FounderProfile } from '../types/founder'
@@ -46,77 +46,125 @@ export function FoundersListPage() {
     navigate(`/app/chat?newChat=${userId}&name=${encodeURIComponent(founder.user?.full_name || 'Founder')}`)
   }
 
+  const getInitials = (name: string) => {
+    return name
+      .split(' ')
+      .map((n) => n[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2)
+  }
+
   return (
-    <section className="content-section" data-testid="founders-list">
-      <header className="content-header">
+    <div data-testid="founders-list">
+      <div className="page-header">
         <div>
-          <div className="flex items-center gap-2 mb-2">
-            <Users className="w-5 h-5 text-cyan-400" />
-            <span className="text-xs uppercase tracking-wider text-cyan-400">Directory</span>
-          </div>
-          <h1>Founders</h1>
-          <p>Browse founder profiles and reach out with context.</p>
+          <h1 className="page-title">
+            Founders
+            {!loading && !error && (
+              <span className="badge info" style={{ marginLeft: '0.5rem', verticalAlign: 'middle' }}>
+                {founders.length}
+              </span>
+            )}
+          </h1>
+          <p className="page-description">Browse founder profiles and reach out with context.</p>
         </div>
-        <Link className="btn ghost" to="/onboarding" data-testid="update-profile-btn">
-          <UserPlus className="w-4 h-4 mr-2" />
-          Update my profile
-        </Link>
-      </header>
+      </div>
 
-      {loading ? <div className="page-loader">Loading founders...</div> : null}
-      {error ? <div className="form-error">{error}</div> : null}
+      {loading && (
+        <div className="empty-state">
+          <Users className="empty-icon" strokeWidth={1.5} />
+          <p className="empty-description">Loading founders...</p>
+        </div>
+      )}
 
-      {!loading && !error ? (
-        <div className="data-grid" data-testid="founders-grid">
-          {founders.map((founder) => (
-            <div 
-              key={founder.id} 
-              className="data-card group"
-              data-testid={`founder-card-${founder.id}`}
-            >
-              <Link to={`/app/founders/${founder.id}`} className="data-card-content">
-                <div className="flex items-center justify-between">
-                  <span className="data-eyebrow">Founder</span>
-                  <ArrowRight className="w-4 h-4 text-slate-500 opacity-0 group-hover:opacity-100 transition-opacity" />
+      {error && <div className="badge error" style={{ marginBottom: '1rem' }}>{error}</div>}
+
+      {!loading && !error && founders.length === 0 && (
+        <div className="empty-state">
+          <Users className="empty-icon" strokeWidth={1.5} />
+          <h3 className="empty-title">No founders found</h3>
+          <p className="empty-description">Check back soon!</p>
+        </div>
+      )}
+
+      {!loading && !error && founders.length > 0 && (
+        <div className="grid-3" data-testid="founders-grid">
+          {founders.map((founder) => {
+            const name = founder.user?.full_name ?? 'Founder'
+            return (
+              <Link
+                key={founder.id}
+                to={`/app/founders/${founder.id}`}
+                className="card"
+                style={{ textDecoration: 'none', color: 'inherit', display: 'block' }}
+                data-testid={`founder-card-${founder.id}`}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.75rem' }}>
+                  <div className="avatar">
+                    {founder.user?.avatar_url ? (
+                      <img src={founder.user.avatar_url} alt={name} />
+                    ) : (
+                      getInitials(name)
+                    )}
+                  </div>
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <div style={{ fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {name}
+                    </div>
+                  </div>
                 </div>
-                <h3>{founder.user?.full_name ?? 'Founder'}</h3>
-                <p>{founder.headline || 'Building something amazing'}</p>
-                <div className="data-meta">
-                  {founder.location ? (
-                    <span className="flex items-center gap-1">
-                      <MapPin className="w-3 h-3" />
+
+                {founder.headline && (
+                  <p style={{
+                    fontSize: '0.875rem',
+                    color: 'hsl(var(--muted-foreground))',
+                    marginBottom: '0.75rem',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    display: '-webkit-box',
+                    WebkitLineClamp: 2,
+                    WebkitBoxOrient: 'vertical',
+                  }}>
+                    {founder.headline}
+                  </p>
+                )}
+
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.375rem' }}>
+                  {founder.location && (
+                    <span className="tag">
+                      <MapPin style={{ width: '0.75rem', height: '0.75rem' }} strokeWidth={1.5} />
                       {founder.location}
                     </span>
-                  ) : null}
-                  {founder.current_stage ? (
-                    <span className="flex items-center gap-1">
-                      <TrendingUp className="w-3 h-3" />
+                  )}
+                  {founder.current_stage && (
+                    <span className="tag">
+                      <TrendingUp style={{ width: '0.75rem', height: '0.75rem' }} strokeWidth={1.5} />
                       {founder.current_stage}
                     </span>
-                  ) : null}
-                  {founder.fundraising_status ? <span>{founder.fundraising_status}</span> : null}
+                  )}
+                  {founder.fundraising_status && (
+                    <span className="badge warning">{founder.fundraising_status}</span>
+                  )}
                 </div>
-              </Link>
-              <div className="data-card-actions">
-                <button 
+
+                <hr className="divider" />
+
+                <button
                   type="button"
-                  className="btn-chat"
+                  className="btn-sm ghost"
+                  style={{ width: '100%', justifyContent: 'center' }}
                   onClick={(e) => handleStartChat(e, founder)}
                   data-testid={`chat-founder-${founder.id}`}
                 >
-                  <MessageCircle className="w-4 h-4" />
+                  <MessageCircle style={{ width: '0.875rem', height: '0.875rem' }} strokeWidth={1.5} />
                   Start Chat
                 </button>
-              </div>
-            </div>
-          ))}
-          {founders.length === 0 ? (
-            <div className="col-span-full text-center py-12 text-slate-500">
-              No founders found. Check back soon!
-            </div>
-          ) : null}
+              </Link>
+            )
+          })}
         </div>
-      ) : null}
-    </section>
+      )}
+    </div>
   )
 }

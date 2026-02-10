@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Heart, Plus, X } from 'lucide-react'
+import { Heart, Plus, X, Calendar } from 'lucide-react'
 import { apiRequest } from '../lib/api'
 import { normalizeList } from '../lib/pagination'
 import { useToast } from '../context/ToastContext'
@@ -105,37 +105,48 @@ export function RespectPage() {
     }
   }
 
+  const getInitials = (name: string) => {
+    return name
+      .split(' ')
+      .map((part) => part.charAt(0))
+      .join('')
+      .toUpperCase()
+      .slice(0, 2)
+  }
+
   return (
-    <section className="content-section">
-      <header className="content-header">
+    <div style={{ padding: '1.5rem' }}>
+      {/* Page Header */}
+      <div className="page-header">
         <div>
-          <h1>Respect</h1>
-          <p>Endorsements and credibility signals in your network.</p>
+          <h1 className="page-title">Respect</h1>
+          <p className="page-description">Endorsements and credibility signals in your network.</p>
         </div>
         <button
           type="button"
-          className="btn primary"
+          className="btn-sm primary"
           onClick={() => setShowForm(!showForm)}
           data-testid="give-respect-btn"
         >
-          <Heart style={{ width: 16, height: 16, marginRight: 4 }} />
+          <Heart style={{ width: 14, height: 14 }} />
           Give Respect
         </button>
-      </header>
+      </div>
 
-      {/* Give Respect Form */}
+      {/* Give Respect Inline Form */}
       {showForm && (
-        <div className="inline-form" data-testid="give-respect-form">
-          <div className="inline-form-header">
-            <h3>Give Respect</h3>
-            <button type="button" className="btn ghost sm" onClick={() => setShowForm(false)} data-testid="close-respect-form">
-              <X style={{ width: 16, height: 16 }} />
+        <div className="card section" data-testid="give-respect-form">
+          <div className="card-header">
+            <span className="card-title">Give Respect</span>
+            <button type="button" className="btn-sm ghost" onClick={() => setShowForm(false)} data-testid="close-respect-form">
+              <X style={{ width: 14, height: 14 }} />
             </button>
           </div>
           <form onSubmit={handleGiveRespect}>
-            <div className="form-field" style={{ position: 'relative' }}>
+            <div className="form-group" style={{ position: 'relative' }}>
               <label>To user *</label>
               <input
+                className="input"
                 type="text"
                 value={searchQuery}
                 onChange={(e) => handleSearchChange(e.target.value)}
@@ -143,28 +154,56 @@ export function RespectPage() {
                 data-testid="user-search-input"
               />
               {searchResults.length > 0 && (
-                <div className="search-results" data-testid="user-search-results">
+                <div
+                  data-testid="user-search-results"
+                  style={{
+                    position: 'absolute',
+                    top: '100%',
+                    left: 0,
+                    right: 0,
+                    zIndex: 20,
+                    background: 'hsl(var(--card))',
+                    border: '1px solid hsl(var(--border))',
+                    borderRadius: '0.5rem',
+                    maxHeight: '12rem',
+                    overflowY: 'auto',
+                    marginTop: '0.25rem',
+                  }}
+                >
                   {searchResults.map((user) => (
                     <button
                       key={user.id}
                       type="button"
+                      className="list-item"
+                      style={{ width: '100%', textAlign: 'left' }}
                       onClick={() => handleSelectUser(user)}
                       data-testid="user-search-option"
                     >
-                      {user.full_name}{user.role ? ` (${user.role})` : ''}
+                      <div className="avatar">
+                        {getInitials(user.full_name)}
+                      </div>
+                      <span style={{ fontSize: '0.875rem' }}>
+                        {user.full_name}{user.role ? ` (${user.role})` : ''}
+                      </span>
                     </button>
                   ))}
                 </div>
               )}
               {selectedUser && (
-                <span className="data-eyebrow" style={{ marginTop: 4, display: 'inline-block' }}>
-                  Selected: {selectedUser.full_name}
-                </span>
+                <div style={{ marginTop: '0.375rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <div className="avatar" style={{ width: '1.25rem', height: '1.25rem', fontSize: '0.625rem' }}>
+                    {getInitials(selectedUser.full_name)}
+                  </div>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--gold)' }}>
+                    Selected: {selectedUser.full_name}
+                  </span>
+                </div>
               )}
             </div>
-            <div className="form-field">
+            <div className="form-group">
               <label>Reason (optional)</label>
               <textarea
+                className="textarea"
                 rows={2}
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
@@ -172,12 +211,12 @@ export function RespectPage() {
                 data-testid="respect-reason-input"
               />
             </div>
-            <div className="inline-form-actions">
-              <button type="submit" className="btn primary" disabled={formLoading || !selectedUser} data-testid="submit-respect-btn">
-                <Plus style={{ width: 14, height: 14, marginRight: 4 }} />
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <button type="submit" className="btn-sm primary" disabled={formLoading || !selectedUser} data-testid="submit-respect-btn">
+                <Plus style={{ width: 14, height: 14 }} />
                 {formLoading ? 'Sending...' : 'Give Respect'}
               </button>
-              <button type="button" className="btn ghost" onClick={() => setShowForm(false)}>
+              <button type="button" className="btn-sm ghost" onClick={() => setShowForm(false)}>
                 Cancel
               </button>
             </div>
@@ -185,57 +224,147 @@ export function RespectPage() {
         </div>
       )}
 
-      {loading ? <div className="page-loader">Loading respect...</div> : null}
-      {error ? <div className="form-error">{error}</div> : null}
+      {/* Loading / Error */}
+      {loading ? (
+        <div className="empty-state">
+          <p className="empty-description">Loading respect...</p>
+        </div>
+      ) : null}
 
+      {error ? (
+        <div className="card" style={{ borderColor: '#ef4444', padding: '1rem', marginBottom: '1rem' }}>
+          <p style={{ color: '#ef4444', fontSize: '0.875rem' }}>{error}</p>
+        </div>
+      ) : null}
+
+      {/* Two-column layout: Received + Given */}
       {!loading && !error ? (
-        <div className="data-grid">
-          <div className="data-card" data-testid="respect-received-card">
-            <span className="data-eyebrow">Received</span>
-            <h3>{received.length}</h3>
+        <div className="grid-2">
+          {/* Received Column */}
+          <div data-testid="respect-received-card" style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+            <div className="stat-card">
+              <div className="stat-header">
+                <div className="stat-icon">
+                  <Heart style={{ width: 20, height: 20 }} />
+                </div>
+              </div>
+              <span className="stat-value">{received.length}</span>
+              <span className="stat-label">Received</span>
+            </div>
+
             {received.length === 0 ? (
-              <p>No respect received yet.</p>
+              <div className="card">
+                <div className="empty-state" style={{ padding: '2rem 0' }}>
+                  <Heart className="empty-icon" />
+                  <p className="empty-description">No respect received yet.</p>
+                </div>
+              </div>
             ) : (
-              <ul className="timeline">
-                {received.map((item) => (
-                  <li key={item.id}>
-                    <span>
-                      <strong>{item.from_user?.full_name || 'Someone'}</strong>
-                      {item.reason ? ` — ${item.reason}` : ''}
-                    </span>
-                    <span className="timeline-meta">
-                      {item.created_at ? new Date(item.created_at).toLocaleDateString() : ''}
-                      {item.expires_at ? ` (expires ${new Date(item.expires_at).toLocaleDateString()})` : ''}
-                    </span>
-                  </li>
+              <div className="card" style={{ padding: 0 }}>
+                {received.map((item, index) => (
+                  <div
+                    key={item.id}
+                    className="list-item"
+                    style={{
+                      borderBottom: index < received.length - 1 ? '1px solid hsl(var(--border) / 0.5)' : undefined,
+                      cursor: 'default',
+                    }}
+                  >
+                    <div className="avatar">
+                      {getInitials(item.from_user?.full_name || 'S')}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontWeight: 500, fontSize: '0.875rem' }}>
+                        {item.from_user?.full_name || 'Someone'}
+                      </div>
+                      {item.reason && (
+                        <p style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))', marginTop: '0.125rem' }}>
+                          {item.reason}
+                        </p>
+                      )}
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.125rem', flexShrink: 0 }}>
+                      {item.created_at && (
+                        <span style={{ fontSize: '0.6875rem', color: 'hsl(var(--muted-foreground))', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
+                          <Calendar style={{ width: 10, height: 10 }} />
+                          {new Date(item.created_at).toLocaleDateString()}
+                        </span>
+                      )}
+                      {item.expires_at && (
+                        <span style={{ fontSize: '0.625rem', color: 'hsl(var(--muted-foreground))' }}>
+                          exp {new Date(item.expires_at).toLocaleDateString()}
+                        </span>
+                      )}
+                    </div>
+                  </div>
                 ))}
-              </ul>
+              </div>
             )}
           </div>
-          <div className="data-card" data-testid="respect-given-card">
-            <span className="data-eyebrow">Given</span>
-            <h3>{given.length}</h3>
+
+          {/* Given Column */}
+          <div data-testid="respect-given-card" style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+            <div className="stat-card">
+              <div className="stat-header">
+                <div className="stat-icon">
+                  <Heart style={{ width: 20, height: 20 }} />
+                </div>
+              </div>
+              <span className="stat-value">{given.length}</span>
+              <span className="stat-label">Given</span>
+            </div>
+
             {given.length === 0 ? (
-              <p>You haven't given any respect yet.</p>
+              <div className="card">
+                <div className="empty-state" style={{ padding: '2rem 0' }}>
+                  <Heart className="empty-icon" />
+                  <p className="empty-description">You haven't given any respect yet.</p>
+                </div>
+              </div>
             ) : (
-              <ul className="timeline">
-                {given.map((item) => (
-                  <li key={item.id}>
-                    <span>
-                      <strong>{item.to_user?.full_name || 'Someone'}</strong>
-                      {item.reason ? ` — ${item.reason}` : ''}
-                    </span>
-                    <span className="timeline-meta">
-                      {item.created_at ? new Date(item.created_at).toLocaleDateString() : ''}
-                      {item.expires_at ? ` (expires ${new Date(item.expires_at).toLocaleDateString()})` : ''}
-                    </span>
-                  </li>
+              <div className="card" style={{ padding: 0 }}>
+                {given.map((item, index) => (
+                  <div
+                    key={item.id}
+                    className="list-item"
+                    style={{
+                      borderBottom: index < given.length - 1 ? '1px solid hsl(var(--border) / 0.5)' : undefined,
+                      cursor: 'default',
+                    }}
+                  >
+                    <div className="avatar">
+                      {getInitials(item.to_user?.full_name || 'S')}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontWeight: 500, fontSize: '0.875rem' }}>
+                        {item.to_user?.full_name || 'Someone'}
+                      </div>
+                      {item.reason && (
+                        <p style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))', marginTop: '0.125rem' }}>
+                          {item.reason}
+                        </p>
+                      )}
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.125rem', flexShrink: 0 }}>
+                      {item.created_at && (
+                        <span style={{ fontSize: '0.6875rem', color: 'hsl(var(--muted-foreground))', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
+                          <Calendar style={{ width: 10, height: 10 }} />
+                          {new Date(item.created_at).toLocaleDateString()}
+                        </span>
+                      )}
+                      {item.expires_at && (
+                        <span style={{ fontSize: '0.625rem', color: 'hsl(var(--muted-foreground))' }}>
+                          exp {new Date(item.expires_at).toLocaleDateString()}
+                        </span>
+                      )}
+                    </div>
+                  </div>
                 ))}
-              </ul>
+              </div>
             )}
           </div>
         </div>
       ) : null}
-    </section>
+    </div>
   )
 }

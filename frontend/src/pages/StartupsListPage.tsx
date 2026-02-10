@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Briefcase, Building2, TrendingUp, Plus, ArrowRight } from 'lucide-react'
+import { Briefcase, Building2, TrendingUp } from 'lucide-react'
 import { apiRequest } from '../lib/api'
 import { normalizeList } from '../lib/pagination'
 import type { StartupListItem } from '../types/startup'
@@ -38,64 +38,88 @@ export function StartupsListPage() {
   }, [])
 
   return (
-    <section className="content-section" data-testid="startups-list">
-      <header className="content-header">
+    <div data-testid="startups-list">
+      <div className="page-header">
         <div>
-          <div className="flex items-center gap-2 mb-2">
-            <Briefcase className="w-5 h-5 text-cyan-400" />
-            <span className="text-xs uppercase tracking-wider text-cyan-400">Directory</span>
-          </div>
-          <h1>Startups</h1>
-          <p>Explore the startups raising on FoundersLib.</p>
+          <h1 className="page-title">
+            Startups
+            {!loading && !error && (
+              <span className="badge info" style={{ marginLeft: '0.5rem', verticalAlign: 'middle' }}>
+                {startups.length}
+              </span>
+            )}
+          </h1>
+          <p className="page-description">Explore the startups raising on FoundersLib.</p>
         </div>
-        <Link className="btn ghost" to="/onboarding" data-testid="add-startup-btn">
-          <Plus className="w-4 h-4 mr-2" />
-          Add my startup
-        </Link>
-      </header>
+      </div>
 
-      {loading ? <div className="page-loader">Loading startups...</div> : null}
-      {error ? <div className="form-error">{error}</div> : null}
+      {loading && (
+        <div className="empty-state">
+          <Briefcase className="empty-icon" strokeWidth={1.5} />
+          <p className="empty-description">Loading startups...</p>
+        </div>
+      )}
 
-      {!loading && !error ? (
-        <div className="data-grid" data-testid="startups-grid">
+      {error && <div className="badge error" style={{ marginBottom: '1rem' }}>{error}</div>}
+
+      {!loading && !error && startups.length === 0 && (
+        <div className="empty-state">
+          <Briefcase className="empty-icon" strokeWidth={1.5} />
+          <h3 className="empty-title">No startups found</h3>
+          <p className="empty-description">Be the first to add yours!</p>
+        </div>
+      )}
+
+      {!loading && !error && startups.length > 0 && (
+        <div className="grid-3" data-testid="startups-grid">
           {startups.map((startup) => (
-            <Link 
-              key={startup.id} 
-              to={`/app/startups/${startup.id}`} 
-              className="data-card group"
+            <Link
+              key={startup.id}
+              to={`/app/startups/${startup.id}`}
+              className="card"
+              style={{ textDecoration: 'none', color: 'inherit', display: 'block' }}
               data-testid={`startup-card-${startup.id}`}
             >
-              <div className="flex items-center justify-between">
-                <span className="data-eyebrow">Startup</span>
-                <ArrowRight className="w-4 h-4 text-slate-500 opacity-0 group-hover:opacity-100 transition-opacity" />
+              <div style={{ fontWeight: 500, fontSize: '1rem', marginBottom: '0.25rem' }}>
+                {startup.name}
               </div>
-              <h3>{startup.name}</h3>
-              <p>{startup.tagline || 'No tagline provided yet.'}</p>
-              <div className="data-meta">
-                {startup.industry ? (
-                  <span className="flex items-center gap-1">
-                    <Building2 className="w-3 h-3" />
+
+              {startup.tagline && (
+                <p style={{
+                  fontSize: '0.875rem',
+                  color: 'hsl(var(--muted-foreground))',
+                  marginBottom: '0.75rem',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  display: '-webkit-box',
+                  WebkitLineClamp: 2,
+                  WebkitBoxOrient: 'vertical',
+                }}>
+                  {startup.tagline}
+                </p>
+              )}
+
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.375rem', marginTop: 'auto' }}>
+                {startup.industry && (
+                  <span className="tag">
+                    <Building2 style={{ width: '0.75rem', height: '0.75rem' }} strokeWidth={1.5} />
                     {startup.industry}
                   </span>
-                ) : null}
-                {startup.current_stage ? (
-                  <span className="flex items-center gap-1">
-                    <TrendingUp className="w-3 h-3" />
+                )}
+                {startup.current_stage && (
+                  <span className="tag">
+                    <TrendingUp style={{ width: '0.75rem', height: '0.75rem' }} strokeWidth={1.5} />
                     {startup.current_stage}
                   </span>
-                ) : null}
-                {startup.fundraising_status ? <span>{startup.fundraising_status}</span> : null}
+                )}
+                {startup.fundraising_status && (
+                  <span className="badge warning">{startup.fundraising_status}</span>
+                )}
               </div>
             </Link>
           ))}
-          {startups.length === 0 ? (
-            <div className="col-span-full text-center py-12 text-slate-500">
-              No startups found. Be the first to add yours!
-            </div>
-          ) : null}
         </div>
-      ) : null}
-    </section>
+      )}
+    </div>
   )
 }

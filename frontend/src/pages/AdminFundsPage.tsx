@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { ArrowLeft, Landmark, Search } from 'lucide-react'
 import { apiRequest } from '../lib/api'
 import { normalizeList, type PaginatedResponse } from '../lib/pagination'
 import type { FundListItem } from '../types/fund'
@@ -62,116 +63,159 @@ export function AdminFundsPage() {
     }
   }, [query])
 
-  return (
-    <section className="content-section admin-funds-page">
-      <header className="content-header">
-        <div>
-          <h1>Admin Funds</h1>
-          <p>Review all funding opportunities across the platform.</p>
-        </div>
-        <div className="data-actions">
-          <Link className="btn ghost" to="/app/admin">
-            Back to admin
-          </Link>
-        </div>
-      </header>
+  const statusBadge = (fund: AdminFund) => {
+    if (fund.is_active === undefined) return null
+    return fund.is_active
+      ? <span className="badge success">Active</span>
+      : <span className="badge warning">Inactive</span>
+  }
 
-      <div className="admin-filter-bar">
-        <label>
-          Search
-          <input
-            value={filters.search}
-            onChange={(event) => setFilters((prev) => ({ ...prev, search: event.target.value }))}
-            placeholder="Name or organization"
-          />
-        </label>
-        <label>
-          Active
-          <select value={filters.active} onChange={(event) => setFilters((prev) => ({ ...prev, active: event.target.value }))}>
-            <option value="">Any</option>
-            <option value="true">Active</option>
-            <option value="false">Inactive</option>
-          </select>
-        </label>
-        <label>
-          Featured
-          <select value={filters.featured} onChange={(event) => setFilters((prev) => ({ ...prev, featured: event.target.value }))}>
-            <option value="">Any</option>
-            <option value="true">Featured</option>
-            <option value="false">Not featured</option>
-          </select>
-        </label>
-        <label>
-          Sponsored
-          <select value={filters.sponsored} onChange={(event) => setFilters((prev) => ({ ...prev, sponsored: event.target.value }))}>
-            <option value="">Any</option>
-            <option value="true">Sponsored</option>
-            <option value="false">Not sponsored</option>
-          </select>
-        </label>
-        <label>
-          Fund type
-          <input
-            value={filters.fund_type}
-            onChange={(event) => setFilters((prev) => ({ ...prev, fund_type: event.target.value }))}
-            placeholder="vc, angel, accelerator"
-          />
-        </label>
-        <label>
-          Opportunity type
-          <input
-            value={filters.opportunity_type}
-            onChange={(event) => setFilters((prev) => ({ ...prev, opportunity_type: event.target.value }))}
-            placeholder="grant, vc_program"
-          />
-        </label>
+  return (
+    <div data-testid="admin-funds-page">
+      <Link className="back-btn" to="/app/admin">
+        <ArrowLeft size={16} strokeWidth={1.5} />
+        Back to Admin
+      </Link>
+
+      <div className="page-header">
+        <div>
+          <h1 className="page-title">Admin Funds</h1>
+          <p className="page-description">Review all funding opportunities across the platform.</p>
+        </div>
+        {total !== null && <span className="badge info">{total} total</span>}
       </div>
 
-      {loading ? <div className="page-loader">Loading funds...</div> : null}
-      {error ? <div className="form-error">{error}</div> : null}
-
-      {!loading && !error ? (
-        <>
-          <div className="data-grid">
-            {funds.map((fund) => (
-              <article key={fund.id} className="data-card">
-                <div className="data-meta">
-                  <span>{fund.fund_type || 'fund'}</span>
-                  {fund.opportunity_type ? <span>{fund.opportunity_type}</span> : null}
-                </div>
-                <h3>{fund.name}</h3>
-                <p>{fund.organization || '-'}</p>
-                <div className="tag-list">
-                  {fund.is_active !== undefined ? (
-                    <span className={`status-pill ${fund.is_active ? 'ok' : 'warn'}`}>
-                      {fund.is_active ? 'Active' : 'Inactive'}
-                    </span>
-                  ) : null}
-                  {fund.is_featured ? <span className="status-pill">Featured</span> : null}
-                  {fund.is_sponsored ? <span className="status-pill">Sponsored</span> : null}
-                </div>
-                <div className="data-meta">
-                  {fund.headquarters_city ? <span>{fund.headquarters_city}</span> : null}
-                  {fund.headquarters_country ? <span>{fund.headquarters_country}</span> : null}
-                  {fund.deadline ? <span>Deadline: {new Date(fund.deadline).toLocaleDateString()}</span> : null}
-                </div>
-              </article>
-            ))}
+      {/* Filters */}
+      <div className="card" style={{ marginBottom: '1.5rem' }}>
+        <div className="card-header">
+          <h2 className="card-title">Filters</h2>
+        </div>
+        <div className="grid-3" style={{ gap: '0.75rem' }}>
+          <div className="form-group">
+            <label>Search</label>
+            <input
+              className="input"
+              value={filters.search}
+              onChange={(event) => setFilters((prev) => ({ ...prev, search: event.target.value }))}
+              placeholder="Name or organization"
+            />
           </div>
-          <div className="admin-pagination">
-            <button className="btn ghost" type="button" onClick={() => setPage((prev) => Math.max(prev - 1, 1))} disabled={page === 1}>
+          <div className="form-group">
+            <label>Active</label>
+            <select className="select" value={filters.active} onChange={(event) => setFilters((prev) => ({ ...prev, active: event.target.value }))}>
+              <option value="">Any</option>
+              <option value="true">Active</option>
+              <option value="false">Inactive</option>
+            </select>
+          </div>
+          <div className="form-group">
+            <label>Featured</label>
+            <select className="select" value={filters.featured} onChange={(event) => setFilters((prev) => ({ ...prev, featured: event.target.value }))}>
+              <option value="">Any</option>
+              <option value="true">Featured</option>
+              <option value="false">Not featured</option>
+            </select>
+          </div>
+          <div className="form-group">
+            <label>Sponsored</label>
+            <select className="select" value={filters.sponsored} onChange={(event) => setFilters((prev) => ({ ...prev, sponsored: event.target.value }))}>
+              <option value="">Any</option>
+              <option value="true">Sponsored</option>
+              <option value="false">Not sponsored</option>
+            </select>
+          </div>
+          <div className="form-group">
+            <label>Fund type</label>
+            <input
+              className="input"
+              value={filters.fund_type}
+              onChange={(event) => setFilters((prev) => ({ ...prev, fund_type: event.target.value }))}
+              placeholder="vc, angel, accelerator"
+            />
+          </div>
+          <div className="form-group">
+            <label>Opportunity type</label>
+            <input
+              className="input"
+              value={filters.opportunity_type}
+              onChange={(event) => setFilters((prev) => ({ ...prev, opportunity_type: event.target.value }))}
+              placeholder="grant, vc_program"
+            />
+          </div>
+        </div>
+      </div>
+
+      {loading && (
+        <div className="empty-state">
+          <Landmark className="empty-icon" strokeWidth={1.5} />
+          <p className="empty-description">Loading funds...</p>
+        </div>
+      )}
+      {error && <div className="empty-state"><p className="empty-description" style={{ color: '#ef4444' }}>{error}</p></div>}
+
+      {!loading && !error && (
+        <>
+          {funds.length === 0 ? (
+            <div className="empty-state">
+              <Search className="empty-icon" strokeWidth={1.5} />
+              <h3 className="empty-title">No funds found</h3>
+              <p className="empty-description">Try adjusting your filters.</p>
+            </div>
+          ) : (
+            <div className="card">
+              <table className="data-table" data-testid="funds-table">
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Organization</th>
+                    <th>Type</th>
+                    <th>Opportunity</th>
+                    <th>Location</th>
+                    <th>Status</th>
+                    <th>Tags</th>
+                    <th>Deadline</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {funds.map((fund) => (
+                    <tr key={fund.id} data-testid={`fund-row-${fund.id}`}>
+                      <td style={{ fontWeight: 500 }}>{fund.name}</td>
+                      <td>{fund.organization || '—'}</td>
+                      <td><span className="tag">{fund.fund_type || 'fund'}</span></td>
+                      <td>{fund.opportunity_type ? <span className="tag">{fund.opportunity_type}</span> : '—'}</td>
+                      <td>
+                        {fund.headquarters_city || fund.headquarters_country
+                          ? `${fund.headquarters_city || ''}${fund.headquarters_city && fund.headquarters_country ? ', ' : ''}${fund.headquarters_country || ''}`
+                          : '—'}
+                      </td>
+                      <td>{statusBadge(fund)}</td>
+                      <td style={{ display: 'flex', gap: '0.25rem', flexWrap: 'wrap' }}>
+                        {fund.is_featured ? <span className="badge info">Featured</span> : null}
+                        {fund.is_sponsored ? <span className="badge warning">Sponsored</span> : null}
+                      </td>
+                      <td>{fund.deadline ? new Date(fund.deadline).toLocaleDateString() : '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {/* Pagination */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '1rem', marginTop: '1.5rem' }}>
+            <button className="btn-sm ghost" type="button" onClick={() => setPage((prev) => Math.max(prev - 1, 1))} disabled={page === 1}>
               Previous
             </button>
-            <span>
+            <span style={{ fontSize: '0.875rem', color: 'hsl(var(--muted-foreground))' }}>
               Page {page}
-              {total ? ` · ${total} total` : ''}
+              {total ? ` of ${Math.ceil(total / 20)}` : ''}
             </span>
-            <button className="btn ghost" type="button" onClick={() => setPage((prev) => prev + 1)}>
+            <button className="btn-sm ghost" type="button" onClick={() => setPage((prev) => prev + 1)}>
               Next
             </button>
           </div>
         </>
-      ) : null}
-    </section>
+      )}
+    </div>
   )
 }

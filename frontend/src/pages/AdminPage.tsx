@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { Users, Rocket, Briefcase, ArrowRightLeft, Coins, ShieldCheck, RefreshCw, Plus, Minus, ScrollText } from 'lucide-react'
 import { apiRequest } from '../lib/api'
 import { normalizeList } from '../lib/pagination'
 import { useToast } from '../context/ToastContext'
@@ -194,202 +195,295 @@ export function AdminPage() {
     }
   }
 
+  const statCards = [
+    { label: 'Active Users', value: stats?.users.total ?? '—', sub: `+${stats?.users.new_7d ?? 0} last 7 days`, icon: Users },
+    { label: 'Startups', value: stats?.startups.total ?? '—', sub: `${stats?.startups.public ?? 0} public`, icon: Rocket },
+    { label: 'Investors', value: stats?.investors.total ?? '—', sub: `${stats?.investors.pending_verification ?? 0} pending`, icon: Briefcase },
+    { label: 'Intro Requests', value: stats?.intros.total ?? '—', sub: `Acceptance ${stats?.intros.acceptance_rate ?? 0}%`, icon: ArrowRightLeft },
+    { label: 'Credits Earned', value: stats?.credits.total_earned ?? '—', sub: `Spent ${stats?.credits.total_spent ?? 0}`, icon: Coins },
+  ]
+
+  const roleBadgeClass = (role: string) => {
+    switch (role) {
+      case 'admin': return 'badge error'
+      case 'investor': return 'badge info'
+      case 'founder': return 'badge success'
+      default: return 'badge'
+    }
+  }
+
   return (
-    <section className="content-section admin-page">
-      <header className="content-header">
+    <div data-testid="admin-page">
+      <div className="page-header">
         <div>
-          <h1>Admin Control Room</h1>
-          <p>Manage platform access, verify investors, and review critical events.</p>
+          <h1 className="page-title">Admin</h1>
+          <p className="page-description">Manage platform access, verify investors, and review critical events.</p>
         </div>
-        <div className="data-actions">
-          <Link className="btn ghost" to="/app/admin/funds">
-            Funds
-          </Link>
-          <Link className="btn ghost" to="/app/admin/applications">
-            Applications
-          </Link>
-          <Link className="btn ghost" to="/app/admin/moderation">
-            Moderation
-          </Link>
-          <button className="btn ghost" type="button" onClick={() => void loadUsers(userSearch)}>
-            Refresh users
+        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+          <Link className="btn-sm ghost" to="/app/admin/funds">Funds</Link>
+          <Link className="btn-sm ghost" to="/app/admin/applications">Applications</Link>
+          <Link className="btn-sm ghost" to="/app/admin/moderation">Moderation</Link>
+          <button className="btn-sm ghost" type="button" onClick={() => void loadUsers(userSearch)}>
+            <RefreshCw size={14} strokeWidth={1.5} />
+            Refresh
           </button>
-        </div>
-      </header>
-
-      {loading ? <div className="page-loader">Loading admin data...</div> : null}
-      {error ? <div className="form-error">{error}</div> : null}
-
-      <div className="analytics-grid">
-        <div className="metric-card">
-          <span className="metric-label">Active users</span>
-          <span className="metric-value">{stats?.users.total ?? '—'}</span>
-          <span className="metric-sub">+{stats?.users.new_7d ?? 0} last 7 days</span>
-        </div>
-        <div className="metric-card">
-          <span className="metric-label">Startups</span>
-          <span className="metric-value">{stats?.startups.total ?? '—'}</span>
-          <span className="metric-sub">{stats?.startups.public ?? 0} public</span>
-        </div>
-        <div className="metric-card">
-          <span className="metric-label">Investors</span>
-          <span className="metric-value">{stats?.investors.total ?? '—'}</span>
-          <span className="metric-sub">{stats?.investors.pending_verification ?? 0} pending</span>
-        </div>
-        <div className="metric-card">
-          <span className="metric-label">Intro requests</span>
-          <span className="metric-value">{stats?.intros.total ?? '—'}</span>
-          <span className="metric-sub">Acceptance {stats?.intros.acceptance_rate ?? 0}%</span>
-        </div>
-        <div className="metric-card">
-          <span className="metric-label">Credits earned</span>
-          <span className="metric-value">{stats?.credits.total_earned ?? '—'}</span>
-          <span className="metric-sub">Spent {stats?.credits.total_spent ?? 0}</span>
         </div>
       </div>
 
-      <div className="admin-layout">
-        <div className="admin-card">
-          <header>
-            <h2>Users</h2>
-            <div className="admin-search">
-              <input
-                value={userSearch}
-                onChange={(event) => setUserSearch(event.target.value)}
-                placeholder="Search by email"
-              />
-              <button className="btn ghost" type="button" onClick={() => void loadUsers(userSearch)}>
-                Search
+      {loading && (
+        <div className="empty-state">
+          <Users className="empty-icon" strokeWidth={1.5} />
+          <p className="empty-description">Loading admin data...</p>
+        </div>
+      )}
+      {error && <div className="empty-state"><p className="empty-description" style={{ color: '#ef4444' }}>{error}</p></div>}
+
+      {!loading && !error && (
+        <>
+          {/* Metrics Grid */}
+          <div className="section">
+            <div className="grid-4" style={{ gridTemplateColumns: 'repeat(5, 1fr)' }}>
+              {statCards.map((stat) => (
+                <div key={stat.label} className="stat-card" data-testid={`stat-${stat.label.toLowerCase().replace(/\s+/g, '-')}`}>
+                  <div className="stat-header">
+                    <span className="stat-label">{stat.label}</span>
+                    <stat.icon className="stat-icon" strokeWidth={1.5} />
+                  </div>
+                  <div className="stat-value">{stat.value}</div>
+                  <span style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))' }}>{stat.sub}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Users Section */}
+          <div className="section">
+            <div className="card">
+              <div className="card-header">
+                <h2 className="card-title">Users</h2>
+                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                  <input
+                    className="input"
+                    value={userSearch}
+                    onChange={(event) => setUserSearch(event.target.value)}
+                    placeholder="Search by email"
+                    style={{ width: '240px' }}
+                    data-testid="user-search-input"
+                  />
+                  <button className="btn-sm primary" type="button" onClick={() => void loadUsers(userSearch)}>
+                    Search
+                  </button>
+                </div>
+              </div>
+              <table className="data-table" data-testid="users-table">
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Email</th>
+                    <th>Role</th>
+                    <th>League</th>
+                    <th>Status</th>
+                    <th style={{ textAlign: 'right' }}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {users.slice(0, 8).map((user) => (
+                    <tr key={user.id} data-testid={`user-row-${user.id}`}>
+                      <td style={{ fontWeight: 500 }}>{user.full_name || '—'}</td>
+                      <td>{user.email}</td>
+                      <td><span className={roleBadgeClass(user.role)}>{user.role}</span></td>
+                      <td><span className="tag">{user.league || '—'}</span></td>
+                      <td><span className={`badge ${user.status === 'active' ? 'success' : user.status === 'suspended' ? 'error' : ''}`}>{user.status || 'active'}</span></td>
+                      <td style={{ textAlign: 'right' }}>
+                        <button className="btn-sm ghost" type="button" onClick={() => navigate(`/app/admin/users/${user.id}`)}>
+                          Manage
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                  {users.length === 0 && (
+                    <tr>
+                      <td colSpan={6} style={{ textAlign: 'center', padding: '2rem', color: 'hsl(var(--muted-foreground))' }}>No users found.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Pending Verifications */}
+          <div className="section">
+            <div className="card">
+              <div className="card-header">
+                <div>
+                  <h2 className="card-title">Pending Verifications</h2>
+                  <p style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))', marginTop: '0.25rem' }}>Investor profiles awaiting approval.</p>
+                </div>
+                <span className="badge warning">{pending.length} pending</span>
+              </div>
+              {pending.length === 0 ? (
+                <div className="empty-state" style={{ padding: '2rem 0' }}>
+                  <ShieldCheck className="empty-icon" strokeWidth={1.5} />
+                  <p className="empty-description">No pending profiles.</p>
+                </div>
+              ) : (
+                <table className="data-table" data-testid="verifications-table">
+                  <thead>
+                    <tr>
+                      <th>Name</th>
+                      <th>Fund / Type</th>
+                      <th style={{ textAlign: 'right' }}>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {pending.map((profile) => (
+                      <tr key={profile.id} data-testid={`verification-row-${profile.id}`}>
+                        <td style={{ fontWeight: 500 }}>{profile.display_name || profile.user?.full_name || 'Investor'}</td>
+                        <td>{profile.fund_name || profile.investor_type || '—'}</td>
+                        <td style={{ textAlign: 'right', display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+                          <button className="btn-sm ghost" type="button" onClick={() => void handleReject(profile.id)}>
+                            Reject
+                          </button>
+                          <button className="btn-sm primary" type="button" onClick={() => void handleVerify(profile.id)}>
+                            Verify
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </div>
+
+          {/* Credit Actions + Audit Log */}
+          <div className="grid-2">
+            {/* Credit Actions */}
+            <div className="card">
+              <div className="card-header">
+                <h2 className="card-title">Credit Actions</h2>
+              </div>
+              <p style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))', marginBottom: '1rem' }}>Adjust credits for a specific user.</p>
+
+              <div className="section-label" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <Plus size={12} strokeWidth={1.5} />
+                Grant Credits
+              </div>
+              <div className="form-group">
+                <label>User ID</label>
+                <input
+                  className="input"
+                  value={grantForm.user_id}
+                  onChange={(event) => setGrantForm((prev) => ({ ...prev, user_id: event.target.value }))}
+                  placeholder="Enter user ID"
+                />
+              </div>
+              <div className="form-group">
+                <label>Amount</label>
+                <input
+                  className="input"
+                  value={grantForm.amount}
+                  onChange={(event) => setGrantForm((prev) => ({ ...prev, amount: event.target.value }))}
+                  placeholder="Number of credits"
+                />
+              </div>
+              <div className="form-group">
+                <label>Reason</label>
+                <input
+                  className="input"
+                  value={grantForm.reason}
+                  onChange={(event) => setGrantForm((prev) => ({ ...prev, reason: event.target.value }))}
+                  placeholder="Reason for granting"
+                />
+              </div>
+              <button className="btn-sm primary" type="button" onClick={() => void handleGrant()} style={{ marginBottom: '1.5rem' }}>
+                <Plus size={14} strokeWidth={1.5} />
+                Grant credits
+              </button>
+
+              <hr className="divider" />
+
+              <div className="section-label" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <Minus size={12} strokeWidth={1.5} />
+                Deduct Credits
+              </div>
+              <div className="form-group">
+                <label>User ID</label>
+                <input
+                  className="input"
+                  value={deductForm.user_id}
+                  onChange={(event) => setDeductForm((prev) => ({ ...prev, user_id: event.target.value }))}
+                  placeholder="Enter user ID"
+                />
+              </div>
+              <div className="form-group">
+                <label>Amount</label>
+                <input
+                  className="input"
+                  value={deductForm.amount}
+                  onChange={(event) => setDeductForm((prev) => ({ ...prev, amount: event.target.value }))}
+                  placeholder="Number of credits"
+                />
+              </div>
+              <div className="form-group">
+                <label>Reason</label>
+                <input
+                  className="input"
+                  value={deductForm.reason}
+                  onChange={(event) => setDeductForm((prev) => ({ ...prev, reason: event.target.value }))}
+                  placeholder="Reason for deduction"
+                />
+              </div>
+              <button className="btn-sm ghost" type="button" onClick={() => void handleDeduct()} style={{ marginBottom: '1rem' }}>
+                <Minus size={14} strokeWidth={1.5} />
+                Deduct credits
+              </button>
+
+              <hr className="divider" />
+
+              <button className="btn-sm ghost" type="button" onClick={() => void handleResetMonthly()}>
+                <RefreshCw size={14} strokeWidth={1.5} />
+                Reset monthly intro limits
               </button>
             </div>
-          </header>
-          <div className="admin-list">
-            {users.slice(0, 8).map((user) => (
-              <div key={user.id} className="admin-item">
-                <div>
-                  <strong>{user.full_name || user.email}</strong>
-                  <p>{user.email}</p>
-                </div>
-                <div>
-                  <span className="admin-pill">{user.role}</span>
-                  <span className="admin-pill">{user.league || '—'}</span>
-                </div>
-                <button className="btn ghost" type="button" onClick={() => navigate(`/app/admin/users/${user.id}`)}>
-                  Manage
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
 
-        <div className="admin-card">
-          <header>
-            <h2>Pending verifications</h2>
-            <p>Investor profiles awaiting approval.</p>
-          </header>
-          <div className="admin-list">
-            {pending.length === 0 ? <p>No pending profiles.</p> : null}
-            {pending.map((profile) => (
-              <div key={profile.id} className="admin-item">
-                <div>
-                  <strong>{profile.display_name || profile.user?.full_name || 'Investor'}</strong>
-                  <p>{profile.fund_name || profile.investor_type || '—'}</p>
-                </div>
-                <div className="admin-actions">
-                  <button className="btn ghost" type="button" onClick={() => void handleReject(profile.id)}>
-                    Reject
-                  </button>
-                  <button className="btn primary" type="button" onClick={() => void handleVerify(profile.id)}>
-                    Verify
-                  </button>
-                </div>
+            {/* Audit Log */}
+            <div className="card">
+              <div className="card-header">
+                <h2 className="card-title">Admin Audit Log</h2>
+                <Link className="btn-sm ghost" to="/app/audit-log">
+                  <ScrollText size={14} strokeWidth={1.5} />
+                  View all
+                </Link>
               </div>
-            ))}
+              <p style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))', marginBottom: '1rem' }}>Recent admin actions.</p>
+              <table className="data-table" data-testid="audit-log-table">
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Admin</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {auditLogs.map((log) => (
+                    <tr key={log.id} data-testid={`audit-row-${log.id}`}>
+                      <td style={{ whiteSpace: 'nowrap', fontSize: '0.75rem' }}>{log.created_at ? new Date(log.created_at).toLocaleString() : '—'}</td>
+                      <td>{log.user_email || 'Unknown admin'}</td>
+                      <td style={{ fontWeight: 500 }}>{log.action || 'Action'}</td>
+                    </tr>
+                  ))}
+                  {auditLogs.length === 0 && (
+                    <tr>
+                      <td colSpan={3} style={{ textAlign: 'center', padding: '2rem', color: 'hsl(var(--muted-foreground))' }}>No audit entries.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
-      </div>
-
-      <div className="admin-layout">
-        <div className="admin-card">
-          <header>
-            <h2>Credit actions</h2>
-            <p>Adjust credits for a specific user.</p>
-          </header>
-          <div className="admin-form">
-            <label>
-              User ID
-              <input
-                value={grantForm.user_id}
-                onChange={(event) => setGrantForm((prev) => ({ ...prev, user_id: event.target.value }))}
-              />
-            </label>
-            <label>
-              Amount
-              <input
-                value={grantForm.amount}
-                onChange={(event) => setGrantForm((prev) => ({ ...prev, amount: event.target.value }))}
-              />
-            </label>
-            <label>
-              Reason
-              <input
-                value={grantForm.reason}
-                onChange={(event) => setGrantForm((prev) => ({ ...prev, reason: event.target.value }))}
-              />
-            </label>
-            <button className="btn primary" type="button" onClick={() => void handleGrant()}>
-              Grant credits
-            </button>
-          </div>
-          <div className="admin-form">
-            <label>
-              User ID
-              <input
-                value={deductForm.user_id}
-                onChange={(event) => setDeductForm((prev) => ({ ...prev, user_id: event.target.value }))}
-              />
-            </label>
-            <label>
-              Amount
-              <input
-                value={deductForm.amount}
-                onChange={(event) => setDeductForm((prev) => ({ ...prev, amount: event.target.value }))}
-              />
-            </label>
-            <label>
-              Reason
-              <input
-                value={deductForm.reason}
-                onChange={(event) => setDeductForm((prev) => ({ ...prev, reason: event.target.value }))}
-              />
-            </label>
-            <button className="btn ghost" type="button" onClick={() => void handleDeduct()}>
-              Deduct credits
-            </button>
-          </div>
-          <button className="btn ghost" type="button" onClick={() => void handleResetMonthly()}>
-            Reset monthly intro limits
-          </button>
-        </div>
-
-        <div className="admin-card">
-          <header>
-            <h2>Admin audit log</h2>
-            <p>Recent admin actions.</p>
-          </header>
-          <div className="admin-list">
-            {auditLogs.map((log) => (
-              <div key={log.id} className="admin-item">
-                <div>
-                  <strong>{log.action || 'Action'}</strong>
-                  <p>{log.user_email || 'Unknown admin'}</p>
-                </div>
-                <span>{log.created_at ? new Date(log.created_at).toLocaleString() : '—'}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    </section>
+        </>
+      )}
+    </div>
   )
 }
