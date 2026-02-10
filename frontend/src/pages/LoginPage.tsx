@@ -45,24 +45,24 @@ export function LoginPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center" style={{ background: 'hsl(var(--background))' }}>
-      <section className="card max-w-sm w-full mx-4 p-8" data-testid="login-card">
-        <div className="text-center mb-8">
-          <h2 className="text-xl font-semibold mb-1" style={{ color: 'var(--gold)' }}>
+      <section className="card max-w-lg w-full mx-4 p-12" data-testid="login-card">
+        <div className="text-center mb-10">
+          <h2 className="text-2xl font-semibold mb-1" style={{ color: 'var(--gold)' }}>
             FoundersLib
           </h2>
-          <h1 className="text-2xl font-semibold tracking-tight mt-4" style={{ fontFamily: "'Inter', sans-serif" }}>
+          <h1 className="text-3xl font-semibold tracking-tight mt-5" style={{ fontFamily: "'Inter', sans-serif" }}>
             Welcome back
           </h1>
-          <p className="text-sm mt-1" style={{ color: 'hsl(var(--muted-foreground))' }}>
+          <p className="text-base mt-2" style={{ color: 'hsl(var(--muted-foreground))' }}>
             Access your fundraising workspace.
           </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-5" data-testid="login-form">
+        <form onSubmit={handleSubmit} className="space-y-6" data-testid="login-form">
           {errors.form ? <div className="form-error">{errors.form}</div> : null}
 
           <div className="form-group">
-            <FormField label="Email" error={errors.email} icon={<Mail className="w-4 h-4" />}>
+            <FormField label="Email" error={errors.email} icon={<Mail className="w-5 h-5" />}>
               <input
                 type="email"
                 name="email"
@@ -78,7 +78,7 @@ export function LoginPage() {
           </div>
 
           <div className="form-group">
-            <FormField label="Password" error={errors.password} icon={<Lock className="w-4 h-4" />}>
+            <FormField label="Password" error={errors.password} icon={<Lock className="w-5 h-5" />}>
               <input
                 type="password"
                 name="password"
@@ -95,11 +95,11 @@ export function LoginPage() {
 
           <button className="btn primary w-full" type="submit" disabled={submitting} data-testid="login-submit-btn">
             {submitting ? 'Signing in...' : 'Sign in'}
-            {!submitting && <ArrowRight className="w-4 h-4 ml-2" />}
+            {!submitting && <ArrowRight className="w-5 h-5 ml-2" />}
           </button>
         </form>
 
-        <p className="text-center text-sm mt-6" style={{ color: 'hsl(var(--muted-foreground))' }}>
+        <p className="text-center text-base mt-8" style={{ color: 'hsl(var(--muted-foreground))' }}>
           Don't have an account?{' '}
           <Link to="/signup" style={{ color: 'var(--gold)' }}>
             Sign up

@@ -22,6 +22,8 @@ import { apiRequest } from '../lib/api'
 import { normalizeList } from '../lib/pagination'
 import { useToast } from '../context/ToastContext'
 import { useAuth } from '../context/AuthContext'
+import { Markdown } from '../components/Markdown'
+import { MarkdownTextarea } from '../components/MarkdownTextarea'
 import type { FeedComment, FeedEvent } from '../types/feed'
 
 type FeedTab = 'ranked' | 'trending' | 'all'
@@ -307,9 +309,7 @@ function CommentSection({ eventId, onCountChange }: CommentSectionProps) {
                         </div>
                       </div>
                     ) : (
-                      <p style={{ fontSize: '0.8125rem', color: 'hsl(var(--foreground))', margin: 0, lineHeight: 1.5 }}>
-                        {comment.content}
-                      </p>
+                      <Markdown size="sm">{comment.content}</Markdown>
                     )}
                   </div>
                 </div>
@@ -329,16 +329,18 @@ function CommentSection({ eventId, onCountChange }: CommentSectionProps) {
           alignItems: 'flex-end',
         }}
       >
-        <textarea
+        <MarkdownTextarea
           ref={inputRef}
+          wrapperClassName="flex-1"
           className="textarea"
           value={newComment}
           onChange={(e) => setNewComment(e.target.value)}
           placeholder="Write a comment..."
           rows={1}
           maxLength={2000}
-          style={{ minHeight: '2.25rem', fontSize: '0.8125rem', flex: 1 }}
+          style={{ minHeight: '2.25rem', fontSize: '0.8125rem' }}
           data-testid={`comment-input-${eventId}`}
+          previewSize="sm"
         />
         <button
           type="submit"
@@ -664,7 +666,7 @@ export function FeedPage() {
 
             <div className="form-group" style={{ marginBottom: '0.75rem' }}>
               <label>Content</label>
-              <textarea
+              <MarkdownTextarea
                 className="textarea"
                 value={form.content}
                 onChange={(e) => setForm((prev) => ({ ...prev, content: e.target.value }))}
@@ -778,9 +780,13 @@ export function FeedPage() {
                   <h3 style={{ fontSize: '0.9375rem', fontWeight: 500, margin: '0 0 0.25rem' }}>
                     {item.title || item.startup_name || 'Update'}
                   </h3>
-                  <p style={{ fontSize: '0.8125rem', color: 'hsl(var(--muted-foreground))', margin: 0, lineHeight: 1.6 }}>
-                    {item.content || 'No additional details provided.'}
-                  </p>
+                  {item.content ? (
+                    <Markdown size="sm">{item.content}</Markdown>
+                  ) : (
+                    <p style={{ fontSize: '0.8125rem', color: 'hsl(var(--muted-foreground))', margin: 0, lineHeight: 1.6 }}>
+                      No additional details provided.
+                    </p>
+                  )}
 
                   {/* Tags */}
                   {item.tags && item.tags.length > 0 && (

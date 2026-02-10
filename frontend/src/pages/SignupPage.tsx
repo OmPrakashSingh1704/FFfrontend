@@ -68,24 +68,24 @@ export function SignupPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center" style={{ background: 'hsl(var(--background))' }}>
-      <section className="card max-w-sm w-full mx-4 p-8" data-testid="signup-card">
-        <div className="text-center mb-8">
-          <h2 className="text-xl font-semibold mb-1" style={{ color: 'var(--gold)' }}>
+      <section className="card max-w-lg w-full mx-4 p-12" data-testid="signup-card">
+        <div className="text-center mb-10">
+          <h2 className="text-2xl font-semibold mb-1" style={{ color: 'var(--gold)' }}>
             FoundersLib
           </h2>
-          <h1 className="text-2xl font-semibold tracking-tight mt-4" style={{ fontFamily: "'Inter', sans-serif" }}>
+          <h1 className="text-3xl font-semibold tracking-tight mt-5" style={{ fontFamily: "'Inter', sans-serif" }}>
             Create your account
           </h1>
-          <p className="text-sm mt-1" style={{ color: 'hsl(var(--muted-foreground))' }}>
+          <p className="text-base mt-2" style={{ color: 'hsl(var(--muted-foreground))' }}>
             Join the founders and investors building with clarity.
           </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-5" data-testid="signup-form">
+        <form onSubmit={handleSubmit} className="space-y-6" data-testid="signup-form">
           {errors.form ? <div className="form-error">{errors.form}</div> : null}
 
           <div className="form-group">
-            <FormField label="Full name" error={errors.full_name} icon={<User className="w-4 h-4" />}>
+            <FormField label="Full name" error={errors.full_name} icon={<User className="w-5 h-5" />}>
               <input
                 type="text"
                 name="full_name"
@@ -101,7 +101,7 @@ export function SignupPage() {
           </div>
 
           <div className="form-group">
-            <FormField label="Email" error={errors.email} icon={<Mail className="w-4 h-4" />}>
+            <FormField label="Email" error={errors.email} icon={<Mail className="w-5 h-5" />}>
               <input
                 type="email"
                 name="email"
@@ -117,7 +117,7 @@ export function SignupPage() {
           </div>
 
           <div className="form-group">
-            <FormField label="Role" error={errors.role} icon={<Briefcase className="w-4 h-4" />}>
+            <FormField label="Role" error={errors.role} icon={<Briefcase className="w-5 h-5" />}>
               <select
                 className="select"
                 value={role}
@@ -132,7 +132,7 @@ export function SignupPage() {
           </div>
 
           <div className="form-group">
-            <FormField label="Password" error={errors.password} icon={<Lock className="w-4 h-4" />}>
+            <FormField label="Password" error={errors.password} icon={<Lock className="w-5 h-5" />}>
               <input
                 type="password"
                 name="password"
@@ -148,7 +148,7 @@ export function SignupPage() {
           </div>
 
           <div className="form-group">
-            <FormField label="Confirm password" error={errors.confirm} icon={<Lock className="w-4 h-4" />}>
+            <FormField label="Confirm password" error={errors.confirm} icon={<Lock className="w-5 h-5" />}>
               <input
                 type="password"
                 name="confirm"
@@ -165,11 +165,11 @@ export function SignupPage() {
 
           <button className="btn primary w-full" type="submit" disabled={submitting} data-testid="signup-submit-btn">
             {submitting ? 'Creating account...' : 'Create account'}
-            {!submitting && <ArrowRight className="w-4 h-4 ml-2" />}
+            {!submitting && <ArrowRight className="w-5 h-5 ml-2" />}
           </button>
         </form>
 
-        <p className="text-center text-sm mt-6" style={{ color: 'hsl(var(--muted-foreground))' }}>
+        <p className="text-center text-base mt-8" style={{ color: 'hsl(var(--muted-foreground))' }}>
           Already have an account?{' '}
           <Link to="/login" style={{ color: 'var(--gold)' }}>
             Log in

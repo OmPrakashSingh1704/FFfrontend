@@ -14,6 +14,7 @@ import {
   Send,
 } from 'lucide-react'
 import { apiRequest } from '../lib/api'
+import { Markdown } from '../components/Markdown'
 import type { FundDetail } from '../types/fund'
 
 export function FundDetailPage() {
@@ -81,9 +82,7 @@ export function FundDetailPage() {
                   </p>
                 )}
                 {fund.description && (
-                  <p style={{ fontSize: '0.875rem', color: 'hsl(var(--muted-foreground))', lineHeight: 1.6 }}>
-                    {fund.description}
-                  </p>
+                  <Markdown>{fund.description}</Markdown>
                 )}
               </div>
               {fund.application_link && (

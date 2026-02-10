@@ -8,6 +8,8 @@ import { getTokens } from '../lib/tokenStorage'
 import { useWebSocket } from '../hooks/useWebSocket'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
+import { Markdown } from '../components/Markdown'
+import { MarkdownTextarea } from '../components/MarkdownTextarea'
 import type { ChatAttachment, ChatConversation, ChatMessage, ChatParticipant } from '../types/chat'
 
 type WsEvent = {
@@ -876,7 +878,7 @@ export function ChatPage() {
                           </div>
                         </div>
                       ) : (
-                        <p className="text-sm whitespace-pre-wrap break-words">{message.content}</p>
+                        <Markdown size="sm">{message.content || ''}</Markdown>
                       )}
 
                       {/* Attachment */}
@@ -1021,8 +1023,9 @@ export function ChatPage() {
                   if (file) void handleUpload(file)
                 }}
               />
-              <textarea
-                className="textarea flex-1 text-sm min-h-[40px] max-h-32"
+              <MarkdownTextarea
+                wrapperClassName="flex-1"
+                className="textarea text-sm min-h-[40px] max-h-32"
                 style={{ resize: 'none' }}
                 value={messageDraft}
                 onChange={(event) => handleTyping(event.target.value)}
@@ -1042,6 +1045,7 @@ export function ChatPage() {
                 }}
                 placeholder="Write a message..."
                 rows={1}
+                previewSize="sm"
               />
               <button
                 className="shrink-0 w-8 h-8 rounded-lg flex items-center justify-center transition-colors"
