@@ -702,6 +702,116 @@
   color: hsl(var(--muted-foreground));
 }
 
+/* Handshake Scroll Animation */
+.handshake-section {
+  @apply relative py-20 sm:py-28 overflow-hidden;
+  min-height: 80vh;
+  display: flex;
+  align-items: center;
+}
+
+.handshake-container {
+  @apply w-full max-w-5xl mx-auto px-4 sm:px-8;
+}
+
+.handshake-header {
+  @apply text-center mb-12 sm:mb-16;
+}
+
+.handshake-stage {
+  @apply relative flex items-end justify-center gap-0;
+  height: 240px;
+  margin-bottom: 2rem;
+}
+
+@media (min-width: 640px) {
+  .handshake-stage {
+    height: 280px;
+  }
+}
+
+.handshake-figure {
+  @apply flex flex-col items-center;
+  width: 100px;
+  transition: transform 0.05s linear;
+  will-change: transform;
+  z-index: 2;
+}
+
+@media (min-width: 640px) {
+  .handshake-figure {
+    width: 130px;
+  }
+}
+
+.person-svg {
+  width: 100%;
+  height: auto;
+  filter: drop-shadow(0 4px 12px rgba(249, 115, 22, 0.15));
+}
+
+.figure-label {
+  @apply mt-2 text-xs sm:text-sm font-medium tracking-wide;
+  color: hsl(var(--muted-foreground));
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.handshake-center {
+  @apply absolute flex items-center justify-center;
+  width: 80px;
+  height: 80px;
+  left: 50%;
+  top: 30%;
+  margin-left: -40px;
+  z-index: 3;
+  transition: opacity 0.4s ease, transform 0.4s ease;
+}
+
+@media (min-width: 640px) {
+  .handshake-center {
+    width: 100px;
+    height: 100px;
+    margin-left: -50px;
+  }
+}
+
+.handshake-icon-svg {
+  width: 100%;
+  height: 100%;
+  filter: drop-shadow(0 0 20px rgba(249, 115, 22, 0.4));
+}
+
+.handshake-cta {
+  @apply text-center mt-8 sm:mt-12;
+  transition: opacity 0.5s ease, transform 0.5s ease;
+  will-change: opacity, transform;
+}
+
+.handshake-cta-text {
+  @apply text-sm sm:text-base mb-4 sm:mb-6;
+  color: hsl(var(--muted-foreground));
+}
+
+/* Ground line under figures */
+.handshake-stage::after {
+  content: '';
+  @apply absolute bottom-4 left-1/2;
+  transform: translateX(-50%);
+  width: 80%;
+  max-width: 500px;
+  height: 2px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(249, 115, 22, 0.3) 20%,
+    rgba(249, 115, 22, 0.5) 50%,
+    rgba(249, 115, 22, 0.3) 80%,
+    transparent 100%
+  );
+  border-radius: 1px;
+}
+
 /* Footer */
 .footer {
   @apply px-4 sm:px-8 md:px-16 lg:px-24 py-8 sm:py-12 flex flex-col sm:flex-row justify-between items-center gap-4;

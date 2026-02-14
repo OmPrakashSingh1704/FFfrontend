@@ -3,6 +3,7 @@ import { ArrowRight, TrendingUp, Users, MessageSquare, Zap, BarChart3, Lock } fr
 import logoMark from '../assets/logo-mark.svg'
 import { Page } from '../components/Page'
 import { ThemeToggle } from '../components/ThemeToggle'
+import { HandshakeAnimation } from '../components/HandshakeAnimation'
 
 function HeroAnimation() {
   return (
@@ -383,6 +384,9 @@ export function LandingPage() {
             </div>
           </div>
         </section>
+
+        {/* Handshake Scroll Animation */}
+        <HandshakeAnimation />
 
         {/* CTA */}
         <section className="cta" data-testid="cta-section">
