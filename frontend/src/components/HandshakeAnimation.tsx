@@ -2,24 +2,33 @@ import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowRight } from 'lucide-react'
 
+const BOB_FREQUENCY = 8
+const BOB_AMPLITUDE = 4
+
 export function HandshakeAnimation() {
   const sectionRef = useRef<HTMLDivElement>(null)
   const [progress, setProgress] = useState(0)
 
   useEffect(() => {
+    let rafId = 0
     const handleScroll = () => {
-      if (!sectionRef.current) return
-      const rect = sectionRef.current.getBoundingClientRect()
-      const windowHeight = window.innerHeight
-      // progress goes from 0 (section just entering viewport) to 1 (section center at viewport center)
-      const sectionHeight = rect.height
-      const rawProgress = 1 - (rect.top - windowHeight * 0.2) / (sectionHeight + windowHeight * 0.3)
-      setProgress(Math.max(0, Math.min(1, rawProgress)))
+      cancelAnimationFrame(rafId)
+      rafId = requestAnimationFrame(() => {
+        if (!sectionRef.current) return
+        const rect = sectionRef.current.getBoundingClientRect()
+        const windowHeight = window.innerHeight
+        const sectionHeight = rect.height
+        const rawProgress = 1 - (rect.top - windowHeight * 0.2) / (sectionHeight + windowHeight * 0.3)
+        setProgress(Math.max(0, Math.min(1, rawProgress)))
+      })
     }
 
     window.addEventListener('scroll', handleScroll, { passive: true })
     handleScroll()
-    return () => window.removeEventListener('scroll', handleScroll)
+    return () => {
+      window.removeEventListener('scroll', handleScroll)
+      cancelAnimationFrame(rafId)
+    }
   }, [])
 
   // Walking phase: 0 to 0.65 — figures walk to center
@@ -34,7 +43,7 @@ export function HandshakeAnimation() {
   const investorX = (1 - walkProgress) * -100 // starts at -100% left, moves to 0
 
   // Walking bobbing motion
-  const bobAmount = walkProgress < 1 ? Math.sin(walkProgress * Math.PI * 8) * 4 : 0
+  const bobAmount = walkProgress < 1 ? Math.sin(walkProgress * Math.PI * BOB_FREQUENCY) * BOB_AMPLITUDE : 0
 
   return (
     <section
