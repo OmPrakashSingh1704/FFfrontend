@@ -2,7 +2,7 @@ import { Link, Outlet, useLocation } from 'react-router-dom'
 import {
   Home, Users, Briefcase, TrendingUp, MessageSquare, Bell,
   BarChart3, Settings, Search, FileText, Upload,
-  Activity, Wallet, Menu, X
+  Activity, Wallet, Menu, X, Zap, Handshake, ShieldCheck
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import logoMark from '../assets/logo-mark.svg'
@@ -35,6 +35,9 @@ const navSections = [
   {
     label: 'Manage',
     items: [
+      { path: '/app/matching', label: 'Matching', icon: Zap },
+      { path: '/app/deals', label: 'Deals', icon: Handshake },
+      { path: '/app/verification', label: 'Verify', icon: ShieldCheck },
       { path: '/app/applications', label: 'Applications', icon: FileText },
       { path: '/app/chat', label: 'Chat', icon: MessageSquare },
       { path: '/app/notifications', label: 'Alerts', icon: Bell },

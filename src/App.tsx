@@ -44,6 +44,9 @@ const FundsListPage = lazyPage(() => import('./pages/FundsListPage'), 'FundsList
 const FundDetailPage = lazyPage(() => import('./pages/FundDetailPage'), 'FundDetailPage')
 const ApplicationsListPage = lazyPage(() => import('./pages/ApplicationsListPage'), 'ApplicationsListPage')
 const ApplicationDetailPage = lazyPage(() => import('./pages/ApplicationDetailPage'), 'ApplicationDetailPage')
+const MatchingPage = lazyPage(() => import('./pages/MatchingPage'), 'MatchingPage')
+const DealsPage = lazyPage(() => import('./pages/DealsPage'), 'DealsPage')
+const VerificationPage = lazyPage(() => import('./pages/VerificationPage'), 'VerificationPage')
 const UploadsPage = lazyPage(() => import('./pages/UploadsPage'), 'UploadsPage')
 const ProfilePage = lazyPage(() => import('./pages/ProfilePage'), 'ProfilePage')
 const SettingsPage = lazyPage(() => import('./pages/SettingsPage'), 'SettingsPage')
@@ -281,6 +284,30 @@ function App() {
               element={
                 <ProtectedRoute>
                   <ApplicationDetailPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/app/matching"
+              element={
+                <ProtectedRoute>
+                  <MatchingPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/app/deals"
+              element={
+                <ProtectedRoute>
+                  <DealsPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/app/verification"
+              element={
+                <ProtectedRoute>
+                  <VerificationPage />
                 </ProtectedRoute>
               }
             />

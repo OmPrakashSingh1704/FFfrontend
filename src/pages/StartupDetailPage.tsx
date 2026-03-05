@@ -15,11 +15,17 @@ import {
   TrendingUp,
   Globe,
   Briefcase,
+  Handshake,
+  ShieldCheck,
+  X,
 } from 'lucide-react'
 import { apiRequest, uploadRequest } from '../lib/api'
+import { resolveMediaUrl } from '../lib/env'
+import { CopyLinkButton } from '../components/CopyLinkButton'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 import type { StartupDetail } from '../types/startup'
+import type { InvestorProfile } from '../types/investor'
 
 const DOC_TYPE_LABELS: Record<string, string> = {
   pitch_deck: 'Pitch Deck',
@@ -55,12 +61,19 @@ export function StartupDetailPage() {
 
   // Document upload state
   const [uploading, setUploading] = useState(false)
-  const [docType, setDocType] = useState('pitch_deck')
-  const [accessLevel, setAccessLevel] = useState('investor')
   const fileInputRef = useRef<HTMLInputElement | null>(null)
 
-  const isMember =
-    startup?.members?.some((m) => m.user === user?.id) ?? false
+  type DocQueueItem = { localId: string; file: File; docType: string; accessLevel: string }
+  const [docQueue, setDocQueue] = useState<DocQueueItem[]>([])
+
+  const isInvestor = user?.role === 'investor' || user?.role === 'both'
+  const isMember = startup?.members?.some((m) => m.user === user?.id) ?? false
+
+  // Express Interest state
+  const [investorProfile, setInvestorProfile] = useState<InvestorProfile | null>(null)
+  const [showInterestForm, setShowInterestForm] = useState(false)
+  const [interestMessage, setInterestMessage] = useState('')
+  const [expressingInterest, setExpressingInterest] = useState(false)
 
   useEffect(() => {
     if (!id) return
@@ -85,31 +98,78 @@ export function StartupDetailPage() {
     }
 
     void load()
-    return () => {
-      cancelled = true
-    }
+    return () => { cancelled = true }
   }, [id])
 
-  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file || !id) return
+  // Load investor profile for investors
+  useEffect(() => {
+    if (!isInvestor) return
+    let cancelled = false
+    apiRequest<InvestorProfile>('/investors/profile/me/')
+      .then((data) => { if (!cancelled) setInvestorProfile(data) })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [isInvestor])
 
-    setUploading(true)
+  const handleExpressInterest = async () => {
+    if (!startup || !investorProfile) return
+    setExpressingInterest(true)
     try {
-      const formData = new FormData()
-      formData.append('file', file)
-      formData.append('name', file.name)
-      formData.append('document_type', docType)
-      formData.append('access_level', accessLevel)
+      await apiRequest('/deals/interest/', {
+        method: 'POST',
+        body: { startup_id: startup.id, investor_id: investorProfile.id, message: interestMessage },
+      })
+      pushToast('Interest expressed — a deal room will open when the founder reciprocates.', 'success')
+      setShowInterestForm(false)
+      setInterestMessage('')
+    } catch {
+      pushToast('Failed to express interest', 'error')
+    } finally {
+      setExpressingInterest(false)
+    }
+  }
 
-      await uploadRequest(`/founders/startups/${id}/documents/`, formData)
+  const addFilesToQueue = (files: File[]) => {
+    setDocQueue((prev) => [
+      ...prev,
+      ...files.map((f) => ({ localId: crypto.randomUUID(), file: f, docType: 'pitch_deck', accessLevel: 'investor' })),
+    ])
+  }
 
-      // Reload startup to get updated documents list
+  const updateQueueItem = (localId: string, field: 'docType' | 'accessLevel', value: string) => {
+    setDocQueue((prev) => prev.map((item) => item.localId === localId ? { ...item, [field]: value } : item))
+  }
+
+  const removeFromQueue = (localId: string) => {
+    setDocQueue((prev) => prev.filter((item) => item.localId !== localId))
+  }
+
+  const handleUpload = async () => {
+    if (!docQueue.length || !id) return
+    setUploading(true)
+    let failed = 0
+    try {
+      await Promise.all(
+        docQueue.map(async (item) => {
+          const formData = new FormData()
+          formData.append('file', item.file)
+          formData.append('name', item.file.name)
+          formData.append('document_type', item.docType)
+          formData.append('access_level', item.accessLevel)
+          try {
+            await uploadRequest(`/founders/startups/${id}/documents/`, formData)
+          } catch {
+            failed++
+          }
+        }),
+      )
       const data = await apiRequest<StartupDetail>(`/founders/startups/${id}/`)
       setStartup(data)
-      pushToast('Document uploaded successfully', 'success')
-    } catch {
-      pushToast('Failed to upload document', 'error')
+      setDocQueue([])
+
+      const succeeded = docQueue.length - failed
+      if (succeeded > 0) pushToast(`${succeeded} document${succeeded !== 1 ? 's' : ''} uploaded`, 'success')
+      if (failed > 0) pushToast(`${failed} upload${failed !== 1 ? 's' : ''} failed`, 'error')
     } finally {
       setUploading(false)
       if (fileInputRef.current) fileInputRef.current.value = ''
@@ -135,10 +195,13 @@ export function StartupDetailPage() {
 
   return (
     <div>
-      <Link to="/app/startups" className="back-btn">
-        <ArrowLeft style={{ width: '1rem', height: '1rem' }} strokeWidth={1.5} />
-        Back to Startups
-      </Link>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
+        <Link to="/app/startups" className="back-btn" style={{ margin: 0 }}>
+          <ArrowLeft style={{ width: '1rem', height: '1rem' }} strokeWidth={1.5} />
+          Back to Startups
+        </Link>
+        {startup && <CopyLinkButton />}
+      </div>
 
       {loading && (
         <div className="empty-state">
@@ -153,14 +216,45 @@ export function StartupDetailPage() {
         <>
           {/* Startup Header */}
           <div className="card" style={{ marginBottom: '1.5rem' }}>
-            <h1 style={{ fontSize: '1.25rem', fontWeight: 600, marginBottom: '0.25rem' }}>
-              {startup.name}
-            </h1>
-            {startup.tagline && (
-              <p style={{ fontSize: '0.875rem', color: 'hsl(var(--muted-foreground))', marginBottom: '0.75rem' }}>
-                {startup.tagline}
-              </p>
-            )}
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap', marginBottom: '0.75rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', minWidth: 0 }}>
+                {resolveMediaUrl(startup.logo ?? startup.logo_url) ? (
+                  <img
+                    src={resolveMediaUrl(startup.logo ?? startup.logo_url)!}
+                    alt={startup.name}
+                    style={{ width: 48, height: 48, borderRadius: 10, objectFit: 'cover', flexShrink: 0, border: '1px solid hsl(var(--border))' }}
+                  />
+                ) : (
+                  <div style={{ width: 48, height: 48, borderRadius: 10, background: 'hsl(var(--muted))', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <Briefcase size={20} strokeWidth={1.5} style={{ color: 'hsl(var(--muted-foreground))' }} />
+                  </div>
+                )}
+                <div style={{ minWidth: 0 }}>
+                  <h1 style={{ fontSize: '1.25rem', fontWeight: 600, marginBottom: '0.125rem' }}>
+                    {startup.name}
+                  </h1>
+                  {startup.tagline && (
+                    <p style={{ fontSize: '0.875rem', color: 'hsl(var(--muted-foreground))' }}>
+                      {startup.tagline}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* Express Interest (investors only, non-members) */}
+              {isInvestor && !isMember && investorProfile && (
+                <button
+                  className="btn-sm primary"
+                  type="button"
+                  onClick={() => setShowInterestForm(true)}
+                  style={{ flexShrink: 0 }}
+                >
+                  <Handshake size={14} />
+                  Express Interest
+                </button>
+              )}
+            </div>
+
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.375rem' }}>
               {startup.industry && (
                 <span className="tag">
@@ -177,7 +271,54 @@ export function StartupDetailPage() {
               {startup.fundraising_status && (
                 <span className="badge warning">{startup.fundraising_status}</span>
               )}
+              {(startup.verification_tier ?? 0) >= 2 && (
+                <span
+                  className="badge"
+                  style={{
+                    background: startup.verification_tier === 3 ? '#6366f122' : '#22c55e22',
+                    color: startup.verification_tier === 3 ? '#6366f1' : '#22c55e',
+                    border: `1px solid ${startup.verification_tier === 3 ? '#6366f144' : '#22c55e44'}`,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 4,
+                  }}
+                >
+                  <ShieldCheck size={11} />
+                  {startup.verification_tier === 3 ? 'Premium Verified' : 'Verified'}
+                </span>
+              )}
             </div>
+
+            {/* Express Interest Form (inline) */}
+            {showInterestForm && (
+              <div style={{ marginTop: '1rem', padding: '1rem', background: 'hsl(var(--muted))', borderRadius: 10 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                  <span style={{ fontWeight: 600, fontSize: '0.875rem' }}>Express Interest</span>
+                  <button className="btn-sm ghost" style={{ padding: 4 }} onClick={() => setShowInterestForm(false)}>
+                    <X size={14} />
+                  </button>
+                </div>
+                <p style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))', marginBottom: '0.75rem' }}>
+                  A deal room opens automatically when both sides express interest.
+                </p>
+                <textarea
+                  className="input"
+                  rows={3}
+                  placeholder="Optional message to the founder..."
+                  value={interestMessage}
+                  onChange={(e) => setInterestMessage(e.target.value)}
+                  style={{ resize: 'vertical', marginBottom: '0.5rem' }}
+                />
+                <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+                  <button className="btn-sm ghost" onClick={() => setShowInterestForm(false)} disabled={expressingInterest}>
+                    Cancel
+                  </button>
+                  <button className="btn-sm primary" onClick={() => void handleExpressInterest()} disabled={expressingInterest}>
+                    {expressingInterest ? <><Loader2 size={12} className="animate-spin" /> Sending...</> : <><Handshake size={12} /> Send Interest</>}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Description & Details */}
@@ -267,55 +408,82 @@ export function StartupDetailPage() {
                 </div>
                 {isMember && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <select
-                      value={docType}
-                      onChange={(e) => setDocType(e.target.value)}
-                      className="select"
-                      style={{ width: 'auto', fontSize: '0.75rem', padding: '0.25rem 2rem 0.25rem 0.5rem' }}
-                      data-testid="doc-type-select"
-                    >
-                      {Object.entries(DOC_TYPE_LABELS).map(([val, label]) => (
-                        <option key={val} value={val}>
-                          {label}
-                        </option>
-                      ))}
-                    </select>
-                    <select
-                      value={accessLevel}
-                      onChange={(e) => setAccessLevel(e.target.value)}
-                      className="select"
-                      style={{ width: 'auto', fontSize: '0.75rem', padding: '0.25rem 2rem 0.25rem 0.5rem' }}
-                      data-testid="doc-access-select"
-                    >
-                      <option value="private">Private</option>
-                      <option value="team">Team</option>
-                      <option value="investor">Investor</option>
-                      <option value="public">Public</option>
-                    </select>
                     <input
                       ref={fileInputRef}
                       type="file"
                       className="sr-only"
-                      onChange={handleUpload}
+                      onChange={(e) => { addFilesToQueue(Array.from(e.target.files ?? [])); e.target.value = '' }}
                       accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.csv,.txt,.png,.jpg,.jpeg"
+                      multiple
                       data-testid="doc-file-input"
                     />
                     <button
-                      className="btn-sm primary"
+                      className="btn-sm ghost"
                       disabled={uploading}
                       onClick={() => fileInputRef.current?.click()}
-                      data-testid="upload-doc-btn"
+                      data-testid="add-files-btn"
                     >
-                      {uploading ? (
-                        <Loader2 size={14} className="icon-spin" />
-                      ) : (
-                        <Upload size={14} />
-                      )}
-                      {uploading ? 'Uploading...' : 'Upload'}
+                      <Upload size={14} />
+                      Add files
                     </button>
+                    {docQueue.length > 0 && (
+                      <button
+                        className="btn-sm primary"
+                        disabled={uploading}
+                        onClick={() => void handleUpload()}
+                        data-testid="upload-doc-btn"
+                      >
+                        {uploading ? <><Loader2 size={14} className="animate-spin" /> Uploading...</> : <>Upload {docQueue.length}</>}
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
+
+              {/* Staging queue */}
+              {isMember && docQueue.length > 0 && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: '0.75rem', padding: '0.5rem 0', borderBottom: '1px solid hsl(var(--border))' }}>
+                  {docQueue.map((item) => (
+                    <div key={item.localId} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                      <FileText size={13} strokeWidth={1.5} style={{ color: 'var(--gold)', flexShrink: 0 }} />
+                      <span style={{ flex: 1, minWidth: 80, fontSize: '0.8125rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {item.file.name}
+                      </span>
+                      <select
+                        className="select"
+                        value={item.docType}
+                        onChange={(e) => updateQueueItem(item.localId, 'docType', e.target.value)}
+                        style={{ flex: '0 0 auto', minWidth: 130, fontSize: '0.75rem', padding: '0.25rem 2rem 0.25rem 0.5rem' }}
+                        data-testid={`queue-type-${item.localId}`}
+                      >
+                        {Object.entries(DOC_TYPE_LABELS).map(([val, label]) => (
+                          <option key={val} value={val}>{label}</option>
+                        ))}
+                      </select>
+                      <select
+                        className="select"
+                        value={item.accessLevel}
+                        onChange={(e) => updateQueueItem(item.localId, 'accessLevel', e.target.value)}
+                        style={{ flex: '0 0 auto', minWidth: 100, fontSize: '0.75rem', padding: '0.25rem 2rem 0.25rem 0.5rem' }}
+                        data-testid={`queue-access-${item.localId}`}
+                      >
+                        <option value="private">Private</option>
+                        <option value="team">Team</option>
+                        <option value="investor">Investor</option>
+                        <option value="public">Public</option>
+                      </select>
+                      <button
+                        className="btn-sm ghost"
+                        style={{ padding: '0.25rem', flexShrink: 0 }}
+                        onClick={() => removeFromQueue(item.localId)}
+                        data-testid={`remove-queue-${item.localId}`}
+                      >
+                        <Trash2 size={12} style={{ color: '#ef4444' }} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
 
               {startup.documents && startup.documents.length > 0 ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>

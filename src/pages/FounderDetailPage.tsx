@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { ArrowLeft, MapPin, TrendingUp, ExternalLink, Linkedin, Twitter, Globe, User, Briefcase, Sparkles } from 'lucide-react'
 import { apiRequest } from '../lib/api'
+import { resolveMediaUrl } from '../lib/env'
+import { CopyLinkButton } from '../components/CopyLinkButton'
 import type { FounderProfile } from '../types/founder'
 
 export function FounderDetailPage() {
@@ -49,10 +51,13 @@ export function FounderDetailPage() {
 
   return (
     <div data-testid="founder-detail">
-      <Link to="/app/founders" className="back-btn">
-        <ArrowLeft style={{ width: '1rem', height: '1rem' }} strokeWidth={1.5} />
-        Back to Founders
-      </Link>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
+        <Link to="/app/founders" className="back-btn" style={{ margin: 0 }}>
+          <ArrowLeft style={{ width: '1rem', height: '1rem' }} strokeWidth={1.5} />
+          Back to Founders
+        </Link>
+        {founder && <CopyLinkButton />}
+      </div>
 
       {loading && (
         <div className="empty-state">
@@ -69,8 +74,8 @@ export function FounderDetailPage() {
           <div className="card" style={{ marginBottom: '1.5rem' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem' }}>
               <div className="avatar xl">
-                {founder.user?.avatar_url ? (
-                  <img src={founder.user.avatar_url} alt={founder.user?.full_name ?? 'Founder'} />
+                {resolveMediaUrl(founder.profile_photo ?? founder.user?.picture ?? founder.user?.avatar_url) ? (
+                  <img src={resolveMediaUrl(founder.profile_photo ?? founder.user?.picture ?? founder.user?.avatar_url)!} alt={founder.user?.full_name ?? 'Founder'} />
                 ) : (
                   getInitials(founder.user?.full_name ?? 'F')
                 )}

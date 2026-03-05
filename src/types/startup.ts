@@ -8,9 +8,12 @@ export type StartupListItem = {
   headquarters_city?: string | null
   headquarters_country?: string | null
   logo_url?: string | null
+  logo?: string | null
   fundraising_status?: string | null
   revenue_range?: string | null
   is_public?: boolean
+  verification_tier?: number
+  profile_completeness_score?: number
   created_at?: string
 }
 
@@ -38,6 +41,9 @@ export type StartupDetail = {
   pitch_summary?: string | null
   deck_url?: string | null
   logo_url?: string | null
+  logo?: string | null
+  verification_tier?: number
+  profile_completeness_score?: number
   revenue_range?: string | null
   traction_metrics?: Record<string, unknown>
   fundraising_status?: string | null

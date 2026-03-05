@@ -19,6 +19,7 @@ export type FounderProfile = {
   fundraising_status?: string
   current_stage?: string
   skills?: string[]
+  profile_photo?: string | null
   is_public?: boolean
   created_at?: string
   updated_at?: string

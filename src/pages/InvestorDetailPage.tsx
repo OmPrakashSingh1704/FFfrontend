@@ -11,15 +11,33 @@ import {
   User,
   Target,
   Layers,
+  Handshake,
+  Loader2,
+  X,
 } from 'lucide-react'
 import { apiRequest } from '../lib/api'
+import { resolveMediaUrl } from '../lib/env'
+import { CopyLinkButton } from '../components/CopyLinkButton'
+import { useAuth } from '../context/AuthContext'
+import { useToast } from '../context/ToastContext'
+import { normalizeList } from '../lib/pagination'
 import type { InvestorProfile } from '../types/investor'
+import type { StartupListItem } from '../types/startup'
 
 export function InvestorDetailPage() {
   const { id } = useParams()
+  const { user } = useAuth()
+  const { pushToast } = useToast()
   const [investor, setInvestor] = useState<InvestorProfile | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+
+  const isFounder = user?.role === 'founder' || user?.role === 'both'
+  const [myStartups, setMyStartups] = useState<StartupListItem[]>([])
+  const [showInterestForm, setShowInterestForm] = useState(false)
+  const [selectedStartupId, setSelectedStartupId] = useState('')
+  const [interestMessage, setInterestMessage] = useState('')
+  const [expressing, setExpressing] = useState(false)
 
   useEffect(() => {
     if (!id) return
@@ -49,6 +67,37 @@ export function InvestorDetailPage() {
     }
   }, [id])
 
+  // Load founder's startups so they can pick which one to express interest from
+  useEffect(() => {
+    if (!isFounder) return
+    apiRequest<StartupListItem[] | { results: StartupListItem[] }>('/founders/my-startups/')
+      .then((data) => {
+        const list = normalizeList(data)
+        setMyStartups(list)
+        if (list.length > 0) setSelectedStartupId(list[0].id)
+      })
+      .catch(() => {})
+  }, [isFounder])
+
+  const handleExpressInterest = async () => {
+    if (!selectedStartupId || !id) return
+    setExpressing(true)
+    try {
+      await apiRequest('/deals/interest/', {
+        method: 'POST',
+        body: { startup_id: selectedStartupId, investor_id: id, message: interestMessage },
+      })
+      pushToast('Interest expressed — a deal room opens when the investor reciprocates.', 'success')
+      setShowInterestForm(false)
+      setInterestMessage('')
+    } catch (err: unknown) {
+      const msg = (err as { detail?: string })?.detail ?? 'Failed to express interest'
+      pushToast(msg, 'error')
+    } finally {
+      setExpressing(false)
+    }
+  }
+
   const getInitials = (name: string) => {
     return name
       .split(' ')
@@ -60,10 +109,13 @@ export function InvestorDetailPage() {
 
   return (
     <div>
-      <Link to="/app/investors" className="back-btn">
-        <ArrowLeft style={{ width: '1rem', height: '1rem' }} strokeWidth={1.5} />
-        Back to Investors
-      </Link>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
+        <Link to="/app/investors" className="back-btn" style={{ margin: 0 }}>
+          <ArrowLeft style={{ width: '1rem', height: '1rem' }} strokeWidth={1.5} />
+          Back to Investors
+        </Link>
+        {investor && <CopyLinkButton />}
+      </div>
 
       {loading && (
         <div className="empty-state">
@@ -78,25 +130,88 @@ export function InvestorDetailPage() {
         <>
           {/* Profile Header */}
           <div className="card" style={{ marginBottom: '1.5rem' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem' }}>
-              <div className="avatar xl">
-                {investor.user?.avatar_url ? (
-                  <img src={investor.user.avatar_url} alt={investor.display_name} />
-                ) : (
-                  getInitials(investor.display_name || 'I')
-                )}
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '1rem', marginBottom: '1rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                <div className="avatar xl">
+                  {resolveMediaUrl(investor.profile_photo ?? investor.user?.picture ?? investor.user?.avatar_url) ? (
+                    <img src={resolveMediaUrl(investor.profile_photo ?? investor.user?.picture ?? investor.user?.avatar_url)!} alt={investor.display_name} />
+                  ) : (
+                    getInitials(investor.display_name || 'I')
+                  )}
+                </div>
+                <div>
+                  <h1 style={{ fontSize: '1.25rem', fontWeight: 600, marginBottom: '0.25rem' }}>
+                    {investor.display_name ?? 'Investor profile'}
+                  </h1>
+                  {investor.headline && (
+                    <p style={{ fontSize: '0.875rem', color: 'hsl(var(--muted-foreground))' }}>
+                      {investor.headline}
+                    </p>
+                  )}
+                </div>
               </div>
-              <div>
-                <h1 style={{ fontSize: '1.25rem', fontWeight: 600, marginBottom: '0.25rem' }}>
-                  {investor.display_name ?? 'Investor profile'}
-                </h1>
-                {investor.headline && (
-                  <p style={{ fontSize: '0.875rem', color: 'hsl(var(--muted-foreground))' }}>
-                    {investor.headline}
+
+              {/* Express Interest button — founders only, not your own profile */}
+              {isFounder && myStartups.length > 0 && investor.user?.id !== user?.id && (
+                <button
+                  className="btn-sm primary"
+                  type="button"
+                  onClick={() => setShowInterestForm((v) => !v)}
+                  style={{ flexShrink: 0 }}
+                >
+                  <Handshake size={14} strokeWidth={1.5} />
+                  Express Interest
+                </button>
+              )}
+            </div>
+
+            {/* Inline interest form */}
+            {showInterestForm && (
+              <div style={{ marginBottom: '1rem', padding: '0.75rem', background: 'hsl(var(--muted))', borderRadius: 10, display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span style={{ fontSize: '0.8125rem', fontWeight: 600 }}>Express interest as</span>
+                  <button className="btn-sm ghost" style={{ padding: '0.25rem' }} onClick={() => setShowInterestForm(false)}>
+                    <X size={14} />
+                  </button>
+                </div>
+                {myStartups.length > 1 && (
+                  <select
+                    className="select"
+                    value={selectedStartupId}
+                    onChange={(e) => setSelectedStartupId(e.target.value)}
+                  >
+                    {myStartups.map((s) => (
+                      <option key={s.id} value={s.id}>{s.name}</option>
+                    ))}
+                  </select>
+                )}
+                {myStartups.length === 1 && (
+                  <p style={{ fontSize: '0.8125rem', color: 'hsl(var(--muted-foreground))' }}>
+                    From: <strong>{myStartups[0].name}</strong>
                   </p>
                 )}
+                <textarea
+                  className="input"
+                  placeholder="Add a message (optional)"
+                  value={interestMessage}
+                  onChange={(e) => setInterestMessage(e.target.value)}
+                  rows={2}
+                  style={{ resize: 'vertical', fontSize: '0.8125rem' }}
+                />
+                <button
+                  className="btn-sm primary"
+                  type="button"
+                  disabled={expressing || !selectedStartupId}
+                  onClick={() => void handleExpressInterest()}
+                >
+                  {expressing ? (
+                    <><Loader2 size={12} className="animate-spin" /> Sending...</>
+                  ) : (
+                    <><Handshake size={12} /> Send interest</>
+                  )}
+                </button>
               </div>
-            </div>
+            )}
 
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.375rem' }}>
               {investor.investor_type && (

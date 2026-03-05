@@ -53,18 +53,20 @@ export function UploadsPage() {
     setUploading(target)
     try {
       const formData = new FormData()
-      formData.append('file', file)
-
-      let path = '/upload/profile-picture/'
-      if (target === 'background-picture') {
-        path = '/upload/background-picture/'
-      }
-      if (target === 'startup-logo') {
+      let path: string
+      if (target === 'profile-picture') {
+        formData.append('avatar', file)
+        path = '/users/me/avatar/'
+      } else if (target === 'background-picture') {
+        formData.append('background', file)
+        path = '/users/me/background/'
+      } else {
         if (!startupId) {
           pushToast('Select a startup first', 'warning')
           return
         }
-        path = `/upload/startups/${startupId}/logo/`
+        formData.append('logo', file)
+        path = `/founders/startups/${startupId}/logo/`
       }
 
       await uploadRequest(path, formData)
@@ -133,7 +135,7 @@ export function UploadsPage() {
               Drag and drop or click to browse
             </span>
             <span style={{ fontSize: '0.6875rem', color: 'hsl(var(--muted-foreground))', opacity: 0.7 }}>
-              PNG, JPG up to 5MB
+              JPEG, PNG, GIF, WEBP up to 5MB
             </span>
           </div>
           <input
@@ -193,7 +195,7 @@ export function UploadsPage() {
               Drag and drop or click to browse
             </span>
             <span style={{ fontSize: '0.6875rem', color: 'hsl(var(--muted-foreground))', opacity: 0.7 }}>
-              PNG, JPG up to 5MB, 1200x400 recommended
+              JPEG, PNG, GIF, WEBP up to 5MB, 1200x400 recommended
             </span>
           </div>
           <input
@@ -279,7 +281,7 @@ export function UploadsPage() {
               Drag and drop or click to browse
             </span>
             <span style={{ fontSize: '0.6875rem', color: 'hsl(var(--muted-foreground))', opacity: 0.7 }}>
-              PNG, SVG up to 2MB, square recommended
+              JPEG, PNG, GIF, WEBP up to 5MB, square recommended
             </span>
           </div>
           <input

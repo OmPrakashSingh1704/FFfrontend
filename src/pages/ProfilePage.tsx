@@ -28,6 +28,7 @@ import {
   ChevronRight,
   Award,
 } from 'lucide-react'
+import { CopyLinkButton } from '../components/CopyLinkButton'
 import type { StartupListItem } from '../types/startup'
 
 type StartupDoc = {
@@ -85,13 +86,32 @@ export function ProfilePage() {
   const [startupDocs, setStartupDocs] = useState<Record<string, StartupDoc[]>>({})
   const [loadingDocs, setLoadingDocs] = useState<string | null>(null)
   const [uploadingDoc, setUploadingDoc] = useState<string | null>(null)
-  const [docType, setDocType] = useState('pitch_deck')
-  const [accessLevel, setAccessLevel] = useState('investor')
-  const docInputRef = useRef<HTMLInputElement | null>(null)
-  const activeStartupRef = useRef<string | null>(null)
 
-  const avatarUrl = resolveMediaUrl(user?.picture ?? user?.avatar_url)
+  type DocQueueItem = { localId: string; file: File; docType: string; accessLevel: string }
+  const [docQueues, setDocQueues] = useState<Record<string, DocQueueItem[]>>({})
+  const docInputRefs = useRef<Record<string, HTMLInputElement | null>>({})
+
+  // Shareable profile IDs
+  const [founderProfileId, setFounderProfileId] = useState<string | null>(null)
+  const [investorProfileId, setInvestorProfileId] = useState<string | null>(null)
+
+  const avatarUrl = resolveMediaUrl(user?.avatar ?? user?.picture ?? user?.avatar_url)
   const backgroundUrl = resolveMediaUrl(user?.background_picture)
+
+  // Load shareable profile IDs
+  useEffect(() => {
+    const role = user?.role
+    if (role === 'founder' || role === 'both') {
+      apiRequest<{ id: string }>('/founders/profile/me/')
+        .then((d) => setFounderProfileId(d.id))
+        .catch(() => {})
+    }
+    if (role === 'investor' || role === 'both') {
+      apiRequest<{ id: string }>('/investors/profile/me/')
+        .then((d) => setInvestorProfileId(d.id))
+        .catch(() => {})
+    }
+  }, [user?.role])
 
   // Load user's startups
   useEffect(() => {
@@ -136,32 +156,65 @@ export function ProfilePage() {
     }
   }
 
-  const handleDocUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    const startupId = activeStartupRef.current
-    if (!file || !startupId) return
+  const addFilesToQueue = (startupId: string, files: File[]) => {
+    setDocQueues((prev) => ({
+      ...prev,
+      [startupId]: [
+        ...(prev[startupId] ?? []),
+        ...files.map((f) => ({ localId: crypto.randomUUID(), file: f, docType: 'pitch_deck', accessLevel: 'investor' })),
+      ],
+    }))
+  }
 
+  const updateQueueItem = (startupId: string, localId: string, field: 'docType' | 'accessLevel', value: string) => {
+    setDocQueues((prev) => ({
+      ...prev,
+      [startupId]: (prev[startupId] ?? []).map((item) =>
+        item.localId === localId ? { ...item, [field]: value } : item,
+      ),
+    }))
+  }
+
+  const removeFromQueue = (startupId: string, localId: string) => {
+    setDocQueues((prev) => ({
+      ...prev,
+      [startupId]: (prev[startupId] ?? []).filter((item) => item.localId !== localId),
+    }))
+  }
+
+  const uploadQueue = async (startupId: string) => {
+    const queue = docQueues[startupId] ?? []
+    if (!queue.length) return
     setUploadingDoc(startupId)
+    let failed = 0
     try {
-      const formData = new FormData()
-      formData.append('file', file)
-      formData.append('name', file.name)
-      formData.append('document_type', docType)
-      formData.append('access_level', accessLevel)
-
-      await uploadRequest(`/founders/startups/${startupId}/documents/`, formData)
-
-      // Refresh docs list
+      await Promise.all(
+        queue.map(async (item) => {
+          const formData = new FormData()
+          formData.append('file', item.file)
+          formData.append('name', item.file.name)
+          formData.append('document_type', item.docType)
+          formData.append('access_level', item.accessLevel)
+          try {
+            await uploadRequest(`/founders/startups/${startupId}/documents/`, formData)
+          } catch {
+            failed++
+          }
+        }),
+      )
       const data = await apiRequest<StartupDoc[] | { results: StartupDoc[] }>(
         `/founders/startups/${startupId}/documents/`,
       )
       setStartupDocs((prev) => ({ ...prev, [startupId]: normalizeList(data) }))
-      pushToast('Document uploaded successfully', 'success')
-    } catch {
-      pushToast('Failed to upload document', 'error')
+      setDocQueues((prev) => ({ ...prev, [startupId]: [] }))
+
+      const succeeded = queue.length - failed
+      if (succeeded > 0) pushToast(`${succeeded} document${succeeded !== 1 ? 's' : ''} uploaded`, 'success')
+      if (failed > 0) pushToast(`${failed} upload${failed !== 1 ? 's' : ''} failed`, 'error')
     } finally {
       setUploadingDoc(null)
-      if (docInputRef.current) docInputRef.current.value = ''
+      const ref = docInputRefs.current[startupId]
+      if (ref) ref.value = ''
     }
   }
 
@@ -202,8 +255,8 @@ export function ProfilePage() {
     setUploading(target)
     try {
       const formData = new FormData()
-      formData.append('file', file)
-      const path = target === 'profile' ? '/upload/profile-picture/' : '/upload/background-picture/'
+      const path = target === 'profile' ? '/users/me/avatar/' : '/users/me/background/'
+      formData.append(target === 'profile' ? 'avatar' : 'background', file)
       await uploadRequest(path, formData)
       await refreshUser()
       pushToast(`${target === 'profile' ? 'Profile picture' : 'Background'} updated`, 'success')
@@ -235,6 +288,20 @@ export function ProfilePage() {
         <div>
           <h1 className="page-title">Profile</h1>
           <p className="page-description">View and manage your personal information</p>
+        </div>
+        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+          {founderProfileId && (
+            <CopyLinkButton
+              url={`${window.location.origin}/app/founders/${founderProfileId}`}
+              label="Share founder profile"
+            />
+          )}
+          {investorProfileId && (
+            <CopyLinkButton
+              url={`${window.location.origin}/app/investors/${investorProfileId}`}
+              label="Share investor profile"
+            />
+          )}
         </div>
       </div>
 
@@ -508,15 +575,6 @@ export function ProfilePage() {
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-            {/* Hidden file input shared across startups */}
-            <input
-              ref={docInputRef}
-              type="file"
-              className="sr-only"
-              onChange={handleDocUpload}
-              accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.csv,.txt,.png,.jpg,.jpeg"
-              data-testid="profile-doc-file-input"
-            />
 
             {myStartups.map((s) => {
               const isExpanded = expandedStartup === s.id
@@ -560,54 +618,104 @@ export function ProfilePage() {
                       {docs.length > 0 && (
                         <span className="badge">{docs.length} doc{docs.length !== 1 ? 's' : ''}</span>
                       )}
+                      <span
+                        onClick={(e) => e.stopPropagation()}
+                        style={{ display: 'contents' }}
+                      >
+                        <CopyLinkButton
+                          url={`${window.location.origin}/app/startups/${s.id}`}
+                          label="Share"
+                        />
+                      </span>
                       {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
                     </div>
                   </button>
 
                   {isExpanded && (
                     <div style={{ padding: '0 1rem 1rem', borderTop: '1px solid hsl(var(--border))' }}>
-                      {/* Upload controls */}
-                      <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center', padding: '0.75rem 0' }}>
-                        <select
-                          className="select"
-                          value={docType}
-                          onChange={(e) => setDocType(e.target.value)}
-                          data-testid={`doc-type-${s.id}`}
-                          style={{ flex: 1, minWidth: 140 }}
-                        >
-                          {Object.entries(DOC_TYPE_LABELS).map(([val, label]) => (
-                            <option key={val} value={val}>{label}</option>
-                          ))}
-                        </select>
-                        <select
-                          className="select"
-                          value={accessLevel}
-                          onChange={(e) => setAccessLevel(e.target.value)}
-                          data-testid={`doc-access-${s.id}`}
-                          style={{ flex: 1, minWidth: 120 }}
-                        >
-                          <option value="private">Private</option>
-                          <option value="team">Team</option>
-                          <option value="investor">Investor</option>
-                          <option value="public">Public</option>
-                        </select>
+                      {/* Hidden file input per startup */}
+                      <input
+                        ref={(el) => { docInputRefs.current[s.id] = el }}
+                        type="file"
+                        className="sr-only"
+                        multiple
+                        accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.csv,.txt,.png,.jpg,.jpeg"
+                        onChange={(e) => {
+                          addFilesToQueue(s.id, Array.from(e.target.files ?? []))
+                          e.target.value = ''
+                        }}
+                        data-testid={`doc-file-input-${s.id}`}
+                      />
+
+                      {/* Add files + Upload all bar */}
+                      <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', padding: '0.75rem 0', borderBottom: (docQueues[s.id]?.length ?? 0) > 0 ? '1px solid hsl(var(--border))' : undefined }}>
                         <button
                           className="btn-sm ghost"
                           disabled={isUploadingThis}
-                          onClick={() => {
-                            activeStartupRef.current = s.id
-                            docInputRef.current?.click()
-                          }}
-                          data-testid={`upload-doc-${s.id}`}
+                          onClick={() => docInputRefs.current[s.id]?.click()}
+                          data-testid={`add-files-${s.id}`}
                         >
-                          {isUploadingThis ? (
-                            <Loader2 size={12} className="animate-spin" />
-                          ) : (
-                            <Upload size={12} />
-                          )}
-                          {isUploadingThis ? 'Uploading...' : 'Upload'}
+                          <Upload size={12} />
+                          Add files
                         </button>
+                        {(docQueues[s.id]?.length ?? 0) > 0 && (
+                          <button
+                            className="btn-sm primary"
+                            disabled={isUploadingThis}
+                            onClick={() => void uploadQueue(s.id)}
+                            data-testid={`upload-queue-${s.id}`}
+                          >
+                            {isUploadingThis ? (
+                              <><Loader2 size={12} className="animate-spin" /> Uploading...</>
+                            ) : (
+                              <><Upload size={12} /> Upload {docQueues[s.id].length} file{docQueues[s.id].length !== 1 ? 's' : ''}</>
+                            )}
+                          </button>
+                        )}
                       </div>
+
+                      {/* Staging queue */}
+                      {(docQueues[s.id]?.length ?? 0) > 0 && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: '0.5rem 0', borderBottom: '1px solid hsl(var(--border))' }}>
+                          {docQueues[s.id].map((item) => (
+                            <div key={item.localId} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', padding: '0.375rem 0' }}>
+                              <FileText size={13} strokeWidth={1.5} style={{ color: 'var(--gold)', flexShrink: 0 }} />
+                              <span style={{ flex: 1, minWidth: 100, fontSize: '0.8125rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {item.file.name}
+                              </span>
+                              <select
+                                className="select"
+                                value={item.docType}
+                                onChange={(e) => updateQueueItem(s.id, item.localId, 'docType', e.target.value)}
+                                style={{ flex: '0 0 auto', minWidth: 130, fontSize: '0.75rem' }}
+                              >
+                                {Object.entries(DOC_TYPE_LABELS).map(([val, label]) => (
+                                  <option key={val} value={val}>{label}</option>
+                                ))}
+                              </select>
+                              <select
+                                className="select"
+                                value={item.accessLevel}
+                                onChange={(e) => updateQueueItem(s.id, item.localId, 'accessLevel', e.target.value)}
+                                style={{ flex: '0 0 auto', minWidth: 100, fontSize: '0.75rem' }}
+                              >
+                                <option value="private">Private</option>
+                                <option value="team">Team</option>
+                                <option value="investor">Investor</option>
+                                <option value="public">Public</option>
+                              </select>
+                              <button
+                                className="btn-sm ghost"
+                                style={{ padding: '0.25rem', flexShrink: 0 }}
+                                onClick={() => removeFromQueue(s.id, item.localId)}
+                              >
+                                <Trash2 size={12} style={{ color: '#ef4444' }} />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
 
                       {/* Docs list */}
                       {isLoadingThis ? (

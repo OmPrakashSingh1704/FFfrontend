@@ -11,7 +11,7 @@ export type InvestorStats = {
 
 export type InvestorProfile = {
   id: string
-  user?: { id: string; full_name?: string; avatar_url?: string | null }
+  user?: { id: string; full_name?: string; avatar_url?: string | null; picture?: string | null }
   display_name: string
   fund_name?: string | null
   investor_type?: string | null
@@ -29,4 +29,14 @@ export type InvestorProfile = {
   website_url?: string | null
   is_verified?: boolean
   discoverability_mode?: string | null
+  profile_photo?: string | null
+  risk_appetite?: string | null
+  value_add?: string | null
+  board_seat_requirement?: boolean | null
+  lead_investor?: boolean | null
+  follow_on_participation?: boolean | null
+  co_invest_open?: boolean | null
+  portfolio_companies?: string[]
+  recent_investments?: string[]
+  pending_intro_count?: number
 }

@@ -4,7 +4,7 @@ import {
   Activity, Users, Briefcase, TrendingUp, Bell,
   Search, FileText, Upload, Wallet, ArrowRight,
   Zap, Target, Shield, Heart, CheckCircle, FolderHeart,
-  Calendar
+  Calendar, Handshake, ShieldCheck
 } from 'lucide-react'
 import { apiRequest } from '../lib/api'
 import { normalizeList } from '../lib/pagination'
@@ -26,6 +26,9 @@ const browseLinks = [
   { path: '/app/startups', label: 'Startups', icon: Briefcase },
   { path: '/app/investors', label: 'Investors', icon: TrendingUp },
   { path: '/app/funds', label: 'Funds', icon: Wallet },
+  { path: '/app/matching', label: 'Matching', icon: Zap },
+  { path: '/app/deals', label: 'Deals', icon: Handshake },
+  { path: '/app/verification', label: 'Verification', icon: ShieldCheck },
   { path: '/app/applications', label: 'Applications', icon: FileText },
   { path: '/app/uploads', label: 'Files', icon: Upload },
 ]
