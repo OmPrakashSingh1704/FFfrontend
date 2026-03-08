@@ -3,6 +3,8 @@ import { ArrowRight, TrendingUp, Users, MessageSquare, Zap, BarChart3, Lock } fr
 import logoMark from '../assets/logo-mark.svg'
 import { Page } from '../components/Page'
 import { ThemeToggle } from '../components/ThemeToggle'
+import { BackgroundPaths } from '../components/ui/background-paths'
+import { Waves } from '../components/ui/wave-background'
 
 const NAV_LINKS = [
   { href: '#home', label: 'Home' },
@@ -26,65 +28,6 @@ const RESOURCE_GROUPS = [
   },
 ]
 
-function HeroAnimation() {
-  return (
-    <div className="hero-animation" data-testid="hero-animation">
-      <div className="vision-container">
-        <div className="vision-core">
-          <div className="vision-pulse" />
-          <div className="vision-pulse delay-1" />
-          <div className="vision-pulse delay-2" />
-          <span className="vision-label">Your Round</span>
-        </div>
-
-        <div className="orbit orbit-1">
-          <div className="investor-card card-1">
-            <div className="investor-status active" />
-            <span>Sequoia</span>
-            <small>Reviewing</small>
-          </div>
-        </div>
-
-        <div className="orbit orbit-2">
-          <div className="investor-card card-2">
-            <div className="investor-status pending" />
-            <span>A16Z</span>
-            <small>Interested</small>
-          </div>
-        </div>
-
-        <div className="orbit orbit-3">
-          <div className="investor-card card-3">
-            <div className="investor-status hot" />
-            <span>Accel</span>
-            <small>Term Sheet</small>
-          </div>
-        </div>
-
-        <svg className="signal-lines" viewBox="0 0 400 400">
-          <path className="signal-path path-1" d="M200,200 Q250,150 300,180" />
-          <path className="signal-path path-2" d="M200,200 Q150,250 120,200" />
-          <path className="signal-path path-3" d="M200,200 Q220,280 280,300" />
-        </svg>
-
-        <div className="floating-metric metric-1">
-          <span className="metric-num">94%</span>
-          <span className="metric-text">Open Rate</span>
-        </div>
-
-        <div className="floating-metric metric-2">
-          <span className="metric-num">12</span>
-          <span className="metric-text">Active Intros</span>
-        </div>
-
-        <div className="floating-metric metric-3">
-          <span className="metric-num">3</span>
-          <span className="metric-text">Decisions</span>
-        </div>
-      </div>
-    </div>
-  )
-}
 
 function DashboardPreview() {
   return (
@@ -161,6 +104,7 @@ function DashboardPreview() {
 export function LandingPage() {
   return (
     <Page className="page-home">
+      <Waves className="fixed inset-0 z-0" />
       {/* Navigation */}
       <header className="nav" data-testid="landing-nav">
         <div className="logo">
@@ -189,43 +133,11 @@ export function LandingPage() {
       </header>
 
       <main id="main-content">
-        {/* Hero */}
-        <section id="home" className="hero" data-testid="hero-section">
-          <div className="hero-content">
-            <h1 className="hero-title animate-fade-in animate-delay-1">
-              Connect with <span className="text-gradient">investors</span><br />who matter.
-            </h1>
-            <p className="hero-lead animate-fade-in animate-delay-2">
-              The modern platform for founders to discover, connect with, and close
-              the right investors. Track your pipeline, manage intros, and raise faster.
-            </p>
-            <div className="hero-actions animate-fade-in animate-delay-3">
-              <Link className="btn primary" to="/signup" data-testid="hero-cta-btn">
-                Start for Free
-                <ArrowRight className="w-4 h-4 ml-2" />
-              </Link>
-              <Link className="btn ghost" to="/login">
-                Sign in
-              </Link>
-            </div>
-            {/* Mobile stats - shown only on mobile */}
-            <div className="hero-stats-mobile animate-fade-in animate-delay-4">
-              <div className="hero-stat">
-                <strong>94%</strong>
-                <span>Open Rate</span>
-              </div>
-              <div className="hero-stat">
-                <strong>12</strong>
-                <span>Active Intros</span>
-              </div>
-              <div className="hero-stat">
-                <strong>3</strong>
-                <span>Decisions</span>
-              </div>
-            </div>
-          </div>
-          <HeroAnimation />
+        {/* Hero with Background Paths */}
+        <section id="home" data-testid="hero-section" className="relative">
+          <BackgroundPaths title="Connect with investors who matter" />
         </section>
+
 
         {/* Trusted By */}
         <section className="trusted-by animate-fade-in-slow" data-testid="trusted-by-section">
@@ -296,10 +208,10 @@ export function LandingPage() {
                 </p>
               </div>
               <div className="grid-2" style={{ gap: 16 }}>
-                <div className="card animate-slide-up animate-delay-1">
+                <div className="card feature-card-new animate-slide-up animate-delay-1">
                   <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-                    <div style={{ width: 36, height: 36, borderRadius: 8, background: 'rgba(249, 115, 22, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                      <TrendingUp size={18} strokeWidth={1.5} style={{ color: 'var(--gold)' }} />
+                    <div className="feature-icon-modern">
+                      <TrendingUp size={18} strokeWidth={1.5} />
                     </div>
                     <div>
                       <h3 style={{ fontSize: '0.9375rem', fontWeight: 600, marginBottom: 4 }}>Pipeline Tracking</h3>
@@ -309,10 +221,10 @@ export function LandingPage() {
                     </div>
                   </div>
                 </div>
-                <div className="card animate-slide-up animate-delay-2">
+                <div className="card feature-card-new animate-slide-up animate-delay-2">
                   <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-                    <div style={{ width: 36, height: 36, borderRadius: 8, background: 'rgba(249, 115, 22, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                      <Users size={18} strokeWidth={1.5} style={{ color: 'var(--gold)' }} />
+                    <div className="feature-icon-modern">
+                      <Users size={18} strokeWidth={1.5} />
                     </div>
                     <div>
                       <h3 style={{ fontSize: '0.9375rem', fontWeight: 600, marginBottom: 4 }}>Warm Introductions</h3>
@@ -322,10 +234,10 @@ export function LandingPage() {
                     </div>
                   </div>
                 </div>
-                <div className="card animate-slide-up animate-delay-3">
+                <div className="card feature-card-new animate-slide-up animate-delay-3">
                   <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-                    <div style={{ width: 36, height: 36, borderRadius: 8, background: 'rgba(249, 115, 22, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                      <Lock size={18} strokeWidth={1.5} style={{ color: 'var(--gold)' }} />
+                    <div className="feature-icon-modern">
+                      <Lock size={18} strokeWidth={1.5} />
                     </div>
                     <div>
                       <h3 style={{ fontSize: '0.9375rem', fontWeight: 600, marginBottom: 4 }}>Secure Data Room</h3>
@@ -335,10 +247,10 @@ export function LandingPage() {
                     </div>
                   </div>
                 </div>
-                <div className="card animate-slide-up animate-delay-4">
+                <div className="card feature-card-new animate-slide-up animate-delay-4">
                   <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-                    <div style={{ width: 36, height: 36, borderRadius: 8, background: 'rgba(249, 115, 22, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                      <MessageSquare size={18} strokeWidth={1.5} style={{ color: 'var(--gold)' }} />
+                    <div className="feature-icon-modern">
+                      <MessageSquare size={18} strokeWidth={1.5} />
                     </div>
                     <div>
                       <h3 style={{ fontSize: '0.9375rem', fontWeight: 600, marginBottom: 4 }}>Real-time Messaging</h3>
@@ -411,14 +323,14 @@ export function LandingPage() {
           <div className="cta-card animate-fade-in">
             <h2>Ready to <span className="text-gradient">raise capital</span>?</h2>
             <p>Join thousands of founders who use FoundersLib to connect with the right investors.</p>
-            <Link className="btn primary" to="/signup" data-testid="cta-btn">
+            <Link className="btn primary btn-glow" to="/signup" data-testid="cta-btn">
               Get Started Free
               <ArrowRight className="w-4 h-4 ml-2" />
             </Link>
           </div>
         </section>
 
-        {/* FL-style resource links */}
+        {/* Resource links */}
         <section className="yc-links" data-testid="yc-links">
           <div className="yc-links-inner">
             {RESOURCE_GROUPS.map(({ title, items }) => (

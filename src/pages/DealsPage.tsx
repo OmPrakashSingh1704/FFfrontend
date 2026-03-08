@@ -48,7 +48,7 @@ type DealRoomDetail = {
 const STATUS_COLORS: Record<string, string> = {
   active: '#22c55e',
   nda_pending: '#f59e0b',
-  closed_won: '#6366f1',
+  closed_won: '#a1a1a1',
   closed_lost: '#ef4444',
 }
 

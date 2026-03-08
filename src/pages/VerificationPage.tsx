@@ -81,7 +81,7 @@ function DocStatusBadge({ status }: { status: string }) {
   )
 }
 
-const TIER_COLORS = ['', '#94a3b8', '#f59e0b', '#6366f1']
+const TIER_COLORS = ['', '#94a3b8', '#f59e0b', '#a1a1a1']
 
 export function VerificationPage() {
   const { pushToast } = useToast()
@@ -179,9 +179,6 @@ export function VerificationPage() {
     )
   }
 
-  const approvedDocs = status.documents.filter((d) => d.status === 'approved')
-  const pendingDocs = status.documents.filter((d) => d.status === 'pending')
-  const rejectedDocs = status.documents.filter((d) => d.status === 'rejected')
 
   return (
     <div style={{ maxWidth: 900, margin: '0 auto' }}>

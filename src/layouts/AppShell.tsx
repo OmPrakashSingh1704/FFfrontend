@@ -4,7 +4,7 @@ import {
   BarChart3, Settings, Search, FileText, Upload,
   Activity, Wallet, Menu, X, Zap, Handshake, ShieldCheck
 } from 'lucide-react'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import logoMark from '../assets/logo-mark.svg'
 import { ThemeToggle } from '../components/ThemeToggle'
 import { NotificationDropdown } from '../components/NotificationDropdown'
@@ -13,6 +13,7 @@ import { useAuth } from '../context/AuthContext'
 import { Page } from '../components/Page'
 import { RealtimeBridge } from '../components/RealtimeBridge'
 import { IncomingCallBridge } from '../components/IncomingCallBridge'
+import Preloader from '../components/ui/preloader'
 
 const navSections = [
   {
@@ -57,6 +58,11 @@ export function AppShell() {
   const { status, user } = useAuth()
   const location = useLocation()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [showPreloader, setShowPreloader] = useState(true)
+
+  const handlePreloaderComplete = useCallback(() => {
+    setShowPreloader(false)
+  }, [])
 
   // Lock body scroll when mobile menu is open
   useEffect(() => {
@@ -85,6 +91,7 @@ export function AppShell() {
 
   return (
     <Page>
+      {showPreloader && <Preloader onComplete={handlePreloaderComplete} />}
       <RealtimeBridge />
       <IncomingCallBridge />
 

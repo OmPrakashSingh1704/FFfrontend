@@ -42,8 +42,8 @@ function formatTicketSize(min: number | null | undefined, max: number | null | u
 }
 
 const CATEGORY_COLORS: Record<string, string> = {
-  cloud: '#6366f1',
-  software: '#0ea5e9',
+  cloud: '#a1a1a1',
+  software: '#737373',
   legal: '#f59e0b',
   banking: '#22c55e',
   marketing: '#ec4899',

@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700;800&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -6,57 +6,73 @@
 
 @layer base {
   :root {
-    --background: 0 0% 98%;
-    --foreground: 0 0% 10%;
+    --background: 210 40% 98%;
+    --foreground: 215 28% 17%;
 
-    --card: 0 0% 95%;
-    --card-foreground: 0 0% 10%;
+    --card: 0 0% 100%;
+    --card-foreground: 215 28% 17%;
 
-    --primary: 24 94% 53%;
-    --primary-foreground: 0 0% 98%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 215 28% 17%;
 
-    --secondary: 0 0% 88%;
-    --secondary-foreground: 0 0% 10%;
+    --primary: 239 84% 67%;
+    --primary-foreground: 0 0% 100%;
 
-    --muted: 0 0% 92%;
-    --muted-foreground: 0 0% 40%;
+    --secondary: 220 13% 91%;
+    --secondary-foreground: 220 9% 46%;
 
-    --accent: 24 94% 53%;
-    --accent-foreground: 0 0% 98%;
+    --muted: 220 14% 96%;
+    --muted-foreground: 220 9% 46%;
 
-    --border: 0 0% 88%;
-    --input: 0 0% 90%;
-    --ring: 24 94% 53%;
+    --accent: 226 76% 94%;
+    --accent-foreground: 220 13% 26%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 220 13% 83%;
+    --input: 220 13% 83%;
+    --ring: 239 84% 67%;
 
     --radius: 0.5rem;
 
-    --gold: #f97316;
-    --gold-light: #fb923c;
-    --accent-glow: rgba(249, 115, 22, 0.4);
+    --gold: #171717;
+    --gold-light: #525252;
+    --accent-glow: rgba(23, 23, 23, 0.4);
   }
 
   [data-theme="dark"] {
-    --background: 0 0% 6%;
-    --foreground: 0 0% 93%;
+    --background: 0 0% 4%;
+    --foreground: 0 0% 98%;
 
-    --card: 0 0% 10%;
-    --card-foreground: 0 0% 93%;
+    --card: 0 0% 4%;
+    --card-foreground: 0 0% 98%;
 
-    --primary: 24 94% 53%;
-    --primary-foreground: 0 0% 6%;
+    --popover: 0 0% 4%;
+    --popover-foreground: 0 0% 98%;
+
+    --primary: 0 0% 98%;
+    --primary-foreground: 0 0% 4%;
 
     --secondary: 0 0% 15%;
-    --secondary-foreground: 0 0% 93%;
+    --secondary-foreground: 0 0% 98%;
 
     --muted: 0 0% 15%;
-    --muted-foreground: 0 0% 60%;
+    --muted-foreground: 0 0% 63%;
 
-    --accent: 24 94% 53%;
-    --accent-foreground: 0 0% 93%;
+    --accent: 0 0% 15%;
+    --accent-foreground: 0 0% 98%;
 
-    --border: 0 0% 18%;
+    --destructive: 359 100% 45%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 0 0% 15%;
     --input: 0 0% 15%;
-    --ring: 24 94% 53%;
+    --ring: 0 0% 32%;
+
+    --gold: #fafafa;
+    --gold-light: #d4d4d4;
+    --accent-glow: rgba(250, 250, 250, 0.4);
   }
 }
 
@@ -79,23 +95,24 @@
 
   body {
     @apply bg-background text-foreground antialiased;
-    font-family: 'Inter', sans-serif;
+    font-family: 'Inter', 'Space Grotesk', sans-serif;
     min-height: 100vh;
   }
 
   h1, h2, h3, h4, h5, h6 {
-    font-family: 'Inter', sans-serif;
+    font-family: 'Space Grotesk', 'Inter', sans-serif;
     @apply tracking-tight font-bold;
   }
 
   ::selection {
-    background: rgba(249, 115, 22, 0.2);
+    background: rgba(161, 161, 161, 0.25);
   }
 }
 
 @layer components {
   .text-gradient {
-    @apply bg-gradient-to-r from-[#f97316] to-[#fb923c] bg-clip-text text-transparent;
+    @apply bg-clip-text text-transparent;
+    background-image: linear-gradient(135deg, hsl(var(--foreground)) 0%, hsl(var(--muted-foreground)) 100%);
   }
 
   .glass {
@@ -106,8 +123,8 @@
   }
 
   [data-theme="dark"] .glass {
-    background: rgba(20, 20, 20, 0.7);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(10, 10, 10, 0.7);
+    border: 1px solid rgba(255, 255, 255, 0.06);
   }
 
   .glass-card {
@@ -119,7 +136,7 @@
   }
 
   [data-theme="dark"] .glass-card {
-    background: rgba(26, 26, 26, 0.6);
+    background: rgba(10, 10, 10, 0.6);
     border: 1px solid rgba(255, 255, 255, 0.06);
   }
 }
@@ -174,10 +191,10 @@
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(249, 115, 22, 0.3);
+  background: rgba(161, 161, 161, 0.3);
   border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(249, 115, 22, 0.5);
+  background: rgba(161, 161, 161, 0.5);
 }

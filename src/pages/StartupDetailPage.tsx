@@ -162,7 +162,7 @@ export function StartupDetailPage() {
 
     const missingUserIds = startup.founders_list
       .map((founder) => founder.id)
-      .filter((id): id is string => Boolean(id) && !founderProfileIds[id])
+      .filter((id): id is string => typeof id === 'string' && id.length > 0 && !founderProfileIds[id])
 
     if (missingUserIds.length === 0) return
 
