@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import type { CSSProperties } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Check } from 'lucide-react'
+import { Check, ChevronDown } from 'lucide-react'
 import { FormField } from '../components/FormField'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
@@ -52,6 +53,131 @@ const parseList = (value: string) =>
     .map((item) => item.trim())
     .filter(Boolean)
 
+const INVESTOR_STAGE_OPTIONS = [
+  'Pre-Seed',
+  'Seed',
+  'Angel',
+  'Series A',
+  'Series B',
+  'Series C',
+  'Growth',
+  'Late Stage',
+  'Private Equity',
+  'Pre-IPO',
+]
+
+const PRIMARY_INDUSTRY_OPTIONS = [
+  'Technology',
+  'Financial Services',
+  'Healthcare & Life Sciences',
+  'Agriculture & Food',
+  'Consumer & Retail',
+  'Transportation & Logistics',
+  'Energy & Sustainability',
+  'Manufacturing & Industrial',
+  'Infrastructure & Real Estate',
+  'Media & Entertainment',
+  'Professional Services',
+  'Education & Knowledge',
+  'Rural & Traditional Industries',
+  'Aerospace & Defense',
+  'Telecommunications',
+  'Hospitality, Tourism & Leisure',
+]
+
+const INDUSTRY_DETAIL_OPTIONS = [
+  'Artificial Intelligence',
+  'AI/ML',
+  'Software',
+  'Data Technology',
+  'Blockchain',
+  'IoT',
+  'Robotics',
+  'SpaceTech',
+  'FinTech',
+  'InsurTech',
+  'WealthTech',
+  'LendingTech',
+  'RegTech',
+  'HealthTech',
+  'BioTech',
+  'MedTech',
+  'Telemedicine',
+  'E-Commerce',
+  'RetailTech',
+  'FoodTech',
+  'DairyTech',
+  'Precision Farming',
+  'FashionTech',
+  'Logistics Tech',
+  'MobilityTech',
+  'AutomotiveTech',
+  'CleanTech',
+  'EnergyTech',
+  'ClimateTech',
+  'Waste Management',
+  'ManufacturingTech',
+  'Electronics Manufacturing',
+  'Textile',
+  'Chemical Manufacturing',
+  'Packaging',
+  'ConstructionTech',
+  'PropTech',
+  'Smart Cities',
+  'WaterTech',
+  'MediaTech',
+  'AdTech',
+  'Gaming',
+  'EntertainmentTech',
+  'HRTech',
+  'LegalTech',
+  'MarTech',
+  'GovTech',
+  'Research Platforms',
+  'Skill Development',
+  'Handloom',
+  'Handicrafts',
+  'Cottage Industries',
+  'DefenseTech',
+  'Satellite Systems',
+  'TelecomTech',
+  'Network Infrastructure',
+  'HospitalityTech',
+  'TravelTech',
+  'LeisureTech',
+]
+
+const PRIMARY_SECONDARY_MAP: Record<string, string[]> = {
+  Technology: ['Artificial Intelligence', 'AI/ML', 'SaaS', 'Cybersecurity', 'Blockchain', 'IoT', 'Robotics'],
+  'Financial Services': ['FinTech', 'InsurTech', 'WealthTech', 'LendingTech', 'RegTech'],
+  'Healthcare & Life Sciences': ['HealthTech', 'BioTech', 'MedTech', 'Telemedicine'],
+  'Agriculture & Food': ['AgriTech', 'FoodTech', 'DairyTech', 'Precision Farming'],
+  'Consumer & Retail': ['E-Commerce', 'RetailTech', 'FashionTech', 'Consumer Brands'],
+  'Transportation & Logistics': ['Logistics Tech', 'MobilityTech', 'AutomotiveTech'],
+  'Energy & Sustainability': ['CleanTech', 'EnergyTech', 'ClimateTech'],
+  'Manufacturing & Industrial': ['ManufacturingTech', 'Electronics Manufacturing', 'Textile'],
+  'Infrastructure & Real Estate': ['PropTech', 'ConstructionTech', 'Smart Cities'],
+  'Media & Entertainment': ['MediaTech', 'Gaming', 'AdTech', 'EntertainmentTech'],
+  'Professional Services': ['HRTech', 'LegalTech', 'MarTech', 'GovTech'],
+  'Education & Knowledge': ['EdTech', 'Research Platforms', 'Skill Development'],
+  'Rural & Traditional Industries': ['Handicrafts', 'Handloom', 'Cottage Industries'],
+  'Aerospace & Defense': ['SpaceTech', 'DefenseTech', 'Satellite Systems'],
+  Telecommunications: ['TelecomTech', 'Network Infrastructure'],
+  'Hospitality, Tourism & Leisure': ['HospitalityTech', 'TravelTech', 'LeisureTech'],
+}
+
+const buildSecondaryOptions = (primaries: string[]) => {
+  if (primaries.length === 0) {
+    return [...INDUSTRY_DETAIL_OPTIONS]
+  }
+  const set = new Set<string>()
+  primaries.forEach((primary) => {
+    const options = PRIMARY_SECONDARY_MAP[primary] ?? []
+    options.forEach((option) => set.add(option))
+  })
+  return set.size > 0 ? Array.from(set) : [...INDUSTRY_DETAIL_OPTIONS]
+}
+
 export function OnboardingPage() {
   const navigate = useNavigate()
   const { user, refreshUser } = useAuth()
@@ -61,6 +187,10 @@ export function OnboardingPage() {
   const [fullName, setFullName] = useState(user?.full_name ?? '')
   const [phone, setPhone] = useState(user?.phone ?? '')
   const avatarUploadInputRef = useRef<HTMLInputElement | null>(null)
+  const stageDropdownRef = useRef<HTMLDivElement | null>(null)
+  const primaryIndustryDropdownRef = useRef<HTMLDivElement | null>(null)
+  const secondaryIndustryDropdownRef = useRef<HTMLDivElement | null>(null)
+  const hasInitializedPrimarySelection = useRef(false)
   const [profileErrors, setProfileErrors] = useState<ProfileErrors>({})
   const [savingProfile, setSavingProfile] = useState(false)
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
@@ -96,12 +226,112 @@ export function OnboardingPage() {
   const [investorLinkedin, setInvestorLinkedin] = useState('')
   const [checkSizeMin, setCheckSizeMin] = useState('')
   const [checkSizeMax, setCheckSizeMax] = useState('')
-  const [stagesFocus, setStagesFocus] = useState('')
-  const [industriesFocus, setIndustriesFocus] = useState('')
+  const [stagesFocus, setStagesFocus] = useState<string[]>([])
+  const [stageDropdownOpen, setStageDropdownOpen] = useState(false)
+  const [primaryIndustries, setPrimaryIndustries] = useState<string[]>(PRIMARY_INDUSTRY_OPTIONS)
+  const [secondaryIndustries, setSecondaryIndustries] = useState<string[]>(() => buildSecondaryOptions(PRIMARY_INDUSTRY_OPTIONS))
+  const [primaryIndustryDropdownOpen, setPrimaryIndustryDropdownOpen] = useState(false)
+  const [secondaryIndustryDropdownOpen, setSecondaryIndustryDropdownOpen] = useState(false)
   const [geographyFocus, setGeographyFocus] = useState('')
   const [discoverabilityMode, setDiscoverabilityMode] = useState('closed')
   const [investorErrors, setInvestorErrors] = useState<InvestorErrors>({})
   const [savingInvestor, setSavingInvestor] = useState(false)
+
+  const dropdownPanelStyle = useMemo<CSSProperties>(
+    () => ({
+      position: 'absolute',
+      top: 'calc(100% + 0.35rem)',
+      left: 0,
+      width: '100%',
+      minWidth: '22rem',
+      zIndex: 25,
+      maxHeight: '16rem',
+      overflowY: 'auto',
+      border: '1px solid hsl(var(--border))',
+      boxShadow: '0 18px 30px rgba(15, 23, 42, 0.18)',
+      borderRadius: '0.75rem',
+      background: 'hsl(var(--card))',
+      padding: '0.5rem',
+    }),
+    [],
+  )
+
+  const dropdownListStyle = useMemo<CSSProperties>(
+    () => ({
+      display: 'flex',
+      flexDirection: 'column',
+      gap: '0.2rem',
+    }),
+    [],
+  )
+
+  const getOptionStyle = useCallback(
+    (active: boolean): CSSProperties => ({
+      display: 'grid',
+      gridTemplateColumns: 'auto 1fr',
+      alignItems: 'center',
+      gap: '0.5rem',
+      padding: '0.35rem 0.6rem',
+      cursor: 'pointer',
+      borderRadius: '0.5rem',
+      background: active ? 'rgba(212, 171, 104, 0.12)' : 'transparent',
+      border: active ? '1px solid hsl(var(--border))' : '1px solid transparent',
+      color: active ? 'hsl(var(--foreground))' : 'hsl(var(--muted-foreground))',
+      fontSize: '0.875rem',
+      transition: 'background 0.15s ease, border 0.15s ease, color 0.15s ease',
+      width: '100%',
+      minWidth: '19rem',
+    }),
+    [],
+  )
+
+  const toggleStageSelection = useCallback((stage: string) => {
+    setStagesFocus((prev) => {
+      if (prev.includes(stage)) {
+        return prev.filter((item) => item !== stage)
+      }
+      const next = [...prev, stage]
+      return INVESTOR_STAGE_OPTIONS.filter((option) => next.includes(option))
+    })
+  }, [])
+
+  const getAllowedSecondary = useCallback((primaries: string[]) => buildSecondaryOptions(primaries), [])
+
+  const togglePrimaryIndustrySelection = useCallback(
+    (industry: string) => {
+      setPrimaryIndustries((prev) => {
+        let next: string[]
+        if (prev.includes(industry)) {
+          next = prev.filter((item) => item !== industry)
+        } else {
+          next = PRIMARY_INDUSTRY_OPTIONS.filter((option) => [...prev, industry].includes(option))
+        }
+        const allowed = getAllowedSecondary(next)
+        setSecondaryIndustries((prevSecondary) => prevSecondary.filter((item) => allowed.includes(item)))
+        return next
+      })
+    },
+    [getAllowedSecondary],
+  )
+
+  const availableSecondaryIndustries = useMemo(() => getAllowedSecondary(primaryIndustries), [getAllowedSecondary, primaryIndustries])
+
+  const toggleSecondaryIndustrySelection = useCallback(
+    (industry: string) => {
+      setSecondaryIndustries((prev) => {
+        if (prev.includes(industry)) {
+          return prev.filter((item) => item !== industry)
+        }
+        const combined = [...prev, industry]
+        return availableSecondaryIndustries.filter((option) => combined.includes(option))
+      })
+    },
+    [availableSecondaryIndustries],
+  )
+  const combinedIndustries = useMemo(
+    () => [...primaryIndustries, ...secondaryIndustries],
+    [primaryIndustries, secondaryIndustries],
+  )
 
   const [status, setStatus] = useState<OnboardingStatus | null>(null)
   const [steps, setSteps] = useState<OnboardingStep[]>([])
@@ -152,6 +382,36 @@ export function OnboardingPage() {
     setDisplayName(user?.full_name ?? '')
   }, [user])
 
+  useEffect(() => {
+    if (hasInitializedPrimarySelection.current) {
+      return
+    }
+    hasInitializedPrimarySelection.current = true
+    setPrimaryIndustries((current) => (current.length > 0 ? current : [...PRIMARY_INDUSTRY_OPTIONS]))
+  }, [])
+
+  useEffect(() => {
+    if (!stageDropdownOpen && !primaryIndustryDropdownOpen && !secondaryIndustryDropdownOpen) return
+
+    const handleClick = (event: MouseEvent) => {
+      const target = event.target as Node
+      if (stageDropdownOpen && stageDropdownRef.current && !stageDropdownRef.current.contains(target)) {
+        setStageDropdownOpen(false)
+      }
+      if (primaryIndustryDropdownOpen && primaryIndustryDropdownRef.current && !primaryIndustryDropdownRef.current.contains(target)) {
+        setPrimaryIndustryDropdownOpen(false)
+      }
+      if (secondaryIndustryDropdownOpen && secondaryIndustryDropdownRef.current && !secondaryIndustryDropdownRef.current.contains(target)) {
+        setSecondaryIndustryDropdownOpen(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClick)
+    return () => {
+      document.removeEventListener('mousedown', handleClick)
+    }
+  }, [stageDropdownOpen, primaryIndustryDropdownOpen, secondaryIndustryDropdownOpen])
+
   // Build the visible steps list based on role
   const visibleSteps = useMemo(() => {
     const result: { id: string; label: string }[] = [{ id: 'profile', label: 'Profile' }]
@@ -164,6 +424,13 @@ export function OnboardingPage() {
     }
     return result
   }, [isFounder, isInvestor])
+
+  const setActiveStepById = useCallback((stepId: string) => {
+    const index = visibleSteps.findIndex((step) => step.id === stepId)
+    if (index !== -1) {
+      setActiveStep(index)
+    }
+  }, [visibleSteps])
 
   const handleProfileSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -185,7 +452,11 @@ export function OnboardingPage() {
       })
       await refreshUser()
       pushToast('Profile updated', 'success')
-      setActiveStep((s) => Math.min(s + 1, visibleSteps.length - 1))
+      if (visibleSteps.some((step) => step.id === 'founder')) {
+        setActiveStepById('founder')
+      } else {
+        setActiveStep((s) => Math.min(s + 1, visibleSteps.length - 1))
+      }
     } catch {
       setProfileErrors({ form: 'Unable to update profile. Please try again.' })
     } finally {
@@ -293,8 +564,8 @@ export function OnboardingPage() {
       investor_type: investorType,
       headline: investorHeadline,
       check_size_min: checkSizeMin,
-      stages_focus: stagesFocus,
-      industries_focus: industriesFocus,
+      stages_focus: stagesFocus.join(','),
+      industries_focus: combinedIndustries.join(','),
       discoverability_mode: discoverabilityMode,
     })
 
@@ -338,8 +609,8 @@ export function OnboardingPage() {
           linkedin_url: investorLinkedin || undefined,
           check_size_min: checkMinValue ?? undefined,
           check_size_max: checkMaxValue ?? undefined,
-          stages_focus: parseList(stagesFocus),
-          industries_focus: parseList(industriesFocus),
+          stages_focus: stagesFocus,
+          industries_focus: combinedIndustries,
           geography_focus: parseList(geographyFocus),
           discoverability_mode: discoverabilityMode,
         },
@@ -496,7 +767,7 @@ export function OnboardingPage() {
                 </FormField>
               </div>
               <div className="grid-2">
-                <div className="form-group">
+                <div className="form-group" style={{ minWidth: '22rem' }}>
                   <FormField label="LinkedIn URL">
                     <input
                       type="url"
@@ -783,29 +1054,180 @@ export function OnboardingPage() {
                   </FormField>
                 </div>
               </div>
+              <div className="form-group">
+                <FormField label="Stages focus" error={investorErrors.stages_focus}>
+                  <div ref={stageDropdownRef} className="relative" style={{ minWidth: '22rem', maxWidth: '100%' }}>
+                    <button
+                      type="button"
+                      className="input flex items-center justify-between gap-2"
+                      onClick={() => setStageDropdownOpen((open) => !open)}
+                      aria-haspopup="listbox"
+                      aria-expanded={stageDropdownOpen}
+                      data-testid="investor-stage-select"
+                    >
+                      {stagesFocus.length > 0 ? (
+                        <div
+                          className="flex gap-1 items-center"
+                          style={{
+                            minHeight: '1.25rem',
+                            flexWrap: 'wrap',
+                            maxHeight: '4rem',
+                            overflowY: 'auto',
+                          }}
+                        >
+                          {stagesFocus.map((stage) => (
+                            <span key={stage} className="badge" style={{ whiteSpace: 'nowrap' }}>
+                              {stage}
+                            </span>
+                          ))}
+                        </div>
+                      ) : (
+                        <span style={{ color: 'hsl(var(--muted-foreground))' }}>Choose your stages</span>
+                      )}
+                      <ChevronDown
+                        size={16}
+                        className={`transition-transform ${stageDropdownOpen ? 'rotate-180' : ''}`}
+                      />
+                    </button>
+                    {stageDropdownOpen && (
+                      <div className="card" style={dropdownPanelStyle} role="listbox" aria-multiselectable="true">
+                        <div style={dropdownListStyle}>
+                          {INVESTOR_STAGE_OPTIONS.map((stage) => {
+                            const checked = stagesFocus.includes(stage)
+                            return (
+                              <label key={stage} style={getOptionStyle(checked)}>
+                                <input
+                                  type="checkbox"
+                                  checked={checked}
+                                  onChange={() => toggleStageSelection(stage)}
+                                  style={{ accentColor: 'var(--gold)' }}
+                                />
+                                <span>{stage}</span>
+                              </label>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </FormField>
+              </div>
+
               <div className="grid-2">
                 <div className="form-group">
-                  <FormField label="Stages focus (comma separated)" error={investorErrors.stages_focus}>
-                    <input
-                      type="text"
-                      className="input"
-                      value={stagesFocus}
-                      onChange={(event) => setStagesFocus(event.target.value)}
-                      placeholder="seed, series_a"
-                      required
-                    />
+                  <FormField label="Primary industry focus" error={investorErrors.industries_focus}>
+                    <div ref={primaryIndustryDropdownRef} className="relative" style={{ minWidth: '16rem', maxWidth: '20rem', width: '100%' }}>
+                      <button
+                        type="button"
+                        className="input flex items-center justify-between gap-2"
+                        onClick={() => setPrimaryIndustryDropdownOpen((open) => !open)}
+                        aria-haspopup="listbox"
+                        aria-expanded={primaryIndustryDropdownOpen}
+                        data-testid="investor-primary-industry-select"
+                      >
+                        {primaryIndustries.length > 0 ? (
+                          <div
+                            className="flex gap-1 items-center"
+                            style={{
+                            minHeight: '1.25rem',
+                            flexWrap: 'wrap',
+                            maxHeight: '4rem',
+                            overflowY: 'auto',
+                          }}
+                          >
+                            {primaryIndustries.map((industry) => (
+                              <span key={industry} className="badge" style={{ whiteSpace: 'nowrap' }}>
+                                {industry}
+                              </span>
+                            ))}
+                          </div>
+                        ) : (
+                          <span style={{ color: 'hsl(var(--muted-foreground))' }}>Choose primary focus</span>
+                        )}
+                        <ChevronDown
+                          size={16}
+                          className={`transition-transform ${primaryIndustryDropdownOpen ? 'rotate-180' : ''}`}
+                        />
+                      </button>
+                      {primaryIndustryDropdownOpen && (
+                        <div className="card" style={dropdownPanelStyle} role="listbox" aria-multiselectable="true">
+                          <div style={dropdownListStyle}>
+                            {PRIMARY_INDUSTRY_OPTIONS.map((industry) => {
+                              const checked = primaryIndustries.includes(industry)
+                              return (
+                                <label key={industry} style={getOptionStyle(checked)}>
+                                  <input
+                                    type="checkbox"
+                                    checked={checked}
+                                    onChange={() => togglePrimaryIndustrySelection(industry)}
+                                    style={{ accentColor: 'var(--gold)' }}
+                                  />
+                                  <span>{industry}</span>
+                                </label>
+                              )
+                            })}
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </FormField>
                 </div>
                 <div className="form-group">
-                  <FormField label="Industries focus (comma separated)" error={investorErrors.industries_focus}>
-                    <input
-                      type="text"
-                      className="input"
-                      value={industriesFocus}
-                      onChange={(event) => setIndustriesFocus(event.target.value)}
-                      placeholder="fintech, climate"
-                      required
-                    />
+                  <FormField label="Industry focus" error={investorErrors.industries_focus}>
+                    <div ref={secondaryIndustryDropdownRef} className="relative" style={{ minWidth: '16rem', maxWidth: '32rem', width: '100%' }}>
+                      <button
+                        type="button"
+                        className="input flex items-center justify-between gap-2"
+                        onClick={() => setSecondaryIndustryDropdownOpen((open) => !open)}
+                        aria-haspopup="listbox"
+                        aria-expanded={secondaryIndustryDropdownOpen}
+                        data-testid="investor-industry-select"
+                      >
+                        {secondaryIndustries.length > 0 ? (
+                          <div
+                            className="flex gap-1 items-center"
+                            style={{
+                              minHeight: '1.25rem',
+                              flexWrap: 'wrap',
+                              maxHeight: '4.5rem',
+                              overflowY: 'auto',
+                            }}
+                          >
+                            {secondaryIndustries.map((industry) => (
+                              <span key={industry} className="badge" style={{ whiteSpace: 'nowrap' }}>
+                                {industry}
+                              </span>
+                            ))}
+                          </div>
+                        ) : (
+                          <span style={{ color: 'hsl(var(--muted-foreground))' }}>Choose industries</span>
+                        )}
+                        <ChevronDown
+                          size={16}
+                          className={`transition-transform ${secondaryIndustryDropdownOpen ? 'rotate-180' : ''}`}
+                        />
+                      </button>
+                      {secondaryIndustryDropdownOpen && (
+                        <div className="card" style={dropdownPanelStyle} role="listbox" aria-multiselectable="true">
+                          <div style={dropdownListStyle}>
+                            {availableSecondaryIndustries.map((industry) => {
+                              const checked = secondaryIndustries.includes(industry)
+                              return (
+                                <label key={industry} style={getOptionStyle(checked)}>
+                                  <input
+                                    type="checkbox"
+                                    checked={checked}
+                                    onChange={() => toggleSecondaryIndustrySelection(industry)}
+                                    style={{ accentColor: 'var(--gold)' }}
+                                  />
+                                  <span>{industry}</span>
+                                </label>
+                              )
+                            })}
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </FormField>
                 </div>
               </div>

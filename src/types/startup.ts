@@ -49,7 +49,15 @@ export type StartupDetail = {
   fundraising_status?: string | null
   funding_raised?: number | null
   hiring_status?: string | null
-  founders_list?: Array<{ id: string; full_name: string; avatar_url?: string | null }>
+  founders_list?: Array<{
+    id: string | null
+    profile_id?: string | null
+    founder_profile_id?: string | null
+    user_id?: string | null
+    user?: string | null
+    full_name: string
+    avatar_url?: string | null
+  }>
   members?: Array<{
     id: string
     user: string

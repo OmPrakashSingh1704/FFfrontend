@@ -1,10 +1,11 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { apiRequest, uploadRequest } from '../lib/api'
 import { resolveMediaUrl } from '../lib/env'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 import { normalizeList } from '../lib/pagination'
+import { FormField } from '../components/FormField'
 import {
   User,
   Mail,
@@ -30,6 +31,7 @@ import {
 } from 'lucide-react'
 import { CopyLinkButton } from '../components/CopyLinkButton'
 import type { StartupListItem } from '../types/startup'
+import { hasErrors, validateRequired } from '../lib/forms'
 
 type StartupDoc = {
   id: string
@@ -59,6 +61,15 @@ const ACCESS_ICONS: Record<string, typeof Lock> = {
   public: Shield,
 }
 
+type DocQueueItem = {
+  localId: string
+  file: File
+  docType: keyof typeof DOC_TYPE_LABELS
+  accessLevel: keyof typeof ACCESS_ICONS
+}
+
+type StartupFormErrors = Partial<Record<'name' | 'description' | 'industry' | 'form', string>>
+
 function formatFileSize(bytes?: number | null): string {
   if (!bytes) return ''
   if (bytes < 1024) return `${bytes} B`
@@ -75,6 +86,8 @@ export function ProfilePage() {
   const [phone, setPhone] = useState(user?.phone ?? '')
   const [saving, setSaving] = useState(false)
   const [uploading, setUploading] = useState<'profile' | 'background' | null>(null)
+  const [founderProfileId, setFounderProfileId] = useState<string | null>(null)
+  const [investorProfileId, setInvestorProfileId] = useState<string | null>(null)
 
   const profileInputRef = useRef<HTMLInputElement | null>(null)
   const backgroundInputRef = useRef<HTMLInputElement | null>(null)
@@ -86,14 +99,21 @@ export function ProfilePage() {
   const [startupDocs, setStartupDocs] = useState<Record<string, StartupDoc[]>>({})
   const [loadingDocs, setLoadingDocs] = useState<string | null>(null)
   const [uploadingDoc, setUploadingDoc] = useState<string | null>(null)
-
-  type DocQueueItem = { localId: string; file: File; docType: string; accessLevel: string }
   const [docQueues, setDocQueues] = useState<Record<string, DocQueueItem[]>>({})
   const docInputRefs = useRef<Record<string, HTMLInputElement | null>>({})
-
-  // Shareable profile IDs
-  const [founderProfileId, setFounderProfileId] = useState<string | null>(null)
-  const [investorProfileId, setInvestorProfileId] = useState<string | null>(null)
+  const [showStartupForm, setShowStartupForm] = useState(false)
+  const [creatingStartup, setCreatingStartup] = useState(false)
+  const [startupName, setStartupName] = useState('')
+  const [startupDescription, setStartupDescription] = useState('')
+  const [startupIndustry, setStartupIndustry] = useState('')
+  const [startupStage, setStartupStage] = useState('')
+  const [fundraisingStatus, setFundraisingStatus] = useState('')
+  const [startupWebsite, setStartupWebsite] = useState('')
+  const [problemStatement, setProblemStatement] = useState('')
+  const [solutionDescription, setSolutionDescription] = useState('')
+  const [uniqueValueProp, setUniqueValueProp] = useState('')
+  const [whyNow, setWhyNow] = useState('')
+  const [startupErrors, setStartupErrors] = useState<StartupFormErrors>({})
 
   const avatarUrl = resolveMediaUrl(user?.avatar ?? user?.picture ?? user?.avatar_url)
   const backgroundUrl = resolveMediaUrl(user?.background_picture)
@@ -114,24 +134,23 @@ export function ProfilePage() {
   }, [user?.role])
 
   // Load user's startups
-  useEffect(() => {
-    let cancelled = false
-    const load = async () => {
-      setLoadingStartups(true)
-      try {
-        const data = await apiRequest<StartupListItem[] | { results: StartupListItem[] }>(
-          '/founders/my-startups/',
-        )
-        if (!cancelled) setMyStartups(normalizeList(data))
-      } catch {
-        // no startups
-      } finally {
-        if (!cancelled) setLoadingStartups(false)
-      }
+  const loadStartups = useCallback(async () => {
+    setLoadingStartups(true)
+    try {
+      const data = await apiRequest<StartupListItem[] | { results: StartupListItem[] }>(
+        '/founders/my-startups/',
+      )
+      setMyStartups(normalizeList(data))
+    } catch {
+      setMyStartups([])
+    } finally {
+      setLoadingStartups(false)
     }
-    void load()
-    return () => { cancelled = true }
   }, [])
+
+  useEffect(() => {
+    void loadStartups()
+  }, [loadStartups])
 
   // Load docs when a startup is expanded
   const toggleStartup = async (startupId: string) => {
@@ -156,35 +175,113 @@ export function ProfilePage() {
     }
   }
 
-  const addFilesToQueue = (startupId: string, files: File[]) => {
-    setDocQueues((prev) => ({
-      ...prev,
-      [startupId]: [
-        ...(prev[startupId] ?? []),
-        ...files.map((f) => ({ localId: crypto.randomUUID(), file: f, docType: 'pitch_deck', accessLevel: 'investor' })),
-      ],
-    }))
+  const resetStartupForm = () => {
+    setStartupName('')
+    setStartupDescription('')
+    setStartupIndustry('')
+    setStartupStage('')
+    setFundraisingStatus('')
+    setStartupWebsite('')
+    setProblemStatement('')
+    setSolutionDescription('')
+    setUniqueValueProp('')
+    setWhyNow('')
+    setStartupErrors({})
   }
 
-  const updateQueueItem = (startupId: string, localId: string, field: 'docType' | 'accessLevel', value: string) => {
-    setDocQueues((prev) => ({
-      ...prev,
-      [startupId]: (prev[startupId] ?? []).map((item) =>
-        item.localId === localId ? { ...item, [field]: value } : item,
-      ),
-    }))
+  const handleCreateStartup = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    const nextErrors = validateRequired({
+      name: startupName,
+      description: startupDescription,
+      industry: startupIndustry,
+    })
+    if (hasErrors(nextErrors)) {
+      setStartupErrors(nextErrors)
+      return
+    }
+
+    setCreatingStartup(true)
+    setStartupErrors({})
+    try {
+      await apiRequest('/onboarding/startup/', {
+        method: 'POST',
+        body: {
+          name: startupName,
+          description: startupDescription,
+          industry: startupIndustry,
+          stage: startupStage || undefined,
+          fundraising_status: fundraisingStatus || undefined,
+          website_url: startupWebsite || undefined,
+          problem_statement: problemStatement || undefined,
+          solution_description: solutionDescription || undefined,
+          unique_value_proposition: uniqueValueProp || undefined,
+          why_now: whyNow || undefined,
+        },
+      })
+      await loadStartups()
+      pushToast('Startup saved', 'success')
+      resetStartupForm()
+      setShowStartupForm(false)
+    } catch {
+      setStartupErrors({ form: 'Unable to save startup details. Please try again.' })
+    } finally {
+      setCreatingStartup(false)
+    }
+  }
+
+  const createQueueId = (startupId: string) =>
+    `${startupId}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
+
+  const addFilesToQueue = (startupId: string, files: File[]) => {
+    if (files.length === 0) return
+    setDocQueues((prev) => {
+      const nextItems = files.map((file) => ({
+        localId: createQueueId(startupId),
+        file,
+        docType: 'pitch_deck' as const,
+        accessLevel: 'investor' as const,
+      }))
+      return {
+        ...prev,
+        [startupId]: [...(prev[startupId] ?? []), ...nextItems],
+      }
+    })
+  }
+
+  const updateQueueItem = <T extends 'docType' | 'accessLevel'>(
+    startupId: string,
+    localId: string,
+    field: T,
+    value: DocQueueItem[T],
+  ) => {
+    setDocQueues((prev) => {
+      const queue = prev[startupId]
+      if (!queue) return prev
+      return {
+        ...prev,
+        [startupId]: queue.map((item) => (item.localId === localId ? { ...item, [field]: value } : item)),
+      }
+    })
   }
 
   const removeFromQueue = (startupId: string, localId: string) => {
-    setDocQueues((prev) => ({
-      ...prev,
-      [startupId]: (prev[startupId] ?? []).filter((item) => item.localId !== localId),
-    }))
+    setDocQueues((prev) => {
+      const queue = prev[startupId]
+      if (!queue) return prev
+      const nextQueue = queue.filter((item) => item.localId !== localId)
+      if (nextQueue.length === 0) {
+        const { [startupId]: _removed, ...rest } = prev
+        return rest
+      }
+      return { ...prev, [startupId]: nextQueue }
+    })
   }
 
   const uploadQueue = async (startupId: string) => {
-    const queue = docQueues[startupId] ?? []
-    if (!queue.length) return
+    const queue = docQueues[startupId]
+    if (!queue?.length) return
+
     setUploadingDoc(startupId)
     let failed = 0
     try {
@@ -211,6 +308,8 @@ export function ProfilePage() {
       const succeeded = queue.length - failed
       if (succeeded > 0) pushToast(`${succeeded} document${succeeded !== 1 ? 's' : ''} uploaded`, 'success')
       if (failed > 0) pushToast(`${failed} upload${failed !== 1 ? 's' : ''} failed`, 'error')
+    } catch {
+      pushToast('Failed to upload documents', 'error')
     } finally {
       setUploadingDoc(null)
       const ref = docInputRefs.current[startupId]
@@ -563,15 +662,163 @@ export function ProfilePage() {
             <span className="empty-description">Loading startups...</span>
           </div>
         ) : myStartups.length === 0 ? (
-          <div className="empty-state" style={{ paddingTop: '2rem', paddingBottom: '2rem' }}>
-            <div className="empty-icon"><Building2 size={24} /></div>
-            <span className="empty-title">No startups yet</span>
-            <span className="empty-description">
-              You are not a member of any startup yet.{' '}
-              <Link to="/app/startups" style={{ color: 'var(--gold)', textDecoration: 'underline' }}>
-                Browse startups
-              </Link>
-            </span>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+            <div className="empty-state" style={{ paddingTop: '2rem', paddingBottom: '2rem' }}>
+              <div className="empty-icon"><Building2 size={24} /></div>
+              <span className="empty-title">No startups yet</span>
+              <span className="empty-description">
+                You are not a member of any startup yet.{' '}
+                <Link to="/app/startups" style={{ color: 'var(--gold)', textDecoration: 'underline' }}>
+                  Browse startups
+                </Link>
+              </span>
+              <button
+                className="btn primary"
+                type="button"
+                onClick={() => setShowStartupForm((prev) => !prev)}
+                style={{ marginTop: '1rem' }}
+              >
+                {showStartupForm ? 'Hide form' : 'Add startup'}
+              </button>
+            </div>
+
+            {showStartupForm ? (
+              <div
+                style={{
+                  border: '1px solid hsl(var(--border))',
+                  borderRadius: '0.75rem',
+                  padding: '1.5rem',
+                  background: 'hsl(var(--card))',
+                }}
+              >
+                <h3 className="text-lg font-semibold" style={{ marginBottom: '0.25rem' }}>
+                  Startup details
+                </h3>
+                <p style={{ color: 'hsl(var(--muted-foreground))', fontSize: '0.875rem', marginBottom: '1rem' }}>
+                  Add your startup information to complete onboarding.
+                </p>
+
+                <form onSubmit={handleCreateStartup} className="space-y-5">
+                  {startupErrors.form ? <div className="form-error">{startupErrors.form}</div> : null}
+                  <div className="form-group">
+                    <FormField label="Startup name" error={startupErrors.name}>
+                      <input
+                        type="text"
+                        className="input"
+                        value={startupName}
+                        onChange={(event) => setStartupName(event.target.value)}
+                        placeholder="FoundersLib"
+                        required
+                      />
+                    </FormField>
+                  </div>
+                  <div className="form-group">
+                    <FormField label="Description" error={startupErrors.description}>
+                      <textarea
+                        className="textarea"
+                        value={startupDescription}
+                        onChange={(event) => setStartupDescription(event.target.value)}
+                        placeholder="What does your company do?"
+                      />
+                    </FormField>
+                  </div>
+                  <div className="form-group">
+                    <FormField label="Industry" error={startupErrors.industry}>
+                      <input
+                        type="text"
+                        className="input"
+                        value={startupIndustry}
+                        onChange={(event) => setStartupIndustry(event.target.value)}
+                        placeholder="Fintech"
+                        required
+                      />
+                    </FormField>
+                  </div>
+                  <div className="grid-2">
+                    <div className="form-group">
+                      <FormField label="Stage">
+                        <select className="select" value={startupStage} onChange={(event) => setStartupStage(event.target.value)}>
+                          <option value="">Select stage</option>
+                          <option value="idea">Idea</option>
+                          <option value="mvp">MVP</option>
+                          <option value="seed">Seed</option>
+                          <option value="series_a">Series A</option>
+                          <option value="series_b_plus">Series B+</option>
+                        </select>
+                      </FormField>
+                    </div>
+                    <div className="form-group">
+                      <FormField label="Fundraising status">
+                        <select
+                          className="select"
+                          value={fundraisingStatus}
+                          onChange={(event) => setFundraisingStatus(event.target.value)}
+                        >
+                          <option value="">Select status</option>
+                          <option value="not_raising">Not raising</option>
+                          <option value="raising">Raising</option>
+                          <option value="closed">Closed</option>
+                        </select>
+                      </FormField>
+                    </div>
+                  </div>
+                  <div className="form-group">
+                    <FormField label="Website URL">
+                      <input
+                        type="url"
+                        className="input"
+                        value={startupWebsite}
+                        onChange={(event) => setStartupWebsite(event.target.value)}
+                        placeholder="https://yourstartup.com"
+                      />
+                    </FormField>
+                  </div>
+                  <div className="form-group">
+                    <FormField label="Problem Statement">
+                      <textarea
+                        className="textarea"
+                        value={problemStatement}
+                        onChange={(event) => setProblemStatement(event.target.value)}
+                        placeholder="What core problem are you solving?"
+                      />
+                    </FormField>
+                  </div>
+                  <div className="form-group">
+                    <FormField label="Solution / Product Description">
+                      <textarea
+                        className="textarea"
+                        value={solutionDescription}
+                        onChange={(event) => setSolutionDescription(event.target.value)}
+                        placeholder="Describe your solution or product."
+                      />
+                    </FormField>
+                  </div>
+                  <div className="form-group">
+                    <FormField label="Unique Value Proposition (UVP)">
+                      <textarea
+                        className="textarea"
+                        value={uniqueValueProp}
+                        onChange={(event) => setUniqueValueProp(event.target.value)}
+                        placeholder="What makes you stand out?"
+                      />
+                    </FormField>
+                  </div>
+                  <div className="form-group">
+                    <FormField label="Why Now? (Market timing)">
+                      <textarea
+                        className="textarea"
+                        value={whyNow}
+                        onChange={(event) => setWhyNow(event.target.value)}
+                        placeholder="Why is this the right time for your startup?"
+                      />
+                    </FormField>
+                  </div>
+                  <button className="btn primary w-full" type="submit" disabled={creatingStartup}>
+                    {creatingStartup ? 'Saving...' : 'Save startup'}
+                  </button>
+                </form>
+              </div>
+            ) : null}
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
@@ -686,7 +933,9 @@ export function ProfilePage() {
                               <select
                                 className="select"
                                 value={item.docType}
-                                onChange={(e) => updateQueueItem(s.id, item.localId, 'docType', e.target.value)}
+                                onChange={(e) =>
+                                  updateQueueItem(s.id, item.localId, 'docType', e.target.value as DocQueueItem['docType'])
+                                }
                                 style={{ flex: '0 0 auto', minWidth: 130, fontSize: '0.75rem' }}
                               >
                                 {Object.entries(DOC_TYPE_LABELS).map(([val, label]) => (
@@ -696,7 +945,14 @@ export function ProfilePage() {
                               <select
                                 className="select"
                                 value={item.accessLevel}
-                                onChange={(e) => updateQueueItem(s.id, item.localId, 'accessLevel', e.target.value)}
+                                onChange={(e) =>
+                                  updateQueueItem(
+                                    s.id,
+                                    item.localId,
+                                    'accessLevel',
+                                    e.target.value as DocQueueItem['accessLevel'],
+                                  )
+                                }
                                 style={{ flex: '0 0 auto', minWidth: 100, fontSize: '0.75rem' }}
                               >
                                 <option value="private">Private</option>

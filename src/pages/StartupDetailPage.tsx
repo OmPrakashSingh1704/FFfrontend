@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import {
   FileText,
@@ -26,6 +26,8 @@ import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 import type { StartupDetail } from '../types/startup'
 import type { InvestorProfile } from '../types/investor'
+import type { FounderProfile } from '../types/founder'
+import type { PaginatedResponse } from '../lib/pagination'
 
 const DOC_TYPE_LABELS: Record<string, string> = {
   pitch_deck: 'Pitch Deck',
@@ -51,6 +53,19 @@ function formatFileSize(bytes?: number | null): string {
   return `${(bytes / 1048576).toFixed(1)} MB`
 }
 
+function toRelativeApiPath(url: string | null | undefined) {
+  if (!url) return null
+  if (url.startsWith('http://') || url.startsWith('https://')) {
+    try {
+      const parsed = new URL(url)
+      return `${parsed.pathname}${parsed.search}`
+    } catch {
+      return null
+    }
+  }
+  return url.startsWith('/') ? url : `/${url}`
+}
+
 export function StartupDetailPage() {
   const { id } = useParams()
   const { user } = useAuth()
@@ -65,6 +80,7 @@ export function StartupDetailPage() {
 
   type DocQueueItem = { localId: string; file: File; docType: string; accessLevel: string }
   const [docQueue, setDocQueue] = useState<DocQueueItem[]>([])
+  const [founderProfileIds, setFounderProfileIds] = useState<Record<string, string>>({})
 
   const isInvestor = user?.role === 'investor' || user?.role === 'both'
   const isMember = startup?.members?.some((m) => m.user === user?.id) ?? false
@@ -74,6 +90,36 @@ export function StartupDetailPage() {
   const [showInterestForm, setShowInterestForm] = useState(false)
   const [interestMessage, setInterestMessage] = useState('')
   const [expressingInterest, setExpressingInterest] = useState(false)
+
+  const fetchFounderProfilesForUsers = useCallback(async (userIds: string[]) => {
+    const remaining = new Set(userIds.filter(Boolean))
+    const found: Record<string, string> = {}
+
+    if (remaining.size === 0) return found
+
+    let nextPath: string | null = '/founders/'
+    while (nextPath && remaining.size > 0) {
+      const data = await apiRequest<PaginatedResponse<FounderProfile> | FounderProfile[]>(nextPath)
+      const results = Array.isArray(data) ? data : data.results ?? []
+
+      for (const profile of results) {
+        const userId = profile.user?.id
+        if (userId && remaining.has(userId) && !found[userId]) {
+          found[userId] = profile.id
+          remaining.delete(userId)
+        }
+      }
+
+      if (remaining.size === 0) break
+      if (!Array.isArray(data) && data.next) {
+        nextPath = toRelativeApiPath(data.next)
+      } else {
+        nextPath = null
+      }
+    }
+
+    return found
+  }, [])
 
   useEffect(() => {
     if (!id) return
@@ -110,6 +156,33 @@ export function StartupDetailPage() {
       .catch(() => {})
     return () => { cancelled = true }
   }, [isInvestor])
+
+  useEffect(() => {
+    if (!startup?.founders_list?.length) return
+
+    const missingUserIds = startup.founders_list
+      .map((founder) => founder.id)
+      .filter((id): id is string => Boolean(id) && !founderProfileIds[id])
+
+    if (missingUserIds.length === 0) return
+
+    let cancelled = false
+    const resolveProfiles = async () => {
+      try {
+        const mapping = await fetchFounderProfilesForUsers(missingUserIds)
+        if (!cancelled && Object.keys(mapping).length > 0) {
+          setFounderProfileIds((prev) => ({ ...prev, ...mapping }))
+        }
+      } catch {
+        // ignore errors; founders will remain unlinked
+      }
+    }
+
+    void resolveProfiles()
+    return () => {
+      cancelled = true
+    }
+  }, [startup?.founders_list, founderProfileIds, fetchFounderProfilesForUsers])
 
   const handleExpressInterest = async () => {
     if (!startup || !investorProfile) return
@@ -360,11 +433,37 @@ export function StartupDetailPage() {
                   Founders
                 </div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.375rem' }}>
-                  {startup.founders_list.map((founder) => (
-                    <span key={founder.id} className="tag">
-                      {founder.full_name}
-                    </span>
-                  ))}
+                  {startup.founders_list.map((founder) => {
+                    const userId = founder.id ?? founder.user_id ?? founder.user ?? null
+                    const founderProfileId =
+                      founder.founder_profile_id ??
+                      founder.profile_id ??
+                      (typeof (founder as Record<string, unknown>).profile === 'object' &&
+                      founder &&
+                      (founder as { profile?: { id?: string | null } }).profile?.id
+                        ? (founder as { profile?: { id?: string | null } }).profile?.id ?? null
+                        : null) ??
+                      (userId ? founderProfileIds[userId] ?? null : null)
+
+                    if (!founderProfileId) {
+                      return (
+                        <span key={`${userId ?? founder.full_name}-fallback`} className="tag">
+                          {founder.full_name}
+                        </span>
+                      )
+                    }
+                    return (
+                      <Link
+                        key={`${founderProfileId}-${userId ?? founder.full_name}`}
+                        to={`/app/founders/${founderProfileId}`}
+                        className="tag"
+                        style={{ textDecoration: 'none' }}
+                        data-testid={`founder-link-${founderProfileId}`}
+                      >
+                        {founder.full_name}
+                      </Link>
+                    )
+                  })}
                 </div>
               </div>
             </div>
