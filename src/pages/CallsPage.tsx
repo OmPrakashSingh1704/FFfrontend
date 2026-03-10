@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
-import { Phone, Video, Mic, MicOff, VideoOff, PhoneOff, RefreshCw, ChevronDown, ChevronUp, Clock } from 'lucide-react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
+import { Phone, Video, Mic, MicOff, VideoOff, PhoneOff, RefreshCw, ChevronDown, ChevronUp, Clock, ArrowLeft } from 'lucide-react'
 import { apiRequest } from '../lib/api'
 import { addActiveCallId, removeActiveCallId } from '../lib/callSession'
 import { buildWsUrl } from '../lib/ws'
@@ -11,6 +11,7 @@ import { useToast } from '../context/ToastContext'
 import type { CallEvent, CallSession } from '../types/call'
 
 export function CallsPage() {
+  const navigate = useNavigate()
   const { pushToast } = useToast()
   const { user } = useAuth()
   const [searchParams] = useSearchParams()
@@ -407,11 +408,24 @@ export function CallsPage() {
           <h1 className="page-title">Calls & Rooms</h1>
           <p className="page-description">Start a focused audio or video call when the thread is ready.</p>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <span className={`status-dot ${wsStatus === 'open' ? 'online' : 'offline'}`} />
-          <span style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))' }}>
-            {wsStatus === 'open' ? 'Signaling live' : 'Signaling offline'}
-          </span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <button
+            className="btn-sm ghost"
+            type="button"
+            onClick={() => {
+              const trimmed = conversationId.trim()
+              navigate(trimmed ? `/app/chat/${trimmed}` : '/app/chat')
+            }}
+          >
+            <ArrowLeft style={{ width: 14, height: 14 }} />
+            Back to chat
+          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <span className={`status-dot ${wsStatus === 'open' ? 'online' : 'offline'}`} />
+            <span style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))' }}>
+              {wsStatus === 'open' ? 'Signaling live' : 'Signaling offline'}
+            </span>
+          </div>
         </div>
       </div>
 
