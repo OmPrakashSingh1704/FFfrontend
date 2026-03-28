@@ -13,6 +13,8 @@ import { useAuth } from '../context/AuthContext'
 import { Page } from '../components/Page'
 import { RealtimeBridge } from '../components/RealtimeBridge'
 import { IncomingCallBridge } from '../components/IncomingCallBridge'
+import { FloatingCallWidget } from '../components/FloatingCallWidget'
+import { CallProvider } from '../context/CallContext'
 import Preloader from '../components/ui/preloader'
 
 const navSections = [
@@ -89,10 +91,12 @@ export function AppShell() {
   }
 
   return (
+    <CallProvider>
     <Page>
       {showPreloader && <Preloader onComplete={handlePreloaderComplete} />}
       <RealtimeBridge />
       <IncomingCallBridge />
+      <FloatingCallWidget />
 
       {/* Sidebar */}
       <aside
@@ -172,5 +176,6 @@ export function AppShell() {
         <Outlet />
       </main>
     </Page>
+    </CallProvider>
   )
 }

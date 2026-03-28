@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { apiRequest } from '../lib/api'
 import { normalizeList } from '../lib/pagination'
+import { useFeatureFlags } from '../context/FeatureFlagsContext'
 import {
   Shield,
   Star,
@@ -30,6 +31,7 @@ type CreditEvent = {
 }
 
 export function TrustPage() {
+  const flags = useFeatureFlags()
   const [status, setStatus] = useState<TrustStatus | null>(null)
   const [events, setEvents] = useState<CreditEvent[]>([])
   const [loading, setLoading] = useState(true)
@@ -95,35 +97,39 @@ export function TrustPage() {
         <>
           {/* Stats Grid */}
           <div className="grid-3 section">
-            <div className="stat-card">
-              <div className="stat-header">
-                <span className="stat-label">League</span>
-                <div className="stat-icon">
-                  <Shield style={{ width: 20, height: 20 }} strokeWidth={1.5} />
+            {flags.leagues && (
+              <div className="stat-card">
+                <div className="stat-header">
+                  <span className="stat-label">League</span>
+                  <div className="stat-icon">
+                    <Shield style={{ width: 20, height: 20 }} strokeWidth={1.5} />
+                  </div>
                 </div>
+                <span className="stat-value" style={{ textTransform: 'capitalize' }}>
+                  {status?.league ?? '\u2014'}
+                </span>
+                <span style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))' }}>
+                  Next threshold: {status?.next_league_threshold ?? '\u2014'}
+                </span>
               </div>
-              <span className="stat-value" style={{ textTransform: 'capitalize' }}>
-                {status?.league ?? '\u2014'}
-              </span>
-              <span style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))' }}>
-                Next threshold: {status?.next_league_threshold ?? '\u2014'}
-              </span>
-            </div>
+            )}
 
-            <div className="stat-card">
-              <div className="stat-header">
-                <span className="stat-label">Credits</span>
-                <div className="stat-icon">
-                  <Star style={{ width: 20, height: 20 }} strokeWidth={1.5} />
+            {flags.credits && (
+              <div className="stat-card">
+                <div className="stat-header">
+                  <span className="stat-label">Credits</span>
+                  <div className="stat-icon">
+                    <Star style={{ width: 20, height: 20 }} strokeWidth={1.5} />
+                  </div>
                 </div>
+                <span className="stat-value">
+                  {status?.credits ?? 0}
+                </span>
+                <span style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))' }}>
+                  Intro limit: {status?.intro_limit ?? '\u2014'}
+                </span>
               </div>
-              <span className="stat-value">
-                {status?.credits ?? 0}
-              </span>
-              <span style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))' }}>
-                Intro limit: {status?.intro_limit ?? '\u2014'}
-              </span>
-            </div>
+            )}
 
             <div className="stat-card">
               <div className="stat-header">
@@ -142,7 +148,7 @@ export function TrustPage() {
           </div>
 
           {/* Credit History Timeline */}
-          <div className="card section">
+          {flags.credits && <div className="card section">
             <div className="card-header">
               <span className="card-title">
                 <Clock style={{ width: 14, height: 14, display: 'inline', verticalAlign: 'middle', marginRight: '0.375rem' }} strokeWidth={1.5} />
@@ -230,7 +236,7 @@ export function TrustPage() {
                 })}
               </div>
             )}
-          </div>
+          </div>}
         </>
       )}
     </div>

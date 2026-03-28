@@ -9,6 +9,7 @@ import {
 import { apiRequest } from '../lib/api'
 import { normalizeList } from '../lib/pagination'
 import { useAuth } from '../context/AuthContext'
+import { useFeatureFlags } from '../context/FeatureFlagsContext'
 import type { TrustStatus } from '../types/trust'
 import type { InvestorStats } from '../types/investor'
 import type { IntroRequest } from '../types/intro'
@@ -48,6 +49,7 @@ function getGreeting() {
 
 export function Dashboard() {
   const { user } = useAuth()
+  const flags = useFeatureFlags()
   const [stats, setStats] = useState<DashboardStats[]>([])
   const [loading, setLoading] = useState(true)
   const [dealFlow, setDealFlow] = useState<IntroRequest[]>([])
@@ -62,7 +64,7 @@ export function Dashboard() {
       try {
         const promises: Promise<unknown>[] = [
           apiRequest<TrustStatus>('/trust/status/'),
-          apiRequest<unknown[]>('/respects/received/'),
+          flags.respects ? apiRequest<unknown[]>('/respects/received/') : Promise.resolve([]),
           apiRequest<unknown[]>('/intros/sent/'),
         ]
 
@@ -93,12 +95,12 @@ export function Dashboard() {
           setDealFlow(dealFlowData.slice(0, 5))
           setPortfolio(portfolioData.slice(0, 5))
         } else {
-          setStats([
-            { label: 'League', value: trustStatus.league ?? '—', icon: Shield },
-            { label: 'Credits', value: trustStatus.credits ?? 0, icon: Target },
-            { label: 'Intros Sent', value: sentIntros.length, icon: Zap },
-            { label: 'Respect', value: respects.length, icon: Heart },
-          ])
+          const founderStats: DashboardStats[] = []
+          if (flags.leagues) founderStats.push({ label: 'League', value: trustStatus.league ?? '—', icon: Shield })
+          if (flags.credits) founderStats.push({ label: 'Credits', value: trustStatus.credits ?? 0, icon: Target })
+          founderStats.push({ label: 'Intros Sent', value: sentIntros.length, icon: Zap })
+          if (flags.respects) founderStats.push({ label: 'Respect', value: respects.length, icon: Heart })
+          setStats(founderStats)
         }
       } catch {
         setStats([])

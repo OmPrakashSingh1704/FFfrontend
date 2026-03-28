@@ -3,6 +3,7 @@ import { Plus, Send, X, ExternalLink, ArrowRight, Clock, Calendar } from 'lucide
 import { apiRequest } from '../lib/api'
 import { normalizeList } from '../lib/pagination'
 import { useToast } from '../context/ToastContext'
+import { useFeatureFlags } from '../context/FeatureFlagsContext'
 import type { IntroRequest, IntroRequestCreate } from '../types/intro'
 import type { StartupListItem } from '../types/startup'
 import type { InvestorProfile } from '../types/investor'
@@ -17,6 +18,7 @@ const statusBadgeClass: Record<string, string> = {
 
 export function IntrosPage() {
   const { pushToast } = useToast()
+  const flags = useFeatureFlags()
   const [tab, setTab] = useState<IntroTab>('sent')
   const [items, setItems] = useState<IntroRequest[]>([])
   const [loading, setLoading] = useState(true)
@@ -316,7 +318,7 @@ export function IntrosPage() {
                 <span className={`badge ${statusBadgeClass[intro.status] || ''}`}>
                   {intro.status}
                 </span>
-                {intro.credits_spent > 0 && tab === 'sent' ? (
+                {flags.credits && intro.credits_spent > 0 && tab === 'sent' ? (
                   <span className="tag">{intro.credits_spent} credits</span>
                 ) : null}
               </div>

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { apiRequest, uploadRequest } from '../lib/api'
 import { resolveMediaUrl } from '../lib/env'
 import { useAuth } from '../context/AuthContext'
+import { useFeatureFlags } from '../context/FeatureFlagsContext'
 import { useToast } from '../context/ToastContext'
 import { normalizeList } from '../lib/pagination'
 import { FormField } from '../components/FormField'
@@ -80,6 +81,7 @@ function formatFileSize(bytes?: number | null): string {
 export function ProfilePage() {
   const { user, refreshUser } = useAuth()
   const { pushToast } = useToast()
+  const flags = useFeatureFlags()
 
   const [editing, setEditing] = useState(false)
   const [fullName, setFullName] = useState(user?.full_name ?? '')
@@ -505,20 +507,24 @@ export function ProfilePage() {
 
           {/* Stats Row */}
           <div className="grid-4">
-            <div className="stat-card">
-              <div className="stat-header">
-                <span className="stat-label">League</span>
-                <div className="stat-icon"><Award size={16} strokeWidth={1.5} /></div>
+            {flags.leagues && (
+              <div className="stat-card">
+                <div className="stat-header">
+                  <span className="stat-label">League</span>
+                  <div className="stat-icon"><Award size={16} strokeWidth={1.5} /></div>
+                </div>
+                <span className="stat-value">{user?.league ?? '--'}</span>
               </div>
-              <span className="stat-value">{user?.league ?? '--'}</span>
-            </div>
-            <div className="stat-card">
-              <div className="stat-header">
-                <span className="stat-label">Credits</span>
-                <div className="stat-icon"><Star size={16} strokeWidth={1.5} /></div>
+            )}
+            {flags.credits && (
+              <div className="stat-card">
+                <div className="stat-header">
+                  <span className="stat-label">Credits</span>
+                  <div className="stat-icon"><Star size={16} strokeWidth={1.5} /></div>
+                </div>
+                <span className="stat-value">{user?.credits ?? 0}</span>
               </div>
-              <span className="stat-value">{user?.credits ?? 0}</span>
-            </div>
+            )}
             <div className="stat-card">
               <div className="stat-header">
                 <span className="stat-label">Member since</span>

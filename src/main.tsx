@@ -5,6 +5,7 @@ import './index.css'
 import App from './App.tsx'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { AuthProvider } from './context/AuthContext'
+import { FeatureFlagsProvider } from './context/FeatureFlagsContext'
 import { ToastProvider } from './context/ToastContext'
 import { ThemeProvider } from './hooks/useTheme'
 import { initMonitoring } from './lib/monitoring'
@@ -26,11 +27,13 @@ createRoot(document.getElementById('root')!).render(
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
         <ErrorBoundary>
-          <AuthProvider>
-            <ToastProvider>
-              <App />
-            </ToastProvider>
-          </AuthProvider>
+          <FeatureFlagsProvider>
+            <AuthProvider>
+              <ToastProvider>
+                <App />
+              </ToastProvider>
+            </AuthProvider>
+          </FeatureFlagsProvider>
         </ErrorBoundary>
       </ThemeProvider>
     </QueryClientProvider>

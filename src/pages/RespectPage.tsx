@@ -3,11 +3,13 @@ import { Heart, Plus, X, Calendar } from 'lucide-react'
 import { apiRequest } from '../lib/api'
 import { normalizeList } from '../lib/pagination'
 import { useToast } from '../context/ToastContext'
+import { useFeatureFlags } from '../context/FeatureFlagsContext'
 import type { RespectReceived, RespectGiven } from '../types/respect'
 import type { PublicUser } from '../types/founder'
 
 export function RespectPage() {
   const { pushToast } = useToast()
+  const flags = useFeatureFlags()
   const [received, setReceived] = useState<RespectReceived[]>([])
   const [given, setGiven] = useState<RespectGiven[]>([])
   const [loading, setLoading] = useState(true)
@@ -112,6 +114,26 @@ export function RespectPage() {
       .join('')
       .toUpperCase()
       .slice(0, 2)
+  }
+
+  if (!flags.respects) {
+    return (
+      <div style={{ padding: '1.5rem' }}>
+        <div className="page-header">
+          <div>
+            <h1 className="page-title">Respect</h1>
+            <p className="page-description">Endorsements and credibility signals in your network.</p>
+          </div>
+        </div>
+        <div className="card" style={{ textAlign: 'center', padding: '3rem 1.5rem' }}>
+          <Heart style={{ width: 32, height: 32, margin: '0 auto 1rem', opacity: 0.3 }} strokeWidth={1.5} />
+          <h3 style={{ fontWeight: 600, marginBottom: '0.5rem' }}>Respect is currently disabled</h3>
+          <p style={{ fontSize: '0.875rem', color: 'hsl(var(--muted-foreground))' }}>
+            This feature has been turned off by the platform administrators.
+          </p>
+        </div>
+      </div>
+    )
   }
 
   return (
