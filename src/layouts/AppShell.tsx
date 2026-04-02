@@ -5,7 +5,7 @@ import {
   Activity, Wallet, Menu, X, Zap, Handshake
 } from 'lucide-react'
 import { useState, useEffect, useCallback } from 'react'
-import logoMark from '../assets/logo-mark.svg'
+import logo from '../assets/logo.svg'
 import { ThemeToggle } from '../components/ThemeToggle'
 import { NotificationDropdown } from '../components/NotificationDropdown'
 import { ProfileDropdown } from '../components/ProfileDropdown'
@@ -108,7 +108,7 @@ export function AppShell() {
         <div className="sidebar-header">
           <Link to={homePath} className="sidebar-logo">
             <span className="logo-mark">
-              <img src={logoMark} alt="" />
+              <img src={logo} alt="FoundersLib logo" />
             </span>
             <span className="logo-name">FoundersLib</span>
           </Link>

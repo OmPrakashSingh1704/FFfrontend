@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
 import { ArrowRight, TrendingUp, Users, MessageSquare, Zap, BarChart3, Lock } from 'lucide-react'
-import logoMark from '../assets/logo-mark.svg'
+import logo from '../assets/logo.svg'
 import { Page } from '../components/Page'
 import { ThemeToggle } from '../components/ThemeToggle'
 import { BackgroundPaths } from '../components/ui/background-paths'
@@ -109,7 +109,7 @@ export function LandingPage() {
       <header className="nav" data-testid="landing-nav">
         <div className="logo">
           <span className="logo-mark">
-            <img src={logoMark} alt="" />
+            <img src={logo} alt="FoundersLib logo" />
           </span>
           FoundersLib
         </div>

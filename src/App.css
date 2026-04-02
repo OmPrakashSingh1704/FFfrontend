@@ -94,14 +94,16 @@
 }
 
 .logo-mark {
-  @apply w-8 h-8 sm:w-10 sm:h-10 rounded-full overflow-hidden grid place-items-center;
-  background: linear-gradient(135deg, #a1a1a1 0%, #737373 100%);
-  border: 1px solid rgba(161, 161, 161, 0.3);
+  @apply w-10 h-10 sm:w-12 sm:h-12 rounded-full overflow-hidden grid place-items-center;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  padding: 0;
 }
 
 .logo-mark img {
-  @apply w-5 h-5 sm:w-6 sm:h-6 object-contain;
-  filter: brightness(0) invert(1);
+  @apply w-full h-full object-contain;
+  filter: none;
 }
 
 .nav-links {
@@ -1103,13 +1105,16 @@
 }
 
 .sidebar-logo .logo-mark {
-  @apply w-8 h-8 rounded-full overflow-hidden grid place-items-center flex-shrink-0;
-  background: linear-gradient(135deg, #a1a1a1 0%, #737373 100%);
+  @apply w-11 h-11 rounded-full overflow-hidden grid place-items-center flex-shrink-0;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  padding: 0;
 }
 
 .sidebar-logo .logo-mark img {
-  @apply w-5 h-5 object-contain;
-  filter: brightness(0) invert(1);
+  @apply w-full h-full object-contain;
+  filter: none;
 }
 
 /* Sidebar navigation */

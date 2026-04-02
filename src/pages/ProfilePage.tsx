@@ -119,6 +119,7 @@ export function ProfilePage() {
 
   const avatarUrl = resolveMediaUrl(user?.avatar ?? user?.picture ?? user?.avatar_url)
   const backgroundUrl = resolveMediaUrl(user?.background_picture)
+  const hasBackground = Boolean(backgroundUrl)
 
   // Load shareable profile IDs
   useEffect(() => {
@@ -382,6 +383,12 @@ export function ProfilePage() {
     .slice(0, 2)
     .toUpperCase()
 
+  const headerTextColor = hasBackground ? '#fff' : undefined
+  const headerTextShadow = hasBackground ? '0 2px 8px rgba(0, 0, 0, 0.45)' : undefined
+  const headerSubtleColor = hasBackground ? 'rgba(255, 255, 255, 0.88)' : 'hsl(var(--muted-foreground))'
+  const headerOverlapOffset = hasBackground ? 72 : 32
+  const avatarLift = 16
+
   return (
     <div style={{ maxWidth: 900, margin: '0 auto' }}>
       {/* Page Header */}
@@ -411,10 +418,11 @@ export function ProfilePage() {
         {/* Background banner */}
         <div
           style={{
-            height: 120,
+            height: 170,
             background: backgroundUrl
-              ? `url(${backgroundUrl}) center/cover`
+              ? `linear-gradient(180deg, rgba(0, 0, 0, 0) 45%, rgba(0, 0, 0, 0.7) 100%), url(${backgroundUrl}) center/cover`
               : 'linear-gradient(135deg, hsl(var(--muted)), hsl(var(--card)))',
+            backgroundRepeat: 'no-repeat',
             position: 'relative',
           }}
         >
@@ -443,9 +451,15 @@ export function ProfilePage() {
         </div>
 
         {/* Avatar + Info */}
-        <div style={{ padding: '0 1.5rem 1.5rem', marginTop: -32 }}>
+        <div
+          style={{
+            padding: '0 1.5rem 1.5rem',
+            marginTop: -headerOverlapOffset,
+            paddingTop: headerOverlapOffset,
+          }}
+        >
           <div style={{ display: 'flex', alignItems: 'flex-end', gap: '1rem', marginBottom: '1rem' }}>
-            <div style={{ position: 'relative' }}>
+            <div style={{ position: 'relative', marginTop: -(headerOverlapOffset + avatarLift) }}>
               <div className="avatar xl" style={{ border: '3px solid hsl(var(--card))' }}>
                 {avatarUrl ? (
                   <img src={avatarUrl} alt={user?.full_name ?? 'Avatar'} />
@@ -491,18 +505,26 @@ export function ProfilePage() {
             </div>
 
             <div style={{ flex: 1, paddingBottom: 4 }}>
-              <h2 className="text-xl font-semibold" style={{ marginBottom: 2 }}>
+              <h2
+                className="text-xl font-semibold"
+                style={{ marginBottom: 2, color: headerTextColor, textShadow: headerTextShadow }}
+              >
                 {user?.full_name || 'User'}
               </h2>
-              <p style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'hsl(var(--muted-foreground))', fontSize: '0.875rem' }}>
-                <Mail size={14} strokeWidth={1.5} />
+              <p
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  color: headerSubtleColor,
+                  fontSize: '0.875rem',
+                  textShadow: headerTextShadow,
+                }}
+              >
+                <Mail size={14} strokeWidth={1.5} color={hasBackground ? '#fff' : undefined} />
                 {user?.email}
               </p>
             </div>
-
-            <span className="badge info" style={{ alignSelf: 'center' }}>
-              {user?.role ?? 'Member'}
-            </span>
           </div>
 
           {/* Stats Row */}
