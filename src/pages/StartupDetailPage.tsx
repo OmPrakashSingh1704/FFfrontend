@@ -21,6 +21,7 @@ import {
 } from 'lucide-react'
 import { apiRequest, uploadRequest } from '../lib/api'
 import { resolveMediaUrl } from '../lib/env'
+import { formatLabel } from '../lib/format'
 import { CopyLinkButton } from '../components/CopyLinkButton'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
@@ -332,17 +333,17 @@ export function StartupDetailPage() {
               {startup.industry && (
                 <span className="tag">
                   <Building2 style={{ width: '0.75rem', height: '0.75rem' }} strokeWidth={1.5} />
-                  {startup.industry}
+                  {formatLabel(startup.industry)}
                 </span>
               )}
               {startup.current_stage && (
                 <span className="tag">
                   <TrendingUp style={{ width: '0.75rem', height: '0.75rem' }} strokeWidth={1.5} />
-                  {startup.current_stage}
+                  {formatLabel(startup.current_stage)}
                 </span>
               )}
               {startup.fundraising_status && (
-                <span className="badge warning">{startup.fundraising_status}</span>
+                <span className="badge warning">{formatLabel(startup.fundraising_status)}</span>
               )}
               {(startup.verification_tier ?? 0) >= 2 && (
                 <span
@@ -410,15 +411,15 @@ export function StartupDetailPage() {
               <div className="grid-2">
                 <div>
                   <div className="section-label">Industry</div>
-                  <p style={{ fontSize: '0.875rem' }}>{startup.industry || 'Not specified'}</p>
+                  <p style={{ fontSize: '0.875rem' }}>{formatLabel(startup.industry) || 'Not specified'}</p>
                 </div>
                 <div>
                   <div className="section-label">Stage</div>
-                  <p style={{ fontSize: '0.875rem' }}>{startup.current_stage || 'Not specified'}</p>
+                  <p style={{ fontSize: '0.875rem' }}>{formatLabel(startup.current_stage) || 'Not specified'}</p>
                 </div>
                 <div>
                   <div className="section-label">Fundraising Status</div>
-                  <p style={{ fontSize: '0.875rem' }}>{startup.fundraising_status || 'Not specified'}</p>
+                  <p style={{ fontSize: '0.875rem' }}>{formatLabel(startup.fundraising_status) || 'Not specified'}</p>
                 </div>
               </div>
             </div>

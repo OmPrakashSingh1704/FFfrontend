@@ -15,11 +15,12 @@ export type FundListItem = {
   is_featured?: boolean
   is_sponsored?: boolean
   deadline?: string | null
+  website_url?: string | null
+  application_link?: string | null
+  description?: string | null
 }
 
 export type FundDetail = FundListItem & {
-  description?: string | null
-  website_url?: string | null
   geographies?: string[]
   aum?: number | null
   fund_size?: number | null

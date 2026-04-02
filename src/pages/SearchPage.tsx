@@ -37,17 +37,22 @@ type SearchSuggestion = {
 
 type DiscoverItem = {
   id: string | number
+  // startup / fund fields
   name?: string
-  full_name?: string
   title?: string
   tagline?: string
-  headline?: string
   industry?: string
-  type?: string
   current_stage?: string
   fund_type?: string
   ticket_size_min?: number
   ticket_size_max?: number
+  // founder fields (name lives under user.full_name)
+  user?: { full_name?: string; avatar_url?: string | null }
+  headline?: string
+  // investor fields
+  display_name?: string
+  investor_type?: string
+  fund_name?: string
 }
 
 function buildResultUrl(type: string, id: string, source: Record<string, unknown>): string {
@@ -316,19 +321,21 @@ export function SearchPage() {
                 </Link>
               </div>
               <div className="grid-4">
-                {discoverFounders.map((item) => (
-                  <Link key={item.id} to={`/app/founders/${item.id}`} className="card group">
-                    <div className="flex items-center gap-3 mb-2">
-                      <div className="avatar">
-                        {(item.full_name || item.name || 'U').slice(0, 2).toUpperCase()}
+                {discoverFounders.map((item) => {
+                  const name = item.user?.full_name || item.name || ''
+                  const initials = name ? name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2) : '?'
+                  return (
+                    <Link key={item.id} to={`/app/founders/${item.id}`} className="card group">
+                      <div className="flex items-center gap-3 mb-2">
+                        <div className="avatar">{initials}</div>
+                        <div className="min-w-0">
+                          <h3 className="text-sm font-medium truncate">{name || '—'}</h3>
+                          <p className="text-xs truncate" style={{ color: 'hsl(var(--muted-foreground))' }}>{item.headline || ''}</p>
+                        </div>
                       </div>
-                      <div className="min-w-0">
-                        <h3 className="text-sm font-medium truncate">{item.full_name || item.name || 'Founder'}</h3>
-                        <p className="text-xs truncate" style={{ color: 'hsl(var(--muted-foreground))' }}>{item.headline || ''}</p>
-                      </div>
-                    </div>
-                  </Link>
-                ))}
+                    </Link>
+                  )
+                })}
               </div>
             </section>
           )}
@@ -345,19 +352,21 @@ export function SearchPage() {
                 </Link>
               </div>
               <div className="grid-4">
-                {discoverInvestors.map((item) => (
-                  <Link key={item.id} to={`/app/investors/${item.id}`} className="card group">
-                    <div className="flex items-center gap-3 mb-2">
-                      <div className="avatar">
-                        {(item.full_name || item.name || 'I').slice(0, 2).toUpperCase()}
+                {discoverInvestors.map((item) => {
+                  const name = item.display_name || item.user?.full_name || item.name || ''
+                  const initials = name ? name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2) : '?'
+                  return (
+                    <Link key={item.id} to={`/app/investors/${item.id}`} className="card group">
+                      <div className="flex items-center gap-3 mb-2">
+                        <div className="avatar">{initials}</div>
+                        <div className="min-w-0">
+                          <h3 className="text-sm font-medium truncate">{name || '—'}</h3>
+                          <p className="text-xs truncate" style={{ color: 'hsl(var(--muted-foreground))' }}>{item.headline || item.investor_type || item.fund_name || ''}</p>
+                        </div>
                       </div>
-                      <div className="min-w-0">
-                        <h3 className="text-sm font-medium truncate">{item.full_name || item.name || 'Investor'}</h3>
-                        <p className="text-xs truncate" style={{ color: 'hsl(var(--muted-foreground))' }}>{item.type || ''}</p>
-                      </div>
-                    </div>
-                  </Link>
-                ))}
+                    </Link>
+                  )
+                })}
               </div>
             </section>
           )}

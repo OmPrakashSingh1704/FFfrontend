@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom'
 import { ArrowLeft, MapPin, TrendingUp, ExternalLink, Linkedin, Twitter, Globe, User, Briefcase, Sparkles } from 'lucide-react'
 import { apiRequest } from '../lib/api'
 import { resolveMediaUrl } from '../lib/env'
+import { formatLabel } from '../lib/format'
 import { CopyLinkButton } from '../components/CopyLinkButton'
 import type { FounderProfile } from '../types/founder'
 
@@ -102,11 +103,11 @@ export function FounderDetailPage() {
               {founder.current_stage && (
                 <span className="tag">
                   <TrendingUp style={{ width: '0.75rem', height: '0.75rem' }} strokeWidth={1.5} />
-                  {founder.current_stage}
+                  {formatLabel(founder.current_stage)}
                 </span>
               )}
               {founder.fundraising_status && (
-                <span className="badge warning">{founder.fundraising_status}</span>
+                <span className="badge warning">{formatLabel(founder.fundraising_status)}</span>
               )}
             </div>
           </div>
@@ -140,14 +141,14 @@ export function FounderDetailPage() {
                     <Briefcase style={{ width: '0.875rem', height: '0.875rem' }} strokeWidth={1.5} />
                     Fundraising Status
                   </div>
-                  <p style={{ fontSize: '0.875rem' }}>{founder.fundraising_status || 'Not specified'}</p>
+                  <p style={{ fontSize: '0.875rem' }}>{formatLabel(founder.fundraising_status) || 'Not specified'}</p>
                 </div>
                 <div>
                   <div className="section-label" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                     <TrendingUp style={{ width: '0.875rem', height: '0.875rem' }} strokeWidth={1.5} />
                     Stage
                   </div>
-                  <p style={{ fontSize: '0.875rem' }}>{founder.current_stage || 'Not specified'}</p>
+                  <p style={{ fontSize: '0.875rem' }}>{formatLabel(founder.current_stage) || 'Not specified'}</p>
                 </div>
               </div>
             </div>

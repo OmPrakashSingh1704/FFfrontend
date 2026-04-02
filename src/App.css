@@ -4768,6 +4768,10 @@ img.profile-avatar-lg {
   color: white;
 }
 
+[data-theme="dark"] .btn-sm.primary {
+  color: #0a0a0a;
+}
+
 .btn-sm.primary:hover {
   filter: brightness(1.1);
 }

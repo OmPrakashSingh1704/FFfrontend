@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { User, Settings, HelpCircle, CreditCard, Bell, LogOut, ChevronDown } from 'lucide-react'
+import { User, Settings, HelpCircle, Bell, LogOut, ChevronDown } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { resolveMediaUrl } from '../lib/env'
 
@@ -86,14 +86,6 @@ export function ProfileDropdown() {
             >
               <Bell className="w-4 h-4" />
               Notifications
-            </Link>
-            <Link 
-              to="/app/billing" 
-              className="profile-menu-item"
-              onClick={() => setIsOpen(false)}
-            >
-              <CreditCard className="w-4 h-4" />
-              Billing
             </Link>
             <Link
               to="/app/help"

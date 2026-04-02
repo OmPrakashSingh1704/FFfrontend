@@ -1,14 +1,16 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Briefcase, Building2, TrendingUp } from 'lucide-react'
+import { Briefcase, Building2, TrendingUp, Search, X } from 'lucide-react'
 import { apiRequest } from '../lib/api'
 import { normalizeList } from '../lib/pagination'
+import { formatLabel } from '../lib/format'
 import type { StartupListItem } from '../types/startup'
 
 export function StartupsListPage() {
   const [startups, setStartups] = useState<StartupListItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [search, setSearch] = useState('')
 
   useEffect(() => {
     let cancelled = false
@@ -37,6 +39,21 @@ export function StartupsListPage() {
     }
   }, [])
 
+  const filtered = startups.filter((s) => {
+    if (!search) return true
+    const q = search.toLowerCase()
+    return [
+      s.name,
+      s.tagline,
+      s.industry,
+      s.current_stage,
+      s.fundraising_status,
+      s.headquarters_city,
+      s.headquarters_country,
+      s.revenue_range,
+    ].some((v) => (v ?? '').toLowerCase().includes(q))
+  })
+
   return (
     <div data-testid="startups-list">
       <div className="page-header">
@@ -45,13 +62,34 @@ export function StartupsListPage() {
             Startups
             {!loading && !error && (
               <span className="badge info" style={{ marginLeft: '0.5rem', verticalAlign: 'middle' }}>
-                {startups.length}
+                {search ? `${filtered.length} / ${startups.length}` : startups.length}
               </span>
             )}
           </h1>
           <p className="page-description">Explore the startups raising on FoundersLib.</p>
         </div>
       </div>
+
+      {/* Search */}
+      {!loading && !error && startups.length > 0 && (
+        <div style={{ position: 'relative', marginBottom: '1.25rem' }}>
+          <Search size={15} strokeWidth={1.5} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'hsl(var(--muted-foreground))', pointerEvents: 'none' }} />
+          <input
+            className="input"
+            type="text"
+            placeholder="Search by name, industry, stage, location…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            style={{ paddingLeft: 38, paddingRight: search ? 36 : undefined }}
+            data-testid="startups-search"
+          />
+          {search && (
+            <button onClick={() => setSearch('')} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'hsl(var(--muted-foreground))', padding: 2, display: 'flex' }}>
+              <X size={14} />
+            </button>
+          )}
+        </div>
+      )}
 
       {loading && (
         <div className="empty-state">
@@ -70,9 +108,17 @@ export function StartupsListPage() {
         </div>
       )}
 
-      {!loading && !error && startups.length > 0 && (
+      {!loading && !error && startups.length > 0 && filtered.length === 0 && (
+        <div className="empty-state">
+          <Briefcase className="empty-icon" strokeWidth={1.5} />
+          <h3 className="empty-title">No results</h3>
+          <p className="empty-description">Try a different search term.</p>
+        </div>
+      )}
+
+      {!loading && !error && filtered.length > 0 && (
         <div className="grid-3" data-testid="startups-grid">
-          {startups.map((startup) => (
+          {filtered.map((startup) => (
             <Link
               key={startup.id}
               to={`/app/startups/${startup.id}`}
@@ -103,17 +149,17 @@ export function StartupsListPage() {
                 {startup.industry && (
                   <span className="tag">
                     <Building2 style={{ width: '0.75rem', height: '0.75rem' }} strokeWidth={1.5} />
-                    {startup.industry}
+                    {formatLabel(startup.industry)}
                   </span>
                 )}
                 {startup.current_stage && (
                   <span className="tag">
                     <TrendingUp style={{ width: '0.75rem', height: '0.75rem' }} strokeWidth={1.5} />
-                    {startup.current_stage}
+                    {formatLabel(startup.current_stage)}
                   </span>
                 )}
                 {startup.fundraising_status && (
-                  <span className="badge warning">{startup.fundraising_status}</span>
+                  <span className="badge warning">{formatLabel(startup.fundraising_status)}</span>
                 )}
               </div>
             </Link>

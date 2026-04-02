@@ -2,14 +2,15 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   HelpCircle,
-  MessageSquare,
   BookOpen,
-  Mail,
+  MessageSquarePlus,
   ChevronDown,
   ExternalLink,
   Search,
   Shield,
+  Mail,
 } from 'lucide-react'
+import { FEEDBACK_OPEN_EVENT } from '../components/FeedbackWidget'
 
 type FaqItem = {
   question: string
@@ -75,21 +76,7 @@ export function HelpPage() {
       <div className="section">
         <p className="section-label">Quick Links</p>
         <div className="grid-2">
-          <Link to="/app/chat" className="card" data-testid="help-link-chat" style={{ textDecoration: 'none', color: 'inherit' }}>
-            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-              <div style={{ width: 36, height: 36, borderRadius: 8, background: 'rgba(249, 115, 22, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <MessageSquare size={18} strokeWidth={1.5} style={{ color: 'var(--gold)' }} />
-              </div>
-              <div>
-                <h3 style={{ fontSize: '0.875rem', fontWeight: 600, marginBottom: 4 }}>Live Chat</h3>
-                <p style={{ fontSize: '0.8125rem', color: 'hsl(var(--muted-foreground))', lineHeight: 1.5 }}>
-                  Message our support team directly through the chat.
-                </p>
-              </div>
-            </div>
-          </Link>
-
-          <Link to="/app/settings" className="card" data-testid="help-link-settings" style={{ textDecoration: 'none', color: 'inherit' }}>
+<Link to="/app/settings" className="card" data-testid="help-link-settings" style={{ textDecoration: 'none', color: 'inherit' }}>
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
               <div style={{ width: 36, height: 36, borderRadius: 8, background: 'rgba(249, 115, 22, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                 <Shield size={18} strokeWidth={1.5} style={{ color: 'var(--gold)' }} />
@@ -103,19 +90,25 @@ export function HelpPage() {
             </div>
           </Link>
 
-          <a href="mailto:support@founderslib.com" className="card" data-testid="help-link-email" style={{ textDecoration: 'none', color: 'inherit' }}>
+          <button
+            type="button"
+            className="card"
+            data-testid="help-link-feedback"
+            onClick={() => window.dispatchEvent(new Event(FEEDBACK_OPEN_EVENT))}
+            style={{ textAlign: 'left', cursor: 'pointer', width: '100%' }}
+          >
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
               <div style={{ width: 36, height: 36, borderRadius: 8, background: 'rgba(249, 115, 22, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <Mail size={18} strokeWidth={1.5} style={{ color: 'var(--gold)' }} />
+                <MessageSquarePlus size={18} strokeWidth={1.5} style={{ color: 'var(--gold)' }} />
               </div>
               <div>
-                <h3 style={{ fontSize: '0.875rem', fontWeight: 600, marginBottom: 4 }}>Email Support</h3>
+                <h3 style={{ fontSize: '0.875rem', fontWeight: 600, marginBottom: 4 }}>Send Feedback</h3>
                 <p style={{ fontSize: '0.8125rem', color: 'hsl(var(--muted-foreground))', lineHeight: 1.5 }}>
-                  Send us a detailed message and we'll respond within 24 hours.
+                  Report a bug, request a feature, or share general feedback.
                 </p>
               </div>
             </div>
-          </a>
+          </button>
 
           <div className="card" style={{ position: 'relative' }}>
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
@@ -131,6 +124,20 @@ export function HelpPage() {
             </div>
             <span className="badge info" style={{ position: 'absolute', top: 12, right: 12 }}>Coming soon</span>
           </div>
+
+          <a href="mailto:support@founderslib.com" className="card" data-testid="help-link-email" style={{ textDecoration: 'none', color: 'inherit' }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+              <div style={{ width: 36, height: 36, borderRadius: 8, background: 'rgba(249, 115, 22, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <Mail size={18} strokeWidth={1.5} style={{ color: 'var(--gold)' }} />
+              </div>
+              <div>
+                <h3 style={{ fontSize: '0.875rem', fontWeight: 600, marginBottom: 4 }}>Email Support</h3>
+                <p style={{ fontSize: '0.8125rem', color: 'hsl(var(--muted-foreground))', lineHeight: 1.5 }}>
+                  Reach us at support@founderslib.com for direct help.
+                </p>
+              </div>
+            </div>
+          </a>
         </div>
       </div>
 
@@ -244,10 +251,14 @@ export function HelpPage() {
             Our team is available Monday through Friday, 9 AM - 6 PM EST.
           </p>
         </div>
-        <a href="mailto:support@founderslib.com" className="btn-sm primary" style={{ textDecoration: 'none' }}>
-          <Mail size={14} strokeWidth={1.5} />
-          Contact support
-        </a>
+        <button
+          type="button"
+          className="btn-sm primary"
+          onClick={() => window.dispatchEvent(new Event(FEEDBACK_OPEN_EVENT))}
+        >
+          <MessageSquarePlus size={14} strokeWidth={1.5} />
+          Send feedback
+        </button>
       </div>
     </div>
   )

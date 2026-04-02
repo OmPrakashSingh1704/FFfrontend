@@ -2,7 +2,10 @@ export type PublicUser = {
   id: string
   full_name: string
   avatar_url?: string | null
+  avatar?: string | null
   picture?: string | null
+  background_image?: string | null
+  background_picture?: string | null
   role?: string
   league?: string
 }

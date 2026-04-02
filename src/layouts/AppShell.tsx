@@ -2,7 +2,7 @@ import { Link, Outlet, useLocation } from 'react-router-dom'
 import {
   Home, Users, Briefcase, TrendingUp, MessageSquare, Bell,
   BarChart3, Settings, Search, FileText,
-  Activity, Wallet, Menu, X, Zap, Handshake, ShieldCheck
+  Activity, Wallet, Menu, X, Zap, Handshake
 } from 'lucide-react'
 import { useState, useEffect, useCallback } from 'react'
 import logoMark from '../assets/logo-mark.svg'
@@ -14,6 +14,7 @@ import { Page } from '../components/Page'
 import { RealtimeBridge } from '../components/RealtimeBridge'
 import { IncomingCallBridge } from '../components/IncomingCallBridge'
 import { FloatingCallWidget } from '../components/FloatingCallWidget'
+import { FeedbackWidget } from '../components/FeedbackWidget'
 import { CallProvider } from '../context/CallContext'
 import Preloader from '../components/ui/preloader'
 
@@ -30,8 +31,8 @@ const navSections = [
     label: 'Network',
     items: [
       { path: '/app/founders', label: 'Founders', icon: Users },
-      { path: '/app/startups', label: 'Startups', icon: Briefcase },
       { path: '/app/investors', label: 'Investors', icon: TrendingUp },
+      { path: '/app/startups', label: 'Startups', icon: Briefcase },
       { path: '/app/funds', label: 'Funds', icon: Wallet },
     ],
   },
@@ -40,7 +41,6 @@ const navSections = [
     items: [
       { path: '/app/matching', label: 'Matching', icon: Zap },
       { path: '/app/deals', label: 'Deals', icon: Handshake },
-      { path: '/app/verification', label: 'Verify', icon: ShieldCheck },
       { path: '/app/applications', label: 'Applications', icon: FileText },
       { path: '/app/chat', label: 'Chat', icon: MessageSquare },
       { path: '/app/notifications', label: 'Alerts', icon: Bell },
@@ -59,9 +59,10 @@ export function AppShell() {
   const { status, user } = useAuth()
   const location = useLocation()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
-  const [showPreloader, setShowPreloader] = useState(true)
+  const [showPreloader, setShowPreloader] = useState(() => !localStorage.getItem('ff_preloader_seen'))
 
   const handlePreloaderComplete = useCallback(() => {
+    localStorage.setItem('ff_preloader_seen', '1')
     setShowPreloader(false)
   }, [])
 
@@ -97,6 +98,7 @@ export function AppShell() {
       <RealtimeBridge />
       <IncomingCallBridge />
       <FloatingCallWidget />
+      <FeedbackWidget />
 
       {/* Sidebar */}
       <aside

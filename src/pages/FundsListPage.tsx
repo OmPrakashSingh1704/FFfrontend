@@ -1,9 +1,16 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
-import { Wallet, Building2, Calendar, DollarSign, Gift, Star, ExternalLink, Search, X } from 'lucide-react'
+import { Link, useNavigate } from 'react-router-dom'
+import { Wallet, Building2, Calendar, DollarSign, Gift, Star, ExternalLink, Search, X, CheckCircle2 } from 'lucide-react'
 import { apiRequest } from '../lib/api'
 import { normalizeList } from '../lib/pagination'
+import { formatLabel } from '../lib/format'
+import { useToast } from '../context/ToastContext'
 import type { FundListItem } from '../types/fund'
+
+const PENDING_APPLY_KEY = 'ff_pending_apply'
+const CLAIMED_BENEFITS_KEY = 'ff_claimed_benefits'
+
+type PendingApply = { type: 'fund' | 'benefit'; id: string; name: string }
 
 type Benefit = {
   id: string
@@ -15,6 +22,7 @@ type Benefit = {
   website_url?: string | null
   tags?: string[]
   is_featured?: boolean
+  is_active?: boolean
 }
 
 function getDeadlineInfo(deadline: string | null | undefined): { label: string; urgent: boolean } | null {
@@ -26,6 +34,35 @@ function getDeadlineInfo(deadline: string | null | undefined): { label: string; 
   if (daysLeft < 0) return { label: 'Closed', urgent: false }
   if (daysLeft <= 7) return { label: `${daysLeft}d left`, urgent: true }
   return { label: deadlineDate.toLocaleDateString(), urgent: false }
+}
+
+type FundStatus = { label: string; color: string; bg: string; dot: string }
+
+function getFundStatus(deadline: string | null | undefined, isActive?: boolean): FundStatus {
+  if (isActive === false) return { label: 'Closed', color: '#6b7280', bg: '#6b728015', dot: '#6b7280' }
+  if (!deadline) return { label: 'Open', color: '#22c55e', bg: '#22c55e15', dot: '#22c55e' }
+  const now = new Date()
+  const d = new Date(deadline)
+  const daysLeft = Math.ceil((d.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+  if (daysLeft < 0) return { label: 'Expired', color: '#6b7280', bg: '#6b728015', dot: '#6b7280' }
+  if (daysLeft <= 7) return { label: 'Closing Soon', color: '#f59e0b', bg: '#f59e0b15', dot: '#f59e0b' }
+  if (daysLeft <= 30) return { label: 'Taking Applications', color: '#3b82f6', bg: '#3b82f615', dot: '#3b82f6' }
+  return { label: 'Open', color: '#22c55e', bg: '#22c55e15', dot: '#22c55e' }
+}
+
+function StatusPill({ status }: { status: FundStatus }) {
+  return (
+    <span style={{
+      display: 'inline-flex', alignItems: 'center', gap: 5,
+      padding: '2px 8px', borderRadius: 999, fontSize: '0.6875rem', fontWeight: 600,
+      background: status.bg, color: status.color,
+      border: `1px solid ${status.color}33`,
+      flexShrink: 0,
+    }}>
+      <span style={{ width: 6, height: 6, borderRadius: '50%', background: status.dot, flexShrink: 0 }} />
+      {status.label}
+    </span>
+  )
 }
 
 function formatTicketSize(min: number | null | undefined, max: number | null | undefined): string | null {
@@ -52,8 +89,12 @@ const CATEGORY_COLORS: Record<string, string> = {
   other: '#94a3b8',
 }
 
-function BenefitCard({ benefit }: { benefit: Benefit }) {
+function BenefitCard({ benefit, isClaimed, onClaim }: { benefit: Benefit; isClaimed: boolean; onClaim: (id: string, name: string) => void }) {
   const color = CATEGORY_COLORS[benefit.category?.toLowerCase() ?? 'other'] ?? CATEGORY_COLORS.other
+  const isActive = benefit.is_active !== false
+  const benefitStatus: FundStatus = isActive
+    ? { label: 'Available', color: '#22c55e', bg: '#22c55e15', dot: '#22c55e' }
+    : { label: 'Unavailable', color: '#6b7280', bg: '#6b728015', dot: '#6b7280' }
   return (
     <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
@@ -63,6 +104,7 @@ function BenefitCard({ benefit }: { benefit: Benefit }) {
             <div style={{ fontSize: '0.8125rem', color: 'hsl(var(--muted-foreground))' }}>{benefit.provider}</div>
           )}
         </div>
+        <StatusPill status={benefitStatus} />
         {benefit.is_featured && (
           <span style={{ display: 'flex', alignItems: 'center', gap: 3, padding: '2px 8px', borderRadius: 999, fontSize: '0.6875rem', fontWeight: 600, background: '#f59e0b22', color: '#f59e0b', border: '1px solid #f59e0b44', flexShrink: 0 }}>
             <Star size={10} /> Featured
@@ -90,13 +132,19 @@ function BenefitCard({ benefit }: { benefit: Benefit }) {
         ))}
       </div>
 
-      {benefit.website_url && (
+      {isClaimed && (
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: '0.8125rem', color: '#22c55e', fontWeight: 500 }}>
+          <CheckCircle2 size={13} /> Claimed
+        </span>
+      )}
+      {!isClaimed && benefit.website_url && (
         <a
           href={benefit.website_url}
           target="_blank"
           rel="noreferrer"
           className="btn-sm ghost"
           style={{ alignSelf: 'flex-start', marginTop: 4 }}
+          onClick={() => onClaim(benefit.id, benefit.title)}
         >
           <ExternalLink size={12} />
           Claim benefit
@@ -109,6 +157,8 @@ function BenefitCard({ benefit }: { benefit: Benefit }) {
 type Tab = 'funds' | 'benefits'
 
 export function FundsListPage() {
+  const { pushToast } = useToast()
+  const navigate = useNavigate()
   const [activeTab, setActiveTab] = useState<Tab>('funds')
 
   // Funds state
@@ -121,9 +171,15 @@ export function FundsListPage() {
   const [benefitsLoading, setBenefitsLoading] = useState(false)
   const [benefitsLoaded, setBenefitsLoaded] = useState(false)
   const [benefitsError, setBenefitsError] = useState<string | null>(null)
+  const [fundsSearch, setFundsSearch] = useState('')
   const [search, setSearch] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('')
   const [featuredOnly, setFeaturedOnly] = useState(false)
+
+  // Apply tracking state
+  const [appliedFundIds, setAppliedFundIds] = useState<Set<string>>(new Set())
+  const [claimedBenefitIds, setClaimedBenefitIds] = useState<Set<string>>(new Set())
+  const [pendingDialog, setPendingDialog] = useState<PendingApply | null>(null)
 
   // Load funds on mount
   useEffect(() => {
@@ -166,6 +222,81 @@ export function FundsListPage() {
     void load()
     return () => { cancelled = true }
   }, [activeTab, benefitsLoaded])
+
+  // Pre-load applied fund IDs from existing applications
+  useEffect(() => {
+    apiRequest<{ results: { fund: string }[] } | { fund: string }[]>('/applications/')
+      .then((data) => {
+        const ids = new Set(normalizeList(data).map((a) => a.fund))
+        setAppliedFundIds(ids)
+      })
+      .catch(() => {})
+  }, [])
+
+  // Pre-load claimed benefit IDs from localStorage
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(CLAIMED_BENEFITS_KEY)
+      if (raw) setClaimedBenefitIds(new Set(JSON.parse(raw) as string[]))
+    } catch {}
+  }, [])
+
+  // Show "Did you apply?" dialog when tab regains focus
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.hidden) return
+      const raw = sessionStorage.getItem(PENDING_APPLY_KEY)
+      if (!raw) return
+      try {
+        setPendingDialog(JSON.parse(raw) as PendingApply)
+      } catch {}
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => document.removeEventListener('visibilitychange', onVisible)
+  }, [])
+
+  const trackExternalApply = (type: 'fund' | 'benefit', id: string, name: string) => {
+    sessionStorage.setItem(PENDING_APPLY_KEY, JSON.stringify({ type, id, name }))
+  }
+
+  const handleDialogConfirm = async () => {
+    if (!pendingDialog) return
+    sessionStorage.removeItem(PENDING_APPLY_KEY)
+    const { type, id, name } = pendingDialog
+    setPendingDialog(null)
+    if (type === 'fund') {
+      try {
+        await apiRequest('/applications/', { method: 'POST', body: { fund: id } })
+        setAppliedFundIds((prev) => new Set([...prev, id]))
+        pushToast(`Application to "${name}" recorded!`, 'success')
+      } catch {
+        pushToast('Could not record application.', 'error')
+      }
+    } else {
+      const claimed = [...claimedBenefitIds, id]
+      localStorage.setItem(CLAIMED_BENEFITS_KEY, JSON.stringify(claimed))
+      setClaimedBenefitIds(new Set(claimed))
+      pushToast(`"${name}" marked as claimed.`, 'success')
+    }
+  }
+
+  const handleDialogDismiss = () => {
+    sessionStorage.removeItem(PENDING_APPLY_KEY)
+    setPendingDialog(null)
+  }
+
+  // Derive filtered funds
+  const filteredFunds = funds.filter((f) => {
+    if (!fundsSearch) return true
+    const q = fundsSearch.toLowerCase()
+    return [
+      f.name,
+      f.organization,
+      f.fund_type,
+      f.opportunity_type,
+      f.description,
+    ].some((v) => (v ?? '').toLowerCase().includes(q))
+  })
 
   // Derive filtered benefits
   const categories = [...new Set(benefits.map((b) => b.category).filter(Boolean))] as string[]
@@ -214,7 +345,9 @@ export function FundsListPage() {
           <Wallet size={14} strokeWidth={1.5} style={{ display: 'inline', verticalAlign: -2, marginRight: 6 }} />
           Funds
           {!fundsLoading && !fundsError && (
-            <span className="badge" style={{ marginLeft: 6, verticalAlign: 'middle' }}>{funds.length}</span>
+            <span className="badge" style={{ marginLeft: 6, verticalAlign: 'middle' }}>
+              {fundsSearch ? `${filteredFunds.length} / ${funds.length}` : funds.length}
+            </span>
           )}
         </button>
         <button style={tabStyle('benefits')} onClick={() => setActiveTab('benefits')} data-testid="tab-benefits">
@@ -229,6 +362,27 @@ export function FundsListPage() {
       {/* ── Funds Tab ── */}
       {activeTab === 'funds' && (
         <>
+          {/* Funds Search */}
+          {!fundsLoading && !fundsError && funds.length > 0 && (
+            <div style={{ position: 'relative', marginBottom: '1.25rem' }}>
+              <Search size={15} strokeWidth={1.5} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'hsl(var(--muted-foreground))', pointerEvents: 'none' }} />
+              <input
+                className="input"
+                type="text"
+                placeholder="Search by name, type, opportunity…"
+                value={fundsSearch}
+                onChange={(e) => setFundsSearch(e.target.value)}
+                style={{ paddingLeft: 38, paddingRight: fundsSearch ? 36 : undefined }}
+                data-testid="funds-search"
+              />
+              {fundsSearch && (
+                <button onClick={() => setFundsSearch('')} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'hsl(var(--muted-foreground))', padding: 2, display: 'flex' }}>
+                  <X size={14} />
+                </button>
+              )}
+            </div>
+          )}
+
           {fundsLoading && (
             <div className="empty-state">
               <Wallet className="empty-icon" strokeWidth={1.5} />
@@ -243,20 +397,31 @@ export function FundsListPage() {
               <p className="empty-description">Check back soon!</p>
             </div>
           )}
-          {!fundsLoading && !fundsError && funds.length > 0 && (
+          {!fundsLoading && !fundsError && funds.length > 0 && filteredFunds.length === 0 && (
+            <div className="empty-state">
+              <Wallet className="empty-icon" strokeWidth={1.5} />
+              <h3 className="empty-title">No results</h3>
+              <p className="empty-description">Try a different search term.</p>
+            </div>
+          )}
+          {!fundsLoading && !fundsError && filteredFunds.length > 0 && (
             <div className="grid-3" data-testid="funds-grid">
-              {funds.map((fund) => {
+              {filteredFunds.map((fund) => {
                 const deadlineInfo = getDeadlineInfo(fund.deadline)
                 const ticketSize = formatTicketSize(fund.min_ticket_size, fund.max_ticket_size)
+                const status = getFundStatus(fund.deadline)
                 return (
-                  <Link
+                  <div
                     key={fund.id}
-                    to={`/app/funds/${fund.id}`}
                     className="card"
-                    style={{ textDecoration: 'none', color: 'inherit', display: 'block' }}
+                    style={{ cursor: 'pointer', display: 'block' }}
+                    onClick={() => navigate(`/app/funds/${fund.id}`)}
                     data-testid={`fund-card-${fund.id}`}
                   >
-                    <div style={{ fontWeight: 500, fontSize: '1rem', marginBottom: '0.25rem' }}>{fund.name}</div>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '0.5rem', marginBottom: '0.25rem' }}>
+                      <div style={{ fontWeight: 500, fontSize: '1rem' }}>{fund.name}</div>
+                      <StatusPill status={status} />
+                    </div>
                     {fund.organization && (
                       <p style={{ fontSize: '0.875rem', color: 'hsl(var(--muted-foreground))', marginBottom: '0.75rem' }}>
                         {fund.organization}
@@ -266,12 +431,12 @@ export function FundsListPage() {
                       {fund.fund_type && (
                         <span className="tag">
                           <Building2 style={{ width: '0.75rem', height: '0.75rem' }} strokeWidth={1.5} />
-                          {fund.fund_type}
+                          {formatLabel(fund.fund_type)}
                         </span>
                       )}
-                      {fund.opportunity_type && <span className="tag">{fund.opportunity_type}</span>}
+                      {fund.opportunity_type && <span className="tag">{formatLabel(fund.opportunity_type)}</span>}
                     </div>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.375rem' }}>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.375rem', marginBottom: '0.75rem' }}>
                       {ticketSize && (
                         <span className="badge" style={{ gap: '0.25rem', display: 'inline-flex', alignItems: 'center' }}>
                           <DollarSign style={{ width: '0.75rem', height: '0.75rem' }} strokeWidth={1.5} />
@@ -285,7 +450,48 @@ export function FundsListPage() {
                         </span>
                       )}
                     </div>
-                  </Link>
+
+                    <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }} onClick={(e) => e.stopPropagation()}>
+                      {appliedFundIds.has(fund.id) ? (
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: '0.75rem', color: '#22c55e', fontWeight: 500 }}>
+                          <CheckCircle2 size={12} /> Applied
+                        </span>
+                      ) : fund.application_link ? (
+                        <a
+                          href={fund.application_link}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="btn-sm primary"
+                          style={{ fontSize: '0.75rem' }}
+                          onClick={() => trackExternalApply('fund', fund.id, fund.name)}
+                        >
+                          <ExternalLink style={{ width: 12, height: 12 }} />
+                          Apply now
+                        </a>
+                      ) : (
+                        <button
+                          type="button"
+                          className="btn-sm primary"
+                          style={{ fontSize: '0.75rem' }}
+                          onClick={() => navigate(`/app/funds/${fund.id}`)}
+                        >
+                          Apply
+                        </button>
+                      )}
+                      {fund.website_url && (
+                        <a
+                          href={fund.website_url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="btn-sm ghost"
+                          style={{ fontSize: '0.75rem' }}
+                        >
+                          <ExternalLink style={{ width: 12, height: 12 }} />
+                          Website
+                        </a>
+                      )}
+                    </div>
+                  </div>
                 )
               })}
             </div>
@@ -357,11 +563,40 @@ export function FundsListPage() {
           {!benefitsLoading && !benefitsError && filtered.length > 0 && (
             <div className="grid-3" data-testid="benefits-grid">
               {filtered.map((benefit) => (
-                <BenefitCard key={benefit.id} benefit={benefit} />
+                <BenefitCard
+                  key={benefit.id}
+                  benefit={benefit}
+                  isClaimed={claimedBenefitIds.has(benefit.id)}
+                  onClaim={(id, name) => trackExternalApply('benefit', id, name)}
+                />
               ))}
             </div>
           )}
         </>
+      )}
+
+      {/* "Did you apply/claim?" dialog */}
+      {pendingDialog && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+          <div className="card" style={{ maxWidth: 420, width: '90%', padding: '1.5rem' }}>
+            <h3 style={{ fontWeight: 600, marginBottom: '0.5rem' }}>
+              {pendingDialog.type === 'fund' ? 'Did you apply?' : 'Did you claim this?'}
+            </h3>
+            <p style={{ fontSize: '0.875rem', color: 'hsl(var(--muted-foreground))', marginBottom: '1.25rem' }}>
+              {pendingDialog.type === 'fund'
+                ? <><strong>{pendingDialog.name}</strong> — did you submit an application?</>
+                : <><strong>{pendingDialog.name}</strong> — did you claim this benefit?</>
+              }
+            </p>
+            <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
+              <button type="button" className="btn-sm ghost" onClick={handleDialogDismiss}>No</button>
+              <button type="button" className="btn-sm primary" onClick={() => void handleDialogConfirm()}>
+                <CheckCircle2 size={13} />
+                Yes
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )

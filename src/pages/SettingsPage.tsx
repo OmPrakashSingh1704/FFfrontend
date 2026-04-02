@@ -154,6 +154,11 @@ export function SettingsPage() {
   const [loadingPrefs, setLoadingPrefs] = useState(true)
   const [savingPrefs, setSavingPrefs] = useState(false)
 
+  // Privacy settings
+  const [privacy, setPrivacy] = useState({ profile_visible: true, search_indexed: true })
+  const [loadingPrivacy, setLoadingPrivacy] = useState(true)
+  const [savingPrivacy, setSavingPrivacy] = useState<string | null>(null)
+
   // Connected accounts
   const [accounts, setAccounts] = useState<ConnectedAccount[]>([])
   const [loadingAccounts, setLoadingAccounts] = useState(true)
@@ -234,9 +239,22 @@ export function SettingsPage() {
       }
     }
 
+    const loadPrivacy = async () => {
+      setLoadingPrivacy(true)
+      try {
+        const data = await apiRequest<{ profile_visible: boolean; search_indexed: boolean }>('/users/me/privacy/')
+        if (!cancelled) setPrivacy(data)
+      } catch {
+        // Use defaults
+      } finally {
+        if (!cancelled) setLoadingPrivacy(false)
+      }
+    }
+
     void loadPrefs()
     void loadAccounts()
     void loadAvailable()
+    void loadPrivacy()
     return () => { cancelled = true }
   }, [])
 
@@ -432,6 +450,21 @@ export function SettingsPage() {
 
   const togglePref = (key: keyof NotificationPreferences) => {
     setPrefs((prev) => ({ ...prev, [key]: !prev[key] }))
+  }
+
+  const handleTogglePrivacy = async (key: 'profile_visible' | 'search_indexed') => {
+    const nextValue = !privacy[key]
+    setPrivacy((prev) => ({ ...prev, [key]: nextValue }))
+    setSavingPrivacy(key)
+    try {
+      await apiRequest('/users/me/privacy/', { method: 'PATCH', body: { [key]: nextValue } })
+    } catch {
+      // Revert on failure
+      setPrivacy((prev) => ({ ...prev, [key]: !nextValue }))
+      pushToast('Failed to save privacy setting', 'error')
+    } finally {
+      setSavingPrivacy(null)
+    }
   }
 
   // Platforms the user hasn't connected yet
@@ -835,27 +868,59 @@ export function SettingsPage() {
           <div className="card-header">
             <span className="card-title">Privacy Settings</span>
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column' }}>
-            <div className="list-item" style={{ justifyContent: 'space-between' }}>
-              <div>
-                <span style={{ display: 'block', fontWeight: 500, fontSize: '0.875rem' }}>Profile visibility</span>
-                <span style={{ display: 'block', fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))' }}>Control who can see your profile</span>
-              </div>
-              <div className="toggle-switch active" role="switch" aria-checked={true}>
-                <span className="toggle-dot" />
-              </div>
+          {loadingPrivacy ? (
+            <div className="empty-state" style={{ padding: '2rem 0' }}>
+              <Loader2 size={20} className="animate-spin" style={{ color: 'hsl(var(--muted-foreground))' }} />
+              <span className="empty-description">Loading privacy settings...</span>
             </div>
-            <hr className="divider" style={{ margin: 0 }} />
-            <div className="list-item" style={{ justifyContent: 'space-between' }}>
-              <div>
-                <span style={{ display: 'block', fontWeight: 500, fontSize: '0.875rem' }}>Search indexing</span>
-                <span style={{ display: 'block', fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))' }}>Allow your profile to appear in search results</span>
-              </div>
-              <div className="toggle-switch active" role="switch" aria-checked={true}>
-                <span className="toggle-dot" />
-              </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              {(
+                [
+                  {
+                    key: 'profile_visible' as const,
+                    label: 'Profile visibility',
+                    desc: 'Make your profile visible to other users on the platform',
+                  },
+                  {
+                    key: 'search_indexed' as const,
+                    label: 'Search indexing',
+                    desc: 'Allow your profile to appear in search results',
+                  },
+                ] as const
+              ).map((item, i) => {
+                const isOn = privacy[item.key]
+                const isSaving = savingPrivacy === item.key
+                return (
+                  <div key={item.key}>
+                    {i > 0 && <hr className="divider" style={{ margin: 0 }} />}
+                    <div
+                      className="list-item"
+                      data-testid={`toggle-${item.key}`}
+                      onClick={() => !isSaving && void handleTogglePrivacy(item.key)}
+                      style={{ justifyContent: 'space-between', cursor: isSaving ? 'wait' : 'pointer' }}
+                    >
+                      <div>
+                        <span style={{ display: 'block', fontWeight: 500, fontSize: '0.875rem' }}>{item.label}</span>
+                        <span style={{ display: 'block', fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))' }}>{item.desc}</span>
+                      </div>
+                      {isSaving ? (
+                        <Loader2 size={16} className="animate-spin" style={{ color: 'hsl(var(--muted-foreground))', flexShrink: 0 }} />
+                      ) : (
+                        <div
+                          className={`toggle-switch${isOn ? ' active' : ''}`}
+                          role="switch"
+                          aria-checked={isOn}
+                        >
+                          <span className="toggle-dot" />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
             </div>
-          </div>
+          )}
         </div>
       )}
 

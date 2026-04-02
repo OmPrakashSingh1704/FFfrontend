@@ -4,7 +4,7 @@ import { normalizeList } from '../lib/pagination'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 import { resolveMediaUrl } from '../lib/env'
-import { RefreshCw, TrendingUp, Briefcase, Star, Loader2, ChevronRight } from 'lucide-react'
+import { TrendingUp, Briefcase, Star, Loader2, ChevronRight, Zap } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
 type ScoreBreakdown = {
@@ -48,10 +48,9 @@ type StartupMatch = {
 }
 
 const CLASSIFICATION_COLORS: Record<string, string> = {
-  excellent: '#22c55e',
-  good: '#84cc16',
-  fair: '#f59e0b',
-  poor: '#ef4444',
+  strong: '#22c55e',
+  moderate: '#f59e0b',
+  weak: '#ef4444',
 }
 
 function ScoreBadge({ score, classification }: { score: number; classification: string }) {
@@ -107,18 +106,17 @@ export function MatchingPage() {
   const [investorMatches, setInvestorMatches] = useState<InvestorMatch[]>([])
   const [startupMatches, setStartupMatches] = useState<StartupMatch[]>([])
   const [loading, setLoading] = useState(true)
-  const [refreshing, setRefreshing] = useState(false)
   const [expandedId, setExpandedId] = useState<string | null>(null)
 
   const fetchMatches = async () => {
     setLoading(true)
     try {
       if (isFounder) {
-        const data = await apiRequest<InvestorMatch[] | { results: InvestorMatch[] }>('/match/investors/')
+        const data = await apiRequest<{ results: InvestorMatch[] } | InvestorMatch[]>('/match/knn/investors/')
         setInvestorMatches(normalizeList(data))
       }
       if (isInvestor) {
-        const data = await apiRequest<StartupMatch[] | { results: StartupMatch[] }>('/match/startups/')
+        const data = await apiRequest<{ results: StartupMatch[] } | StartupMatch[]>('/match/knn/startups/')
         setStartupMatches(normalizeList(data))
       }
     } catch {
@@ -133,35 +131,17 @@ export function MatchingPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const handleRefresh = async () => {
-    setRefreshing(true)
-    try {
-      await apiRequest('/match/refresh/', { method: 'POST' })
-      pushToast('Match scores refreshed', 'success')
-      await fetchMatches()
-    } catch {
-      pushToast('Refresh failed', 'error')
-    } finally {
-      setRefreshing(false)
-    }
-  }
-
   return (
     <div style={{ maxWidth: 900, margin: '0 auto' }}>
       <div className="page-header">
         <div>
           <h1 className="page-title">Matching</h1>
-          <p className="page-description">AI-powered compatibility scores between founders and investors.</p>
+          <p className="page-description">Real-time KNN compatibility scores using cosine vector similarity.</p>
         </div>
-        <button
-          className="btn-sm ghost"
-          type="button"
-          onClick={() => void handleRefresh()}
-          disabled={refreshing || loading}
-        >
-          <RefreshCw size={14} strokeWidth={1.5} style={{ animation: refreshing ? 'spin 1s linear infinite' : undefined }} />
-          Refresh scores
-        </button>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 999, fontSize: '0.75rem', fontWeight: 600, background: '#22c55e18', color: '#22c55e', border: '1px solid #22c55e33' }}>
+          <Zap size={11} />
+          Live
+        </span>
       </div>
 
       {loading ? (

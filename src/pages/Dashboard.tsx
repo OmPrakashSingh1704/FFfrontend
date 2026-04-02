@@ -2,9 +2,9 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   Activity, Users, Briefcase, TrendingUp, Bell,
-  Search, FileText, Upload, Wallet, ArrowRight,
+  Search, FileText, Wallet, ArrowRight,
   Zap, Target, Shield, Heart, CheckCircle, FolderHeart,
-  Calendar, Handshake, ShieldCheck
+  Calendar, Handshake
 } from 'lucide-react'
 import { apiRequest } from '../lib/api'
 import { normalizeList } from '../lib/pagination'
@@ -17,7 +17,6 @@ import type { StartupListItem } from '../types/startup'
 
 const quickActions = [
   { path: '/app/feed', label: 'View feed', icon: Activity, description: 'Latest updates from your network' },
-  { path: '/app/intros', label: 'Manage intros', icon: Users, description: 'Track warm introductions' },
   { path: '/app/notifications', label: 'Notifications', icon: Bell, description: 'Stay on top of updates' },
   { path: '/app/search', label: 'Search', icon: Search, description: 'Find founders & investors' },
 ]
@@ -29,9 +28,7 @@ const browseLinks = [
   { path: '/app/funds', label: 'Funds', icon: Wallet },
   { path: '/app/matching', label: 'Matching', icon: Zap },
   { path: '/app/deals', label: 'Deals', icon: Handshake },
-  { path: '/app/verification', label: 'Verification', icon: ShieldCheck },
   { path: '/app/applications', label: 'Applications', icon: FileText },
-  { path: '/app/uploads', label: 'Files', icon: Upload },
 ]
 
 type DashboardStats = {

@@ -11,7 +11,7 @@ export type InvestorStats = {
 
 export type InvestorProfile = {
   id: string
-  user?: { id: string; full_name?: string; avatar_url?: string | null; picture?: string | null }
+  user?: { id: string; full_name?: string; avatar_url?: string | null; avatar?: string | null; picture?: string | null; background_image?: string | null; background_picture?: string | null }
   display_name: string
   fund_name?: string | null
   investor_type?: string | null

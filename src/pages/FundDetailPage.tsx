@@ -1,5 +1,32 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
+
+type FundStatus = { label: string; color: string; bg: string; dot: string }
+
+function getFundStatus(deadline: string | null | undefined, isActive?: boolean): FundStatus {
+  if (isActive === false) return { label: 'Closed', color: '#6b7280', bg: '#6b728015', dot: '#6b7280' }
+  if (!deadline) return { label: 'Open', color: '#22c55e', bg: '#22c55e15', dot: '#22c55e' }
+  const now = new Date()
+  const d = new Date(deadline)
+  const daysLeft = Math.ceil((d.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+  if (daysLeft < 0) return { label: 'Expired', color: '#6b7280', bg: '#6b728015', dot: '#6b7280' }
+  if (daysLeft <= 7) return { label: 'Closing Soon', color: '#f59e0b', bg: '#f59e0b15', dot: '#f59e0b' }
+  if (daysLeft <= 30) return { label: 'Taking Applications', color: '#3b82f6', bg: '#3b82f615', dot: '#3b82f6' }
+  return { label: 'Open', color: '#22c55e', bg: '#22c55e15', dot: '#22c55e' }
+}
+
+function StatusPill({ status }: { status: FundStatus }) {
+  return (
+    <span style={{
+      display: 'inline-flex', alignItems: 'center', gap: 5,
+      padding: '3px 10px', borderRadius: 999, fontSize: '0.75rem', fontWeight: 600,
+      background: status.bg, color: status.color, border: `1px solid ${status.color}33`,
+    }}>
+      <span style={{ width: 7, height: 7, borderRadius: '50%', background: status.dot }} />
+      {status.label}
+    </span>
+  )
+}
 import {
   ArrowLeft,
   Building2,
@@ -8,30 +35,36 @@ import {
   TrendingUp,
   Target,
   Globe,
-  ExternalLink,
   User,
   Wallet,
   Send,
   Bookmark,
   BookmarkCheck,
   Loader2,
+  CheckCircle2,
 } from 'lucide-react'
 import { apiRequest } from '../lib/api'
+import { formatLabel } from '../lib/format'
 import { normalizeList } from '../lib/pagination'
 import { Markdown } from '../components/Markdown'
 import { useToast } from '../context/ToastContext'
 import type { FundDetail } from '../types/fund'
 
+const PENDING_APPLY_KEY = 'ff_pending_apply'
+type PendingApply = { type: 'fund' | 'benefit'; id: string; name: string }
+
 type SavedFundEntry = { id: string; fund: { id: string } }
 
 export function FundDetailPage() {
   const { id } = useParams()
-  const { pushToast } = useToast()
+const { pushToast } = useToast()
   const [fund, setFund] = useState<FundDetail | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [savedEntryId, setSavedEntryId] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  const [isApplied, setIsApplied] = useState(false)
+  const [pendingDialog, setPendingDialog] = useState<PendingApply | null>(null)
 
   useEffect(() => {
     if (!id) return
@@ -65,6 +98,49 @@ export function FundDetailPage() {
     void load()
     return () => { cancelled = true }
   }, [id])
+
+  // Check if already applied
+  useEffect(() => {
+    if (!id) return
+    apiRequest<{ results: { fund: string }[] } | { fund: string }[]>('/applications/')
+      .then((data) => {
+        setIsApplied(normalizeList(data).some((a) => a.fund === id))
+      })
+      .catch(() => {})
+  }, [id])
+
+  // Show "Did you apply?" dialog on tab refocus
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.hidden) return
+      const raw = sessionStorage.getItem(PENDING_APPLY_KEY)
+      if (!raw) return
+      try {
+        const pending = JSON.parse(raw) as PendingApply
+        if (pending.id === id) setPendingDialog(pending)
+      } catch {}
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => document.removeEventListener('visibilitychange', onVisible)
+  }, [id])
+
+  const handleDialogConfirm = async () => {
+    if (!pendingDialog || !id) return
+    sessionStorage.removeItem(PENDING_APPLY_KEY)
+    setPendingDialog(null)
+    try {
+      await apiRequest('/applications/', { method: 'POST', body: { fund: id } })
+      setIsApplied(true)
+      pushToast('Application recorded!', 'success')
+    } catch {
+      pushToast('Could not record application.', 'error')
+    }
+  }
+
+  const handleDialogDismiss = () => {
+    sessionStorage.removeItem(PENDING_APPLY_KEY)
+    setPendingDialog(null)
+  }
 
   const handleSave = async () => {
     if (!fund || !id) return
@@ -125,9 +201,10 @@ export function FundDetailPage() {
           <div className="card" style={{ marginBottom: '1.5rem' }}>
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <h1 style={{ fontSize: '1.25rem', fontWeight: 600, marginBottom: '0.25rem' }}>
-                  {fund.name}
-                </h1>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', flexWrap: 'wrap', marginBottom: '0.25rem' }}>
+                  <h1 style={{ fontSize: '1.25rem', fontWeight: 600, margin: 0 }}>{fund.name}</h1>
+                  <StatusPill status={getFundStatus(fund.deadline, fund.is_active)} />
+                </div>
                 {fund.organization && (
                   <p style={{ fontSize: '0.875rem', color: 'hsl(var(--muted-foreground))', marginBottom: '0.5rem' }}>
                     {fund.organization}
@@ -136,8 +213,8 @@ export function FundDetailPage() {
                 <div style={{ display: 'flex', gap: '0.375rem', flexWrap: 'wrap', marginBottom: fund.description ? '0.75rem' : 0 }}>
                   {fund.is_featured && <span className="badge warning">Featured</span>}
                   {fund.is_sponsored && <span className="badge info">Sponsored</span>}
-                  {fund.fund_type && <span className="tag"><Building2 size={11} strokeWidth={1.5} />{fund.fund_type}</span>}
-                  {fund.opportunity_type && <span className="tag">{fund.opportunity_type}</span>}
+                  {fund.fund_type && <span className="tag"><Building2 size={11} strokeWidth={1.5} />{formatLabel(fund.fund_type)}</span>}
+                  {fund.opportunity_type && <span className="tag">{formatLabel(fund.opportunity_type)}</span>}
                 </div>
                 {fund.description && <Markdown>{fund.description}</Markdown>}
               </div>
@@ -160,16 +237,50 @@ export function FundDetailPage() {
                   )}
                   {fund.is_saved ? 'Saved' : 'Save'}
                 </button>
-                {fund.application_link && (
+                {fund.website_url && (
+                  <a
+                    href={fund.website_url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="btn-sm ghost"
+                  >
+                    <Globe style={{ width: '0.875rem', height: '0.875rem' }} strokeWidth={1.5} />
+                    Website
+                  </a>
+                )}
+                {isApplied ? (
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: '0.875rem', color: '#22c55e', fontWeight: 500 }}>
+                    <CheckCircle2 size={15} /> Applied
+                  </span>
+                ) : fund.application_link ? (
                   <a
                     href={fund.application_link}
                     target="_blank"
                     rel="noreferrer"
                     className="btn-sm primary"
+                    onClick={() => sessionStorage.setItem(PENDING_APPLY_KEY, JSON.stringify({ type: 'fund', id, name: fund.name }))}
                   >
                     <Send style={{ width: '0.875rem', height: '0.875rem' }} strokeWidth={1.5} />
                     Apply Now
                   </a>
+                ) : (
+                  <button
+                    className="btn-sm primary"
+                    type="button"
+                    onClick={() => void (async () => {
+                      try {
+                        await apiRequest('/applications/', { method: 'POST', body: { fund: id } })
+                        setIsApplied(true)
+                        pushToast('Application submitted!', 'success')
+                      } catch {
+                        pushToast('Could not submit application.', 'error')
+                      }
+                    })()}
+                    data-testid="apply-fund-btn"
+                  >
+                    <Send style={{ width: '0.875rem', height: '0.875rem' }} strokeWidth={1.5} />
+                    Apply
+                  </button>
                 )}
               </div>
             </div>
@@ -191,14 +302,14 @@ export function FundDetailPage() {
                     <TrendingUp style={{ width: '0.875rem', height: '0.875rem' }} strokeWidth={1.5} />
                     Stages
                   </div>
-                  <p style={{ fontSize: '0.875rem' }}>{fund.stages?.join(', ') || 'Not specified'}</p>
+                  <p style={{ fontSize: '0.875rem' }}>{fund.stages?.map(formatLabel).join(', ') || 'Not specified'}</p>
                 </div>
                 <div>
                   <div className="section-label" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                     <Target style={{ width: '0.875rem', height: '0.875rem' }} strokeWidth={1.5} />
                     Industries
                   </div>
-                  <p style={{ fontSize: '0.875rem' }}>{fund.industries?.join(', ') || 'Not specified'}</p>
+                  <p style={{ fontSize: '0.875rem' }}>{fund.industries?.map(formatLabel).join(', ') || 'Not specified'}</p>
                 </div>
                 <div>
                   <div className="section-label" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -273,33 +384,26 @@ export function FundDetailPage() {
             </div>
           )}
 
-          {/* Links */}
-          {(fund.website_url || fund.application_link) && (
-            <div className="section">
-              <div className="card">
-                <div className="section-label" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <Globe style={{ width: '0.875rem', height: '0.875rem' }} strokeWidth={1.5} />
-                  Links
-                </div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
-                  {fund.website_url && (
-                    <a href={fund.website_url} target="_blank" rel="noreferrer" className="btn-sm ghost">
-                      <Globe style={{ width: '0.875rem', height: '0.875rem' }} strokeWidth={1.5} />
-                      Website
-                      <ExternalLink style={{ width: '0.625rem', height: '0.625rem', opacity: 0.5 }} strokeWidth={1.5} />
-                    </a>
-                  )}
-                  {fund.application_link && (
-                    <a href={fund.application_link} target="_blank" rel="noreferrer" className="btn-sm primary">
-                      <Send style={{ width: '0.875rem', height: '0.875rem' }} strokeWidth={1.5} />
-                      Apply
-                    </a>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
         </>
+      )}
+
+      {/* "Did you apply?" dialog */}
+      {pendingDialog && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+          <div className="card" style={{ maxWidth: 420, width: '90%', padding: '1.5rem' }}>
+            <h3 style={{ fontWeight: 600, marginBottom: '0.5rem' }}>Did you apply?</h3>
+            <p style={{ fontSize: '0.875rem', color: 'hsl(var(--muted-foreground))', marginBottom: '1.25rem' }}>
+              <strong>{fund?.name}</strong> — did you submit an application?
+            </p>
+            <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
+              <button type="button" className="btn-sm ghost" onClick={handleDialogDismiss}>No</button>
+              <button type="button" className="btn-sm primary" onClick={() => void handleDialogConfirm()}>
+                <CheckCircle2 size={13} />
+                Yes
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )

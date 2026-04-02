@@ -17,6 +17,7 @@ import {
 } from 'lucide-react'
 import { apiRequest } from '../lib/api'
 import { resolveMediaUrl } from '../lib/env'
+import { formatLabel } from '../lib/format'
 import { CopyLinkButton } from '../components/CopyLinkButton'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
@@ -215,7 +216,7 @@ export function InvestorDetailPage() {
 
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.375rem' }}>
               {investor.investor_type && (
-                <span className="badge">{investor.investor_type}</span>
+                <span className="badge">{formatLabel(investor.investor_type)}</span>
               )}
               {investor.fund_name && (
                 <span className="tag">
@@ -241,7 +242,7 @@ export function InvestorDetailPage() {
                     <Building2 style={{ width: '0.875rem', height: '0.875rem' }} strokeWidth={1.5} />
                     Type
                   </div>
-                  <p style={{ fontSize: '0.875rem' }}>{investor.investor_type || 'Not specified'}</p>
+                  <p style={{ fontSize: '0.875rem' }}>{formatLabel(investor.investor_type) || 'Not specified'}</p>
                 </div>
                 <div>
                   <div className="section-label" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -283,7 +284,7 @@ export function InvestorDetailPage() {
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.375rem' }}>
                   {investor.industries_focus.map((industry) => (
                     <span key={industry} className="tag">
-                      {industry}
+                      {formatLabel(industry)}
                     </span>
                   ))}
                 </div>
@@ -302,7 +303,7 @@ export function InvestorDetailPage() {
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.375rem' }}>
                   {investor.stages_focus.map((stage) => (
                     <span key={stage} className="tag">
-                      {stage}
+                      {formatLabel(stage)}
                     </span>
                   ))}
                 </div>
