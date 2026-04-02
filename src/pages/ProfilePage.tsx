@@ -118,7 +118,7 @@ export function ProfilePage() {
   const [startupErrors, setStartupErrors] = useState<StartupFormErrors>({})
 
   const avatarUrl = resolveMediaUrl(user?.avatar ?? user?.picture ?? user?.avatar_url)
-  const backgroundUrl = resolveMediaUrl(user?.background_picture)
+  const backgroundUrl = resolveMediaUrl(user?.background_image ?? user?.background_picture)
   const hasBackground = Boolean(backgroundUrl)
 
   // Load shareable profile IDs

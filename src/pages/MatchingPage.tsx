@@ -136,7 +136,7 @@ export function MatchingPage() {
       <div className="page-header">
         <div>
           <h1 className="page-title">Matching</h1>
-          <p className="page-description">Real-time KNN compatibility scores using cosine vector similarity.</p>
+          <p className="page-description">Founders and investors matched by compatibility based on stage, sector, and goals.</p>
         </div>
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 999, fontSize: '0.75rem', fontWeight: 600, background: '#22c55e18', color: '#22c55e', border: '1px solid #22c55e33' }}>
           <Zap size={11} />
