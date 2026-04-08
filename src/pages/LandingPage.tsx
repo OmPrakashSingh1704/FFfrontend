@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowRight, TrendingUp, Users, MessageSquare, Zap, BarChart3, Lock } from 'lucide-react'
 import logo from '../assets/logo.svg'
@@ -25,6 +26,25 @@ const RESOURCE_GROUPS = [
   {
     title: 'Company',
     items: ['FL Blog', 'Contact', 'Press', 'People', 'Careers', 'Privacy Policy', 'Notice at Collection', 'Security', 'Terms of Use'],
+  },
+]
+
+const FAQS = [
+  {
+    question: 'How quickly does the support team reply?',
+    answer: 'We respond to most messages within one business day. Urgent production issues are usually answered in a few hours.',
+  },
+  {
+    question: 'Can I request a live product demo?',
+    answer: 'Yes—mention “live demo” in your message and include your preferred time zone so we can send an invite.',
+  },
+  {
+    question: 'Do you support custom investor lists?',
+    answer: 'Absolutely. Upload your target list or describe your thesis and we will curate introductions that match it.',
+  },
+  {
+    question: 'Is there a self-serve onboarding option?',
+    answer: 'Founders who want to explore independently can get credentials within minutes—just note it when you reach out.',
   },
 ]
 
@@ -102,6 +122,8 @@ function DashboardPreview() {
 }
 
 export function LandingPage() {
+  const [openFaq, setOpenFaq] = useState<string | null>(null)
+
   return (
     <Page className="page-home">
       <Waves className="fixed inset-0 z-0" />
@@ -318,15 +340,45 @@ export function LandingPage() {
           </div>
         </section>
 
-        {/* CTA */}
-        <section id="contact" className="cta" data-testid="cta-section">
-          <div className="cta-card animate-fade-in">
-            <h2>Ready to <span className="text-gradient">raise capital</span>?</h2>
-            <p>Join thousands of founders who use FoundersLib to connect with the right investors.</p>
-            <Link className="btn primary btn-glow" to="/signup" data-testid="cta-btn">
-              Get Started Free
-              <ArrowRight className="w-4 h-4 ml-2" />
-            </Link>
+        {/* Contact */}
+        <section id="contact" className="cta contact-section" data-testid="cta-section">
+          <div className="contact-grid">
+            <div className="cta-card contact-card animate-fade-in">
+              <p className="contact-eyebrow">Connect with us</p>
+              <h2>We&rsquo;re here to help</h2>
+              <p>You can directly connect with our support team for anything related to onboarding, partnerships, or platform access.</p>
+              <div className="contact-email-block">
+                <span>Email</span>
+                <a href="mailto:info@ounderslib.in">info@ounderslib.in</a>
+              </div>
+              <p className="contact-note">Prefer quick answers? Browse the most common questions below or send us a note any time.</p>
+            </div>
+
+            <div className="cta-card contact-card faq-card animate-fade-in">
+              <p className="contact-eyebrow">Previously Asked Questions</p>
+              <h3>Answers for founders</h3>
+              <div className="faq-list">
+                {FAQS.map(({ question, answer }) => {
+                  const isOpen = openFaq === question
+                  return (
+                    <article key={question} className={`faq-item ${isOpen ? 'faq-open' : ''}`}>
+                      <div className="faq-item-header">
+                        <h4>{question}</h4>
+                        <button
+                          type="button"
+                          className={`faq-toggle ${isOpen ? 'faq-toggle-open' : ''}`}
+                          aria-expanded={isOpen}
+                          onClick={() => setOpenFaq(isOpen ? null : question)}
+                        >
+                          <span>+</span>
+                        </button>
+                      </div>
+                      {isOpen && <p className="faq-answer">{answer}</p>}
+                    </article>
+                  )
+                })}
+              </div>
+            </div>
           </div>
         </section>
 

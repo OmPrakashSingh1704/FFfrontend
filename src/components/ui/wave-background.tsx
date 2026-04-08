@@ -58,7 +58,7 @@ export function Waves({
         window.addEventListener('mousemove', onMouseMove)
 
         const container = containerRef.current
-        container.addEventListener('touchmove', onTouchMove, { passive: false })
+        container.addEventListener('touchmove', onTouchMove, { passive: true })
 
         rafRef.current = requestAnimationFrame(tick)
 
@@ -121,7 +121,6 @@ export function Waves({
     const onMouseMove = (e: MouseEvent) => updateMousePosition(e.clientX, e.clientY)
 
     const onTouchMove = (e: TouchEvent) => {
-        e.preventDefault()
         updateMousePosition(e.touches[0].clientX, e.touches[0].clientY)
     }
 

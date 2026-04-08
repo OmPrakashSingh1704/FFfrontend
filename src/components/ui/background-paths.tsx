@@ -4,6 +4,7 @@ import { useEffect, useRef, useCallback } from "react";
 import { motion } from "framer-motion";
 import { createNoise2D } from "simplex-noise";
 import { Button } from "./button";
+import { Link } from "react-router-dom";
 
 /**
  * Unified interactive background: curved flowing paths that respond to cursor movement.
@@ -54,14 +55,13 @@ export function InteractivePaths() {
         const onResize = () => setSize();
         const onMouseMove = (e: MouseEvent) => updateMouse(e.clientX, e.clientY);
         const onTouchMove = (e: TouchEvent) => {
-            e.preventDefault();
             updateMouse(e.touches[0].clientX, e.touches[0].clientY);
         };
 
         window.addEventListener("resize", onResize);
         window.addEventListener("mousemove", onMouseMove);
         const el = containerRef.current;
-        el.addEventListener("touchmove", onTouchMove, { passive: false });
+        el.addEventListener("touchmove", onTouchMove, { passive: true });
 
         rafRef.current = requestAnimationFrame(tick);
 
@@ -213,15 +213,18 @@ export function BackgroundPaths({ title = "Background Paths" }: { title?: string
 
                     <div className="inline-block group relative bg-gradient-to-b from-foreground/10 to-foreground/5 p-px rounded-2xl backdrop-blur-lg overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300">
                         <Button
+                            asChild
                             variant="ghost"
                             className="rounded-[1.15rem] px-8 py-6 text-lg font-semibold backdrop-blur-md bg-background/50 hover:bg-background/80 text-foreground transition-all duration-300 group-hover:-translate-y-0.5 border border-foreground/10 hover:border-foreground/20"
                         >
-                            <span className="opacity-90 group-hover:opacity-100 transition-opacity">
-                                Get Started
-                            </span>
-                            <span className="ml-3 opacity-70 group-hover:opacity-100 group-hover:translate-x-1.5 transition-all duration-300">
-                                →
-                            </span>
+                            <Link to="/signup">
+                                <span className="opacity-90 group-hover:opacity-100 transition-opacity">
+                                    Get Started
+                                </span>
+                                <span className="ml-3 opacity-70 group-hover:opacity-100 group-hover:translate-x-1.5 transition-all duration-300">
+                                    →
+                                </span>
+                            </Link>
                         </Button>
                     </div>
                 </motion.div>
