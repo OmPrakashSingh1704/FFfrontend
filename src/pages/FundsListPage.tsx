@@ -1,11 +1,14 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Wallet, Building2, Calendar, DollarSign, Gift, Star, ExternalLink, Search, X, CheckCircle2 } from 'lucide-react'
 import { apiRequest } from '../lib/api'
 import { normalizeList } from '../lib/pagination'
 import { formatLabel } from '../lib/format'
 import { useToast } from '../context/ToastContext'
+import { Pagination } from '../components/Pagination'
 import type { FundListItem } from '../types/fund'
+
+const PAGE_SIZE = 20
 
 const PENDING_APPLY_KEY = 'ff_pending_apply'
 const CLAIMED_BENEFITS_KEY = 'ff_claimed_benefits'
@@ -165,12 +168,17 @@ export function FundsListPage() {
   const [funds, setFunds] = useState<FundListItem[]>([])
   const [fundsLoading, setFundsLoading] = useState(true)
   const [fundsError, setFundsError] = useState<string | null>(null)
+  const [fundsPage, setFundsPage] = useState(1)
+  const [fundsTotalCount, setFundsTotalCount] = useState(0)
+  const fundsSearchTimer = useRef<number | null>(null)
+  const fundsTotalPages = Math.ceil(fundsTotalCount / PAGE_SIZE)
 
   // Benefits state
   const [benefits, setBenefits] = useState<Benefit[]>([])
   const [benefitsLoading, setBenefitsLoading] = useState(false)
   const [benefitsLoaded, setBenefitsLoaded] = useState(false)
   const [benefitsError, setBenefitsError] = useState<string | null>(null)
+  const [benefitsPage, setBenefitsPage] = useState(1)
   const [fundsSearch, setFundsSearch] = useState('')
   const [search, setSearch] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('')
@@ -181,15 +189,20 @@ export function FundsListPage() {
   const [claimedBenefitIds, setClaimedBenefitIds] = useState<Set<string>>(new Set())
   const [pendingDialog, setPendingDialog] = useState<PendingApply | null>(null)
 
-  // Load funds on mount
+  // Load funds
   useEffect(() => {
     let cancelled = false
     const load = async () => {
       setFundsLoading(true)
       setFundsError(null)
       try {
-        const data = await apiRequest<FundListItem[] | { results: FundListItem[] }>('/funds/')
-        if (!cancelled) setFunds(normalizeList(data))
+        const params = new URLSearchParams({ page: String(fundsPage) })
+        if (fundsSearch) params.set('search', fundsSearch)
+        const data = await apiRequest<{ count: number; results: FundListItem[] }>(`/funds/?${params}`)
+        if (!cancelled) {
+          setFunds(data.results ?? [])
+          setFundsTotalCount(data.count ?? 0)
+        }
       } catch {
         if (!cancelled) setFundsError('Unable to load funds.')
       } finally {
@@ -198,7 +211,7 @@ export function FundsListPage() {
     }
     void load()
     return () => { cancelled = true }
-  }, [])
+  }, [fundsPage, fundsSearch])
 
   // Load benefits when tab is first activated
   useEffect(() => {
@@ -285,18 +298,16 @@ export function FundsListPage() {
     setPendingDialog(null)
   }
 
-  // Derive filtered funds
-  const filteredFunds = funds.filter((f) => {
-    if (!fundsSearch) return true
-    const q = fundsSearch.toLowerCase()
-    return [
-      f.name,
-      f.organization,
-      f.fund_type,
-      f.opportunity_type,
-      f.description,
-    ].some((v) => (v ?? '').toLowerCase().includes(q))
-  })
+  const handleFundsSearchChange = (value: string) => {
+    if (fundsSearchTimer.current) window.clearTimeout(fundsSearchTimer.current)
+    fundsSearchTimer.current = window.setTimeout(() => {
+      setFundsSearch(value)
+      setFundsPage(1)
+    }, 300)
+  }
+
+  // funds are now server-filtered; use as-is
+  const filteredFunds = funds
 
   // Derive filtered benefits
   const categories = [...new Set(benefits.map((b) => b.category).filter(Boolean))] as string[]
@@ -313,6 +324,8 @@ export function FundsListPage() {
     }
     return true
   })
+  const benefitsTotalPages = Math.ceil(filtered.length / PAGE_SIZE)
+  const pagedBenefits = filtered.slice((benefitsPage - 1) * PAGE_SIZE, benefitsPage * PAGE_SIZE)
 
   const tabStyle = (tab: Tab): React.CSSProperties => ({
     padding: '0.5rem 1.25rem',
@@ -346,7 +359,7 @@ export function FundsListPage() {
           Funds
           {!fundsLoading && !fundsError && (
             <span className="badge" style={{ marginLeft: 6, verticalAlign: 'middle' }}>
-              {fundsSearch ? `${filteredFunds.length} / ${funds.length}` : funds.length}
+              {fundsTotalCount}
             </span>
           )}
         </button>
@@ -363,25 +376,23 @@ export function FundsListPage() {
       {activeTab === 'funds' && (
         <>
           {/* Funds Search */}
-          {!fundsLoading && !fundsError && funds.length > 0 && (
-            <div style={{ position: 'relative', marginBottom: '1.25rem' }}>
-              <Search size={15} strokeWidth={1.5} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'hsl(var(--muted-foreground))', pointerEvents: 'none' }} />
-              <input
-                className="input"
-                type="text"
-                placeholder="Search by name, type, opportunity…"
-                value={fundsSearch}
-                onChange={(e) => setFundsSearch(e.target.value)}
-                style={{ paddingLeft: 38, paddingRight: fundsSearch ? 36 : undefined }}
-                data-testid="funds-search"
-              />
-              {fundsSearch && (
-                <button onClick={() => setFundsSearch('')} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'hsl(var(--muted-foreground))', padding: 2, display: 'flex' }}>
-                  <X size={14} />
-                </button>
-              )}
-            </div>
-          )}
+          <div style={{ position: 'relative', marginBottom: '1.25rem' }}>
+            <Search size={15} strokeWidth={1.5} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'hsl(var(--muted-foreground))', pointerEvents: 'none' }} />
+            <input
+              className="input"
+              type="text"
+              placeholder="Search by name, type, opportunity…"
+              defaultValue={fundsSearch}
+              onChange={(e) => handleFundsSearchChange(e.target.value)}
+              style={{ paddingLeft: 38, paddingRight: fundsSearch ? 36 : undefined }}
+              data-testid="funds-search"
+            />
+            {fundsSearch && (
+              <button onClick={() => { setFundsSearch(''); setFundsPage(1) }} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'hsl(var(--muted-foreground))', padding: 2, display: 'flex' }}>
+                <X size={14} />
+              </button>
+            )}
+          </div>
 
           {fundsLoading && (
             <div className="empty-state">
@@ -405,6 +416,7 @@ export function FundsListPage() {
             </div>
           )}
           {!fundsLoading && !fundsError && filteredFunds.length > 0 && (
+            <>
             <div className="grid-3" data-testid="funds-grid">
               {filteredFunds.map((fund) => {
                 const deadlineInfo = getDeadlineInfo(fund.deadline)
@@ -495,6 +507,8 @@ export function FundsListPage() {
                 )
               })}
             </div>
+            <Pagination page={fundsPage} totalPages={fundsTotalPages} onChange={setFundsPage} />
+            </>
           )}
         </>
       )}
@@ -511,12 +525,12 @@ export function FundsListPage() {
                 type="text"
                 placeholder="Search benefits..."
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                onChange={(e) => { setSearch(e.target.value); setBenefitsPage(1) }}
                 style={{ paddingLeft: 32 }}
                 data-testid="benefits-search"
               />
               {search && (
-                <button onClick={() => setSearch('')} style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'hsl(var(--muted-foreground))', padding: 2 }}>
+                <button onClick={() => { setSearch(''); setBenefitsPage(1) }} style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'hsl(var(--muted-foreground))', padding: 2 }}>
                   <X size={12} />
                 </button>
               )}
@@ -524,7 +538,7 @@ export function FundsListPage() {
             <select
               className="select"
               value={categoryFilter}
-              onChange={(e) => setCategoryFilter(e.target.value)}
+              onChange={(e) => { setCategoryFilter(e.target.value); setBenefitsPage(1) }}
               style={{ flex: '0 0 auto', minWidth: 140 }}
               data-testid="benefits-category-filter"
             >
@@ -536,7 +550,7 @@ export function FundsListPage() {
             <button
               className={featuredOnly ? 'btn-sm primary' : 'btn-sm ghost'}
               type="button"
-              onClick={() => setFeaturedOnly(!featuredOnly)}
+              onClick={() => { setFeaturedOnly(!featuredOnly); setBenefitsPage(1) }}
               data-testid="benefits-featured-filter"
             >
               <Star size={12} />
@@ -561,8 +575,9 @@ export function FundsListPage() {
             </div>
           )}
           {!benefitsLoading && !benefitsError && filtered.length > 0 && (
+            <>
             <div className="grid-3" data-testid="benefits-grid">
-              {filtered.map((benefit) => (
+              {pagedBenefits.map((benefit) => (
                 <BenefitCard
                   key={benefit.id}
                   benefit={benefit}
@@ -571,6 +586,8 @@ export function FundsListPage() {
                 />
               ))}
             </div>
+            <Pagination page={benefitsPage} totalPages={benefitsTotalPages} onChange={setBenefitsPage} />
+            </>
           )}
         </>
       )}

@@ -21,6 +21,8 @@ export type FeedEvent = {
     id?: string
     full_name?: string
     avatar_url?: string | null
+    role?: string
+    profile_id?: string | null
   }
   startup_name?: string | null
   link_url?: string | null

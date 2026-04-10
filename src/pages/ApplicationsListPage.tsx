@@ -2,13 +2,21 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { FileText, ArrowRight, Wallet } from 'lucide-react'
 import { apiRequest } from '../lib/api'
-import { normalizeList } from '../lib/pagination'
+import { Pagination } from '../components/Pagination'
 import type { ApplicationListItem } from '../types/application'
+
+const PAGE_SIZE = 20
+
+type PaginatedResponse = { count: number; next: string | null; previous: string | null; results: ApplicationListItem[] }
 
 export function ApplicationsListPage() {
   const [applications, setApplications] = useState<ApplicationListItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [page, setPage] = useState(1)
+  const [totalCount, setTotalCount] = useState(0)
+
+  const totalPages = Math.ceil(totalCount / PAGE_SIZE)
 
   useEffect(() => {
     let cancelled = false
@@ -16,26 +24,20 @@ export function ApplicationsListPage() {
       setLoading(true)
       setError(null)
       try {
-        const data = await apiRequest<ApplicationListItem[] | { results: ApplicationListItem[] }>('/applications/')
+        const data = await apiRequest<PaginatedResponse>(`/applications/?page=${page}`)
         if (!cancelled) {
-          setApplications(normalizeList(data))
+          setApplications(data.results ?? [])
+          setTotalCount(data.count ?? 0)
         }
       } catch {
-        if (!cancelled) {
-          setError('Unable to load applications.')
-        }
+        if (!cancelled) setError('Unable to load applications.')
       } finally {
-        if (!cancelled) {
-          setLoading(false)
-        }
+        if (!cancelled) setLoading(false)
       }
     }
-
     void load()
-    return () => {
-      cancelled = true
-    }
-  }, [])
+    return () => { cancelled = true }
+  }, [page])
 
   return (
     <section className="content-section" data-testid="applications-list">
@@ -45,7 +47,14 @@ export function ApplicationsListPage() {
             <FileText className="w-5 h-5" style={{ color: 'var(--gold)' }} />
             <span className="data-eyebrow">Pipeline</span>
           </div>
-          <h1>Applications</h1>
+          <h1>
+            Applications
+            {!loading && !error && (
+              <span className="badge info" style={{ marginLeft: '0.5rem', verticalAlign: 'middle', fontSize: '0.875rem' }}>
+                {totalCount}
+              </span>
+            )}
+          </h1>
           <p>Track the status of your fundraising applications.</p>
         </div>
         <Link className="btn ghost" to="/app/funds" data-testid="find-funds-btn">
@@ -58,34 +67,37 @@ export function ApplicationsListPage() {
       {error ? <div className="form-error">{error}</div> : null}
 
       {!loading && !error ? (
-        <div className="data-grid" data-testid="applications-grid">
-          {applications.map((application) => (
-            <Link 
-              key={application.id} 
-              to={`/app/applications/${application.id}`} 
-              className="data-card"
-              data-testid={`application-card-${application.id}`}
-            >
-              <div className="flex items-center justify-between">
-                <span className="data-eyebrow">Application</span>
-                <ArrowRight className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: 'var(--gold)' }} />
+        <>
+          <div className="data-grid" data-testid="applications-grid">
+            {applications.map((application) => (
+              <Link
+                key={application.id}
+                to={`/app/applications/${application.id}`}
+                className="data-card"
+                data-testid={`application-card-${application.id}`}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="data-eyebrow">Application</span>
+                  <ArrowRight className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: 'var(--gold)' }} />
+                </div>
+                <h3>{application.fund_name ?? 'Fund'}</h3>
+                <p>{application.startup_name ?? 'Startup'}</p>
+                <div className="data-meta">
+                  {application.status ? <span>Status: {application.status}</span> : null}
+                  {application.applied_date ? (
+                    <span>Applied: {new Date(application.applied_date).toLocaleDateString()}</span>
+                  ) : null}
+                </div>
+              </Link>
+            ))}
+            {applications.length === 0 ? (
+              <div className="col-span-full text-center py-12" style={{ color: 'hsl(var(--muted-foreground))' }}>
+                No applications yet. Start by finding funds to apply to.
               </div>
-              <h3>{application.fund_name ?? 'Fund'}</h3>
-              <p>{application.startup_name ?? 'Startup'}</p>
-              <div className="data-meta">
-                {application.status ? <span>Status: {application.status}</span> : null}
-                {application.applied_date ? (
-                  <span>Applied: {new Date(application.applied_date).toLocaleDateString()}</span>
-                ) : null}
-              </div>
-            </Link>
-          ))}
-          {applications.length === 0 ? (
-            <div className="col-span-full text-center py-12" style={{ color: 'hsl(var(--muted-foreground))' }}>
-              No applications yet. Start by finding funds to apply to.
-            </div>
-          ) : null}
-        </div>
+            ) : null}
+          </div>
+          <Pagination page={page} totalPages={totalPages} onChange={setPage} />
+        </>
       ) : null}
     </section>
   )

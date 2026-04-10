@@ -429,6 +429,26 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
     if (!activeCall) cleanupMedia()
   }, [activeCall, cleanupMedia])
 
+  // Warn before tab close/refresh while on an active call
+  useEffect(() => {
+    if (!activeCall) return
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault()
+      e.returnValue = 'You are on an active call. Leaving will end the call.'
+    }
+    window.addEventListener('beforeunload', handler)
+    return () => window.removeEventListener('beforeunload', handler)
+  }, [activeCall])
+
+  // Heartbeat to prevent call WebSocket from being dropped by Azure/proxy idle timeouts
+  useEffect(() => {
+    if (wsStatus !== 'open') return
+    const id = window.setInterval(() => {
+      sendJson({ type: 'ping' })
+    }, 30_000)
+    return () => window.clearInterval(id)
+  }, [wsStatus, sendJson])
+
   return (
     <CallContext.Provider
       value={{

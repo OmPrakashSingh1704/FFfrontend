@@ -319,6 +319,24 @@ export function ChatPage() {
           ),
         )
       }
+      if (event.type === 'notification') {
+        // Backend wraps chat_notification channel events as type:"notification" before sending to WS client
+        const data = event.data as { notification_type?: string; conversation_id?: string; message_preview?: string; sender_name?: string }
+        if (data.notification_type === 'new_message' && data.conversation_id) {
+          setConversations((prev) =>
+            prev.map((item) =>
+              String(item.id) === String(data.conversation_id)
+                ? {
+                    ...item,
+                    last_message_preview: data.message_preview ?? item.last_message_preview ?? null,
+                    last_message_sender_name: data.sender_name ?? item.last_message_sender_name ?? null,
+                    unread_count: (item.unread_count ?? 0) + 1,
+                  }
+                : item,
+            ),
+          )
+        }
+      }
       if (event.type === 'typing') {
         const data = event.data as { conversation_id?: string; user_id?: string; is_typing?: boolean }
         if (!data.conversation_id || String(data.conversation_id) !== String(activeId)) return
@@ -331,6 +349,15 @@ export function ChatPage() {
       // ignore malformed events
     }
   }, [activeId, lastMessage])
+
+  // Heartbeat to prevent connection from being dropped by Azure/proxy idle timeouts
+  useEffect(() => {
+    if (wsStatus !== 'open') return
+    const id = window.setInterval(() => {
+      sendJson({ type: 'heartbeat' })
+    }, 30_000)
+    return () => window.clearInterval(id)
+  }, [wsStatus, sendJson])
 
   useEffect(() => {
     if (wsStatus !== 'open') return
@@ -692,11 +719,17 @@ export function ChatPage() {
     }
   }
 
-  const filteredConversations = sidebarSearch
-    ? conversations.filter((c) =>
-        formatConversationName(c).toLowerCase().includes(sidebarSearch.toLowerCase()),
-      )
-    : conversations
+  const filteredConversations = (
+    sidebarSearch
+      ? conversations.filter((c) =>
+          formatConversationName(c).toLowerCase().includes(sidebarSearch.toLowerCase()),
+        )
+      : conversations
+  ).slice().sort((a, b) => {
+    const ta = a.last_message_at ? new Date(a.last_message_at).getTime() : 0
+    const tb = b.last_message_at ? new Date(b.last_message_at).getTime() : 0
+    return tb - ta
+  })
 
   // Build date-separated message groups
   let lastDateKey = ''
@@ -843,7 +876,7 @@ export function ChatPage() {
                   ) : null}
 
                   {/* Message */}
-                  <div className="group flex gap-3 py-1 hover:bg-[hsl(var(--muted)/0.3)] rounded-md px-2 -mx-2 transition-colors">
+                  <div className={`group flex gap-2 py-1 px-2 -mx-2 transition-colors ${isMe ? 'flex-row-reverse' : 'flex-row'}`}>
                     {/* Avatar or spacer */}
                     {sameSender && !showDateSep ? (
                       <div className="w-8 shrink-0" />
@@ -853,10 +886,10 @@ export function ChatPage() {
                       </div>
                     )}
 
-                    <div className="flex-1 min-w-0">
+                    <div className="min-w-0" style={{ maxWidth: '70%' }}>
                       {/* Name + time (only for first message in a group) */}
                       {(!sameSender || showDateSep) && (
-                        <div className="flex items-center gap-2 mb-0.5">
+                        <div className={`flex items-center gap-2 mb-0.5 ${isMe ? 'flex-row-reverse' : 'flex-row'}`}>
                           <span className="text-sm font-medium">{isMe ? 'You' : senderLabel}</span>
                           <span className="text-xs" style={{ color: 'hsl(var(--muted-foreground))' }}>
                             {formatMessageTime(message.created_at)}
@@ -864,7 +897,7 @@ export function ChatPage() {
                         </div>
                       )}
 
-                      {/* Content */}
+                      {/* Content bubble */}
                       {editingId === message.id ? (
                         <div className="mt-1">
                           <textarea
@@ -879,26 +912,40 @@ export function ChatPage() {
                           </div>
                         </div>
                       ) : (
-                        <Markdown size="sm">{message.content || ''}</Markdown>
+                        <div
+                          style={{
+                            display: 'inline-block',
+                            padding: '0.5rem 0.75rem',
+                            borderRadius: isMe ? '1rem 1rem 0.25rem 1rem' : '1rem 1rem 1rem 0.25rem',
+                            background: isMe ? 'hsl(var(--primary))' : 'hsl(var(--muted))',
+                            color: isMe ? 'hsl(var(--primary-foreground))' : 'hsl(var(--foreground))',
+                            maxWidth: '100%',
+                            wordBreak: 'break-word',
+                          }}
+                        >
+                          <Markdown size="sm">{message.content || ''}</Markdown>
+                        </div>
                       )}
 
                       {/* Attachment */}
                       {message.attachment_url ? (
-                        <a
-                          href={message.attachment_url}
-                          className="inline-flex items-center gap-1.5 mt-1 text-xs px-2 py-1 rounded-md"
-                          style={{ background: 'hsl(var(--muted))', color: 'var(--gold)' }}
-                          target="_blank"
-                          rel="noreferrer"
-                        >
-                          <Paperclip className="w-3 h-3" />
-                          {message.attachment_name || 'Attachment'}
-                        </a>
+                        <div className={`flex mt-1 ${isMe ? 'justify-end' : 'justify-start'}`}>
+                          <a
+                            href={message.attachment_url}
+                            className="inline-flex items-center gap-1.5 text-xs px-2 py-1 rounded-md"
+                            style={{ background: 'hsl(var(--muted))', color: 'var(--gold)' }}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            <Paperclip className="w-3 h-3" />
+                            {message.attachment_name || 'Attachment'}
+                          </a>
+                        </div>
                       ) : null}
 
                       {/* Reactions */}
                       {(Object.keys(reactionSummary).length > 0) && (
-                        <div className="flex gap-1 mt-1 flex-wrap">
+                        <div className={`flex gap-1 mt-1 flex-wrap ${isMe ? 'justify-end' : 'justify-start'}`}>
                           {Object.entries(reactionSummary).map(([emoji, count]) => (
                             <button
                               key={emoji}
