@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation as useRouterLocation, useNavigate } from 'react-router-dom'
 import { Check, ChevronDown } from 'lucide-react'
 import { FormField } from '../components/FormField'
 import { useAuth } from '../context/AuthContext'
@@ -180,6 +180,7 @@ const buildSecondaryOptions = (primaries: string[]) => {
 
 export function OnboardingPage() {
   const navigate = useNavigate()
+  const routerLocation = useRouterLocation()
   const { user, refreshUser } = useAuth()
   const { pushToast } = useToast()
 
@@ -187,6 +188,7 @@ export function OnboardingPage() {
   const [fullName, setFullName] = useState(user?.full_name ?? '')
   const [phone, setPhone] = useState(user?.phone ?? '')
   const avatarUploadInputRef = useRef<HTMLInputElement | null>(null)
+  const [pendingAvatarFile, setPendingAvatarFile] = useState<File | null>(null)
   const stageDropdownRef = useRef<HTMLDivElement | null>(null)
   const primaryIndustryDropdownRef = useRef<HTMLDivElement | null>(null)
   const secondaryIndustryDropdownRef = useRef<HTMLDivElement | null>(null)
@@ -197,7 +199,7 @@ export function OnboardingPage() {
 
   const [headline, setHeadline] = useState('')
   const [bio, setBio] = useState('')
-  const [location, setLocation] = useState('')
+  const [founderLocation, setFounderLocation] = useState('')
   const [linkedinUrl, setLinkedinUrl] = useState('')
   const [twitterUrl, setTwitterUrl] = useState('')
   const [websiteUrl, setWebsiteUrl] = useState('')
@@ -337,6 +339,7 @@ export function OnboardingPage() {
   const [steps, setSteps] = useState<OnboardingStep[]>([])
   const [loadingSteps, setLoadingSteps] = useState(true)
   const [stepsError, setStepsError] = useState<string | null>(null)
+  const onboardingSyncSignatureRef = useRef<string | null>(null)
 
   const [activeStep, setActiveStep] = useState(0)
 
@@ -425,12 +428,111 @@ export function OnboardingPage() {
     return result
   }, [isFounder, isInvestor])
 
-  const setActiveStepById = useCallback((stepId: string) => {
-    const index = visibleSteps.findIndex((step) => step.id === stepId)
-    if (index !== -1) {
-      setActiveStep(index)
+  const setActiveStepById = useCallback(
+    (stepId: string) => {
+      const index = visibleSteps.findIndex((step) => step.id === stepId)
+      if (index !== -1) {
+        setActiveStep(index)
+      }
+    },
+    [visibleSteps],
+  )
+
+  const goToStep = useCallback(
+    (stepId: string) => {
+      setActiveStepById(stepId)
+      if (stepId === 'profile') {
+        navigate('/onboarding', { replace: true })
+      } else {
+        navigate(`/onboarding/${stepId}`, { replace: true })
+      }
+    },
+    [navigate, setActiveStepById],
+  )
+
+  const goToStepByIndex = useCallback(
+    (index: number) => {
+      const safeIndex = Math.max(0, Math.min(index, visibleSteps.length - 1))
+      const targetStep = visibleSteps[safeIndex]
+      if (targetStep) {
+        goToStep(targetStep.id)
+      }
+    },
+    [visibleSteps, goToStep],
+  )
+
+  const getVisibleStepIdFromName = useCallback(
+    (stepName?: string | null) => {
+      if (!stepName) return null
+      const normalized = stepName.toLowerCase()
+      const match = visibleSteps.find((step) => normalized.includes(step.id))
+      return match?.id ?? null
+    },
+    [visibleSteps],
+  )
+
+  useEffect(() => {
+    if (!routerLocation.pathname.startsWith('/onboarding')) {
+      return
     }
-  }, [visibleSteps])
+    const segments = routerLocation.pathname.split('/').filter(Boolean)
+    const stepSegment = segments[1] ?? 'profile'
+    const normalized = stepSegment.toLowerCase()
+    const match = visibleSteps.find((step) => step.id === normalized)
+
+    if (match) {
+      setActiveStepById(match.id)
+    } else if (segments.length > 1) {
+      navigate('/onboarding', { replace: true })
+      setActiveStepById('profile')
+    } else {
+      setActiveStepById('profile')
+    }
+  }, [routerLocation.pathname, visibleSteps, setActiveStepById, navigate])
+
+  useEffect(() => {
+    if (!status) return
+
+    const syncSignature = JSON.stringify({
+      next: status.next_step?.step ?? null,
+      completed: status.completed_step_names ?? [],
+      steps: steps.map((step) => step.step),
+    })
+
+    if (onboardingSyncSignatureRef.current === syncSignature) {
+      return
+    }
+    onboardingSyncSignatureRef.current = syncSignature
+
+    let targetStepId: string | null = getVisibleStepIdFromName(status.next_step?.step)
+
+    if (!targetStepId) {
+      if (steps.length === 0) {
+        return
+      }
+
+      const completedNames = status.completed_step_names ?? []
+      for (const step of visibleSteps) {
+        const backendStep = steps.find((item) => item.step.toLowerCase().includes(step.id))
+        if (!backendStep) continue
+        if (!completedNames.includes(backendStep.step)) {
+          targetStepId = step.id
+          break
+        }
+      }
+
+      if (!targetStepId) {
+        targetStepId = visibleSteps[visibleSteps.length - 1]?.id ?? null
+      }
+    }
+
+    if (targetStepId) {
+      const targetIndex = visibleSteps.findIndex((step) => step.id === targetStepId)
+      if (targetIndex !== -1 && targetIndex > activeStep) {
+        goToStep(targetStepId)
+      }
+    }
+  }, [status, steps, visibleSteps, activeStep, getVisibleStepIdFromName, goToStep])
 
   const handleProfileSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -450,12 +552,21 @@ export function OnboardingPage() {
           phone: phone || undefined,
         },
       })
+      if (pendingAvatarFile) {
+        try {
+          await uploadAvatarFile(pendingAvatarFile)
+          setPendingAvatarFile(null)
+        } catch {
+          // Avatar upload failure already surfaced via toast; keep the selected file for retry.
+        }
+      }
       await refreshUser()
+      await loadOnboarding()
       pushToast('Profile updated', 'success')
       if (visibleSteps.some((step) => step.id === 'founder')) {
-        setActiveStepById('founder')
+        goToStep('founder')
       } else {
-        setActiveStep((s) => Math.min(s + 1, visibleSteps.length - 1))
+        goToStepByIndex(activeStep + 1)
       }
     } catch {
       setProfileErrors({ form: 'Unable to update profile. Please try again.' })
@@ -464,22 +575,29 @@ export function OnboardingPage() {
     }
   }
 
-  const handleAvatarUpload = async (file?: File | null) => {
-    if (!file) return
-    setUploadingAvatar(true)
-    try {
-      const formData = new FormData()
-      formData.append('file', file)
-      await uploadRequest('/upload/profile-picture/', formData)
-      await refreshUser()
-      pushToast('Avatar uploaded', 'success')
-    } catch {
-      pushToast('Unable to upload avatar. Please try again.', 'error')
-    } finally {
-      setUploadingAvatar(false)
-      if (avatarUploadInputRef.current) {
-        avatarUploadInputRef.current.value = ''
+  const uploadAvatarFile = useCallback(
+    async (file: File) => {
+      setUploadingAvatar(true)
+      try {
+        const formData = new FormData()
+        formData.append('file', file)
+        await uploadRequest('/upload/profile-picture/', formData)
+        pushToast('Avatar uploaded', 'success')
+      } catch {
+        pushToast('Unable to upload avatar. Please try again.', 'error')
+        throw new Error('avatar-upload-failed')
+      } finally {
+        setUploadingAvatar(false)
       }
+    },
+    [pushToast],
+  )
+
+  const handleAvatarSelect = (file?: File | null) => {
+    if (!file) return
+    setPendingAvatarFile(file)
+    if (avatarUploadInputRef.current) {
+      avatarUploadInputRef.current.value = ''
     }
   }
 
@@ -499,7 +617,7 @@ export function OnboardingPage() {
         body: {
           headline,
           bio: bio || undefined,
-          location,
+          location: founderLocation,
           linkedin_url: linkedinUrl || undefined,
           twitter_url: twitterUrl || undefined,
           website_url: websiteUrl || undefined,
@@ -509,7 +627,7 @@ export function OnboardingPage() {
       await refreshUser()
       await loadOnboarding()
       pushToast('Founder profile saved', 'success')
-      setActiveStep((s) => Math.min(s + 1, visibleSteps.length - 1))
+      goToStepByIndex(activeStep + 1)
     } catch {
       setFounderErrors({ form: 'Unable to save founder profile. Please check your details.' })
     } finally {
@@ -549,7 +667,7 @@ export function OnboardingPage() {
       })
       await loadOnboarding()
       pushToast('Startup saved', 'success')
-      setActiveStep((s) => Math.min(s + 1, visibleSteps.length - 1))
+      navigate('/app', { replace: true })
     } catch {
       setStartupErrors({ form: 'Unable to save startup details. Please try again.' })
     } finally {
@@ -692,7 +810,7 @@ export function OnboardingPage() {
                 </FormField>
               </div>
               <div className="form-group">
-                <FormField label="Avatar (upload only)">
+                <FormField label="Avatar (applies on save)">
                   <div className="flex gap-3 items-center">
                     <button
                       type="button"
@@ -700,10 +818,14 @@ export function OnboardingPage() {
                       disabled={uploadingAvatar}
                       onClick={() => avatarUploadInputRef.current?.click()}
                     >
-                      {uploadingAvatar ? 'Uploading…' : 'Choose image'}
+                      {uploadingAvatar
+                        ? 'Uploading…'
+                        : pendingAvatarFile
+                          ? `Selected: ${pendingAvatarFile.name}`
+                          : 'Choose image'}
                     </button>
                     <span style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))' }}>
-                      JPG or PNG, up to 5MB.
+                      JPG or PNG, up to 5MB. We’ll upload it when you save.
                     </span>
                   </div>
                   <input
@@ -711,7 +833,7 @@ export function OnboardingPage() {
                     accept="image/*"
                     ref={avatarUploadInputRef}
                     className="sr-only"
-                    onChange={(event) => handleAvatarUpload(event.target.files?.[0])}
+                    onChange={(event) => handleAvatarSelect(event.target.files?.[0])}
                   />
                 </FormField>
               </div>
@@ -760,8 +882,8 @@ export function OnboardingPage() {
                   <input
                     type="text"
                     className="input"
-                    value={location}
-                    onChange={(event) => setLocation(event.target.value)}
+                    value={founderLocation}
+                    onChange={(event) => setFounderLocation(event.target.value)}
                     placeholder="San Francisco, CA"
                   />
                 </FormField>
@@ -1297,7 +1419,7 @@ export function OnboardingPage() {
             <div key={step.id} className="flex items-center">
               <button
                 type="button"
-                onClick={() => setActiveStep(index)}
+                onClick={() => goToStep(step.id)}
                 className="flex flex-col items-center gap-1.5 transition-all duration-200"
                 style={{ cursor: 'pointer', background: 'none', border: 'none', padding: '0 4px' }}
               >
@@ -1357,7 +1479,7 @@ export function OnboardingPage() {
             <button
               className="btn-sm ghost"
               type="button"
-              onClick={() => setActiveStep((s) => Math.max(s - 1, 0))}
+              onClick={() => goToStepByIndex(activeStep - 1)}
             >
               Back
             </button>
