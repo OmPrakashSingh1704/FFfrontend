@@ -91,7 +91,6 @@ export function StartupDetailPage() {
   const checkedUserIds = useRef<Set<string>>(new Set())
 
   const isInvestor = user?.role === 'investor' || user?.role === 'both'
-  const isFounder = user?.role === 'founder' || user?.role === 'both'
   const isMember = startup?.members?.some((m) => m.user === user?.id) ?? false
   const isStartupFounder = startup?.members?.some((m) => m.user === user?.id && (m.role === 'founder' || m.role === 'co_founder')) ?? false
   const [togglingVisibility, setTogglingVisibility] = useState(false)
@@ -252,7 +251,8 @@ export function StartupDetailPage() {
     // Use targeted user_ids filter — avoids paginating all founders
     let nextPath: string | null = `/founders/?user_ids=${ids.join(',')}`
     while (nextPath) {
-      const data = await apiRequest<PaginatedResponse<FounderProfile> | FounderProfile[]>(nextPath)
+      type FounderPage = PaginatedResponse<FounderProfile> | FounderProfile[]
+      const data: FounderPage = await apiRequest<FounderPage>(nextPath)
       const results = Array.isArray(data) ? data : data.results ?? []
 
       for (const profile of results) {
@@ -276,7 +276,9 @@ export function StartupDetailPage() {
     // Use targeted user_ids filter — avoids paginating all investors
     let nextPath: string | null = `/investors/?user_ids=${ids.join(',')}`
     while (nextPath) {
-      const data = await apiRequest<PaginatedResponse<InvestorProfile & { user_id?: string }> | (InvestorProfile & { user_id?: string })[]>(nextPath)
+      type InvestorWithUserId = InvestorProfile & { user_id?: string }
+      type InvestorPage = PaginatedResponse<InvestorWithUserId> | InvestorWithUserId[]
+      const data: InvestorPage = await apiRequest<InvestorPage>(nextPath)
       const results = Array.isArray(data) ? data : data.results ?? []
 
       for (const profile of results) {
