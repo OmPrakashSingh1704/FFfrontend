@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { Plus, Search, Paperclip, ArrowUp, Phone, X, Bot, LogOut, Pencil, Trash2 } from 'lucide-react'
+import { Plus, Search, Paperclip, ArrowUp, Phone, X, Bot, LogOut, Pencil, Trash2, Check } from 'lucide-react'
 import { apiRequest, uploadRequest } from '../lib/api'
 import { normalizeList } from '../lib/pagination'
 import { buildWsUrl } from '../lib/ws'
@@ -10,6 +10,7 @@ import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 import { Markdown } from '../components/Markdown'
 import { MarkdownTextarea } from '../components/MarkdownTextarea'
+import { cn } from '../lib/cn'
 import type { ChatAttachment, ChatConversation, ChatMessage, ChatParticipant } from '../types/chat'
 
 type WsEvent = {
@@ -102,6 +103,8 @@ export function ChatPage() {
   const [selectedUsers, setSelectedUsers] = useState<string[]>([])
   const [editingId, setEditingId] = useState<string | number | null>(null)
   const [editingContent, setEditingContent] = useState('')
+  const [draftBeforeEdit, setDraftBeforeEdit] = useState('')
+  const [attachmentsBeforeEdit, setAttachmentsBeforeEdit] = useState<ChatAttachment[] | null>(null)
   const [showBotModal, setShowBotModal] = useState(false)
   const [bots, setBots] = useState<BotSummary[]>([])
   const [botLoading, setBotLoading] = useState(false)
@@ -595,9 +598,19 @@ export function ChatPage() {
         method: 'PUT',
         body: { content: editingContent.trim() },
       })
-      setMessages((prev) => prev.map((msg) => (String(msg.id) === String(editingId) ? updated : msg)))
+      setMessages((prev) =>
+        prev.map((msg) => {
+          if (String(msg.id) !== String(editingId)) return msg
+          return { ...msg, ...updated, content: updated.content ?? msg.content }
+        }),
+      )
       setEditingId(null)
       setEditingContent('')
+      setMessageDraft(draftBeforeEdit)
+      setAttachments(attachmentsBeforeEdit ?? [])
+      setDraftBeforeEdit('')
+      setAttachmentsBeforeEdit(null)
+      setCommandsOpen(false)
     } catch {
       setError('Unable to edit message.')
     }
@@ -608,6 +621,9 @@ export function ChatPage() {
     try {
       await apiRequest(`/chat/messages/${messageId}/delete/`, { method: 'DELETE' })
       setMessages((prev) => prev.filter((msg) => String(msg.id) !== String(messageId)))
+      if (String(messageId) === String(editingId)) {
+        cancelEditing()
+      }
     } catch {
       setError('Unable to delete message.')
     }
@@ -678,6 +694,10 @@ export function ChatPage() {
   }
 
   const handleUpload = async (file: File) => {
+    if (editingId) {
+      pushToast('Finish editing before adding attachments.', 'info')
+      return
+    }
     try {
       const formData = new FormData()
       formData.append('file', file)
@@ -697,12 +717,44 @@ export function ChatPage() {
         formatConversationName(c).toLowerCase().includes(sidebarSearch.toLowerCase()),
       )
     : conversations
+  const isEditingMessage = Boolean(editingId)
+  const composerValue = isEditingMessage ? editingContent : messageDraft
+  const canSendOrSave = isEditingMessage ? Boolean(composerValue.trim()) : Boolean(composerValue.trim() || attachments.length)
+
+  const handleComposerChange = (value: string) => {
+    if (isEditingMessage) {
+      setEditingContent(value)
+    } else {
+      handleTyping(value)
+    }
+  }
+
+  const beginEditMessage = (message: ChatMessage) => {
+    if (!editingId) {
+      setDraftBeforeEdit(messageDraft)
+      setAttachmentsBeforeEdit(attachments)
+    }
+    setEditingId(message.id)
+    setEditingContent(message.content ?? '')
+    setAttachments([])
+    setCommandsOpen(false)
+  }
+
+  const cancelEditing = () => {
+    setEditingId(null)
+    setEditingContent('')
+    setMessageDraft(draftBeforeEdit)
+    setDraftBeforeEdit('')
+    setAttachments(attachmentsBeforeEdit ?? [])
+    setAttachmentsBeforeEdit(null)
+    setCommandsOpen(false)
+  }
 
   // Build date-separated message groups
   let lastDateKey = ''
 
   return (
-    <div className="flex flex-col h-[calc(100vh-4rem)]" data-testid="chat-page">
+    <div className="flex flex-col h-[calc(100vh-6rem)] overflow-hidden" data-testid="chat-page">
       {error ? (
         <div className="px-4 py-2 text-sm" style={{ color: '#ef4444', background: 'rgba(239,68,68,0.08)' }}>
           {error}
@@ -843,20 +895,37 @@ export function ChatPage() {
                   ) : null}
 
                   {/* Message */}
-                  <div className="group flex gap-3 py-1 hover:bg-[hsl(var(--muted)/0.3)] rounded-md px-2 -mx-2 transition-colors">
-                    {/* Avatar or spacer */}
-                    {sameSender && !showDateSep ? (
-                      <div className="w-8 shrink-0" />
-                    ) : (
-                      <div className="avatar shrink-0 mt-0.5" style={{ width: '2rem', height: '2rem', fontSize: '0.65rem' }}>
-                        {(isMe ? (user?.full_name || 'Y') : senderLabel).slice(0, 2).toUpperCase()}
-                      </div>
+                  <div
+                    className={cn(
+                      'group flex gap-3 items-start py-0.5 hover:bg-[hsl(var(--muted)/0.3)] rounded-md px-2 -mx-2 transition-colors',
+                      isMe ? 'justify-end text-right' : 'justify-start text-left'
+                    )}
+                  >
+                    {/* Avatar or spacer for other participants */}
+                    {!isMe && (
+                      sameSender && !showDateSep ? (
+                        <div className="w-8 shrink-0" />
+                      ) : (
+                        <div className="avatar shrink-0 mt-0.5" style={{ width: '2rem', height: '2rem', fontSize: '0.65rem' }}>
+                          {senderLabel.slice(0, 2).toUpperCase()}
+                        </div>
+                      )
                     )}
 
-                    <div className="flex-1 min-w-0">
+                    <div
+                      className={cn(
+                        'min-w-0 flex flex-col gap-1 max-w-[80%]',
+                        isMe ? 'ml-auto items-end text-right' : 'items-start text-left'
+                      )}
+                    >
                       {/* Name + time (only for first message in a group) */}
                       {(!sameSender || showDateSep) && (
-                        <div className="flex items-center gap-2 mb-0.5">
+                        <div
+                          className={cn(
+                            'flex items-center gap-2 mb-0.5',
+                            isMe ? 'flex-row-reverse justify-end text-right' : ''
+                          )}
+                        >
                           <span className="text-sm font-medium">{isMe ? 'You' : senderLabel}</span>
                           <span className="text-xs" style={{ color: 'hsl(var(--muted-foreground))' }}>
                             {formatMessageTime(message.created_at)}
@@ -865,28 +934,30 @@ export function ChatPage() {
                       )}
 
                       {/* Content */}
+                      <Markdown
+                        size="sm"
+                        className={cn(
+                          'inline-block text-left break-words px-2 py-1 rounded-2xl shadow-sm chat-bubble leading-tight',
+                          isMe ? 'bg-[hsl(var(--primary))] bubble-outgoing' : 'bg-[hsl(var(--muted))] bubble-incoming',
+                          editingId === message.id && 'ring-2 ring-[hsl(var(--gold)/0.4)]'
+                        )}
+                      >
+                        {message.content || ''}
+                      </Markdown>
                       {editingId === message.id ? (
-                        <div className="mt-1">
-                          <textarea
-                            className="textarea text-sm"
-                            value={editingContent}
-                            onChange={(event) => setEditingContent(event.target.value)}
-                            rows={2}
-                          />
-                          <div className="flex gap-2 mt-1">
-                            <button className="btn-sm ghost" type="button" onClick={() => setEditingId(null)}>Cancel</button>
-                            <button className="btn-sm primary" type="button" onClick={() => void handleEditMessage()}>Save</button>
-                          </div>
-                        </div>
-                      ) : (
-                        <Markdown size="sm">{message.content || ''}</Markdown>
-                      )}
+                        <span className="text-[0.65rem] uppercase tracking-wide" style={{ color: 'hsl(var(--muted-foreground))' }}>
+                          Editing in composer…
+                        </span>
+                      ) : null}
 
                       {/* Attachment */}
                       {message.attachment_url ? (
                         <a
                           href={message.attachment_url}
-                          className="inline-flex items-center gap-1.5 mt-1 text-xs px-2 py-1 rounded-md"
+                          className={cn(
+                            'inline-flex items-center gap-1.5 mt-1 text-xs px-2 py-1 rounded-md',
+                            isMe ? 'self-end' : 'self-start'
+                          )}
                           style={{ background: 'hsl(var(--muted))', color: 'var(--gold)' }}
                           target="_blank"
                           rel="noreferrer"
@@ -898,7 +969,7 @@ export function ChatPage() {
 
                       {/* Reactions */}
                       {(Object.keys(reactionSummary).length > 0) && (
-                        <div className="flex gap-1 mt-1 flex-wrap">
+                        <div className={cn('flex gap-1 mt-1 flex-wrap', isMe ? 'justify-end' : 'justify-start')}>
                           {Object.entries(reactionSummary).map(([emoji, count]) => (
                             <button
                               key={emoji}
@@ -917,7 +988,12 @@ export function ChatPage() {
                       )}
 
                       {/* Quick react + actions (visible on hover) */}
-                      <div className="flex gap-1 mt-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <div
+                        className={cn(
+                          'flex gap-1 mt-0.5 opacity-0 group-hover:opacity-100 transition-opacity',
+                          isMe ? 'justify-end' : 'justify-start'
+                        )}
+                      >
                         {['👍', '🔥', '🎯'].map((emoji) => (
                           <button
                             key={emoji}
@@ -933,7 +1009,7 @@ export function ChatPage() {
                             <button
                               type="button"
                               className="text-xs px-1 py-0.5 rounded hover:bg-[hsl(var(--muted))] transition-colors"
-                              onClick={() => { setEditingId(message.id); setEditingContent(message.content ?? '') }}
+                              onClick={() => beginEditMessage(message)}
                             >
                               <Pencil className="w-3 h-3" />
                             </button>
@@ -968,7 +1044,17 @@ export function ChatPage() {
 
           {/* Composer */}
           <div className="border-t px-4 py-3 shrink-0" style={{ borderColor: 'hsl(var(--border))' }}>
-            {attachments.length > 0 && (
+            {isEditingMessage ? (
+              <div className="flex items-center justify-between mb-2 px-3 py-2 rounded-lg border text-xs" style={{ borderColor: 'hsl(var(--border))', color: 'hsl(var(--muted-foreground))' }}>
+                <div className="flex flex-col">
+                  <span className="font-semibold text-[0.7rem]" style={{ color: 'hsl(var(--foreground))' }}>Editing message</span>
+                  <span className="truncate max-w-xs">{editingContent || 'Draft'}</span>
+                </div>
+                <button className="btn-sm ghost" type="button" onClick={cancelEditing}>Cancel</button>
+              </div>
+            ) : null}
+
+            {!isEditingMessage && attachments.length > 0 && (
               <div className="flex items-center gap-2 mb-2 text-xs" style={{ color: 'hsl(var(--muted-foreground))' }}>
                 <Paperclip className="w-3 h-3" />
                 {attachments.map((item) => (
@@ -980,7 +1066,7 @@ export function ChatPage() {
               </div>
             )}
 
-            {commandsOpen && (
+            {!isEditingMessage && commandsOpen && (
               <div className="mb-2 rounded-lg overflow-hidden border" style={{ borderColor: 'hsl(var(--border))', background: 'hsl(var(--card))' }}>
                 {commandsLoading ? <div className="px-3 py-2 text-xs" style={{ color: 'hsl(var(--muted-foreground))' }}>Loading commands...</div> : null}
                 {!commandsLoading && filteredCommands.length === 0 ? (
@@ -1012,13 +1098,21 @@ export function ChatPage() {
             )}
 
             <div className="flex items-end gap-2">
-              <label className="shrink-0 cursor-pointer p-2 rounded-lg hover:bg-[hsl(var(--muted))] transition-colors" htmlFor="chat-attachment">
+              <label
+                className={cn(
+                  'shrink-0 cursor-pointer p-2 rounded-lg transition-colors',
+                  isEditingMessage ? 'opacity-50 cursor-not-allowed' : 'hover:bg-[hsl(var(--muted))]'
+                )}
+                htmlFor="chat-attachment"
+                aria-disabled={isEditingMessage}
+              >
                 <Paperclip className="w-4 h-4" style={{ color: 'hsl(var(--muted-foreground))' }} />
               </label>
               <input
                 id="chat-attachment"
                 type="file"
                 className="sr-only"
+                disabled={isEditingMessage}
                 onChange={(event) => {
                   const file = event.target.files?.[0]
                   if (file) void handleUpload(file)
@@ -1028,37 +1122,50 @@ export function ChatPage() {
                 wrapperClassName="flex-1"
                 className="textarea text-sm min-h-[40px] max-h-32"
                 style={{ resize: 'none' }}
-                value={messageDraft}
-                onChange={(event) => handleTyping(event.target.value)}
+                value={composerValue}
+                onChange={(event) => handleComposerChange(event.target.value)}
                 onFocus={() => {
-                  if (messageDraft.trim().startsWith('/')) {
+                  if (!isEditingMessage && messageDraft.trim().startsWith('/')) {
                     setCommandsOpen(true)
                   }
                 }}
                 onBlur={() => {
-                  window.setTimeout(() => setCommandsOpen(false), 150)
+                  if (!isEditingMessage) {
+                    window.setTimeout(() => setCommandsOpen(false), 150)
+                  }
                 }}
                 onKeyDown={(event) => {
                   if (event.key === 'Enter' && !event.shiftKey) {
                     event.preventDefault()
-                    void handleSend()
+                    if (isEditingMessage) {
+                      void handleEditMessage()
+                    } else {
+                      void handleSend()
+                    }
                   }
                 }}
-                placeholder="Write a message..."
+                placeholder={isEditingMessage ? 'Edit your message...' : 'Write a message...'}
                 rows={1}
                 previewSize="sm"
               />
               <button
                 className="shrink-0 w-8 h-8 rounded-lg flex items-center justify-center transition-colors"
                 style={{
-                  background: messageDraft.trim() || attachments.length ? 'var(--gold)' : 'hsl(var(--muted))',
-                  color: messageDraft.trim() || attachments.length ? 'white' : 'hsl(var(--muted-foreground))',
+                  background: canSendOrSave ? 'var(--gold)' : 'hsl(var(--muted))',
+                  color: canSendOrSave ? 'white' : 'hsl(var(--muted-foreground))',
                 }}
                 type="button"
-                onClick={() => void handleSend()}
-                disabled={sending}
+                onClick={() => {
+                  if (!canSendOrSave) return
+                  if (isEditingMessage) {
+                    void handleEditMessage()
+                  } else {
+                    void handleSend()
+                  }
+                }}
+                disabled={sending || !canSendOrSave}
               >
-                <ArrowUp className="w-4 h-4" />
+                {isEditingMessage ? <Check className="w-4 h-4" /> : <ArrowUp className="w-4 h-4" />}
               </button>
             </div>
           </div>
