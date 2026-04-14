@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
 import {
   Heart,
   MessageSquare,
@@ -356,16 +357,28 @@ function CommentSection({ eventId, onCountChange }: CommentSectionProps) {
   )
 }
 
+const FEED_PAGE_SIZE = 20
+
+function feedEndpoint(tab: FeedTab, offset: number) {
+  if (tab === 'ranked') return `/feed/ranked/?limit=${FEED_PAGE_SIZE}&offset=${offset}`
+  if (tab === 'trending') return `/feed/trending/?limit=${FEED_PAGE_SIZE}&offset=${offset}`
+  return `/feed/?page=${Math.floor(offset / FEED_PAGE_SIZE) + 1}&page_size=${FEED_PAGE_SIZE}`
+}
+
 export function FeedPage() {
   const { pushToast } = useToast()
   const [tab, setTab] = useState<FeedTab>('ranked')
   const [items, setItems] = useState<FeedEvent[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [hasMore, setHasMore] = useState(true)
+  const [offset, setOffset] = useState(0)
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
   const [interactions, setInteractions] = useState<Record<string, FeedInteraction>>({})
   const [composerOpen, setComposerOpen] = useState(false)
+  const sentinelRef = useRef<HTMLDivElement>(null)
   const [form, setForm] = useState({
     event_type: feedEventTypes[0].value,
     title: '',
@@ -383,33 +396,67 @@ export function FeedPage() {
     [form.tags],
   )
 
+  // Reset and reload when tab changes
   useEffect(() => {
     let cancelled = false
     const load = async () => {
       setLoading(true)
       setError(null)
+      setItems([])
+      setOffset(0)
+      setHasMore(true)
       try {
-        const endpoint = tab === 'ranked' ? '/feed/ranked/' : tab === 'trending' ? '/feed/trending/' : '/feed/'
-        const data = await apiRequest<FeedEvent[] | { results: FeedEvent[] }>(endpoint)
+        const data = await apiRequest<FeedEvent[] | { results: FeedEvent[]; next?: string | null }>(feedEndpoint(tab, 0))
         if (!cancelled) {
-          setItems(normalizeList(data))
+          const results = normalizeList(data)
+          setItems(results)
+          setOffset(results.length)
+          setHasMore(results.length === FEED_PAGE_SIZE && (!('next' in data) || !!data.next))
         }
       } catch {
-        if (!cancelled) {
-          setError('Unable to load feed.')
-        }
+        if (!cancelled) setError('Unable to load feed.')
       } finally {
-        if (!cancelled) {
-          setLoading(false)
-        }
+        if (!cancelled) setLoading(false)
       }
     }
-
     void load()
-    return () => {
-      cancelled = true
-    }
+    return () => { cancelled = true }
   }, [tab])
+
+  // Infinite scroll — load more when sentinel enters viewport
+  useEffect(() => {
+    if (!sentinelRef.current || !hasMore || loading) return
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (!entries[0].isIntersecting || loadingMore || !hasMore) return
+        const load = async () => {
+          setLoadingMore(true)
+          try {
+            const data = await apiRequest<FeedEvent[] | { results: FeedEvent[]; next?: string | null }>(feedEndpoint(tab, offset))
+            const results = normalizeList(data)
+            if (results.length === 0) {
+              setHasMore(false)
+            } else {
+              setItems((prev) => {
+                const existingIds = new Set(prev.map((i) => i.id))
+                return [...prev, ...results.filter((r) => !existingIds.has(r.id))]
+              })
+              setOffset((prev) => prev + results.length)
+              setHasMore(results.length === FEED_PAGE_SIZE && (!('next' in data) || !!data.next))
+            }
+          } catch {
+            // silent — user can scroll up/down to retry
+          } finally {
+            setLoadingMore(false)
+          }
+        }
+        void load()
+      },
+      { rootMargin: '200px' },
+    )
+    observer.observe(sentinelRef.current)
+    return () => observer.disconnect()
+  }, [tab, offset, hasMore, loading, loadingMore])
 
   useEffect(() => {
     if (!items.length) return
@@ -548,9 +595,11 @@ export function FeedPage() {
       setForm((prev) => ({ ...prev, title: '', content: '', link_url: '', tags: '' }))
       setComposerOpen(false)
 
-      const endpoint = tab === 'ranked' ? '/feed/ranked/' : tab === 'trending' ? '/feed/trending/' : '/feed/'
-      const data = await apiRequest<FeedEvent[] | { results: FeedEvent[] }>(endpoint)
-      setItems(normalizeList(data))
+      const data = await apiRequest<FeedEvent[] | { results: FeedEvent[]; next?: string | null }>(feedEndpoint(tab, 0))
+      const results = normalizeList(data)
+      setItems(results)
+      setOffset(results.length)
+      setHasMore(results.length === FEED_PAGE_SIZE)
     } catch {
       setFormError('Unable to publish post. Try again.')
     } finally {
@@ -748,28 +797,52 @@ export function FeedPage() {
               <article key={item.id} className="card" data-testid={`feed-item-${item.id}`} style={{ padding: 0, overflow: 'hidden' }}>
                 {/* Card header: avatar + author + timestamp + type badge */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.875rem 1.25rem 0' }}>
-                  <div className="avatar">
-                    {item.author?.avatar_url ? (
-                      <img src={item.author.avatar_url} alt="" />
+                  {(() => {
+                    const profilePath = item.author?.profile_id
+                      ? item.author.role === 'investor'
+                        ? `/app/investors/${item.author.profile_id}`
+                        : `/app/founders/${item.author.profile_id}`
+                      : null
+                    const avatarAndName = (
+                      <>
+                        <div className="avatar">
+                          {item.author?.avatar_url ? (
+                            <img src={item.author.avatar_url} alt="" />
+                          ) : (
+                            authorInitials(item.author?.full_name ?? item.startup_name ?? undefined)
+                          )}
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                            <span style={{ fontSize: '0.875rem', fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              {item.author?.full_name ?? item.startup_name ?? 'Unknown'}
+                            </span>
+                            <span style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))' }}>
+                              {relativeTime(item.created_at)}
+                            </span>
+                          </div>
+                          {item.startup_name && item.author?.full_name && (
+                            <p style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))', margin: 0 }}>
+                              {item.startup_name}
+                            </p>
+                          )}
+                        </div>
+                      </>
+                    )
+                    return profilePath ? (
+                      <Link
+                        to={profilePath}
+                        style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flex: 1, minWidth: 0, textDecoration: 'none', color: 'inherit' }}
+                        data-testid={`author-link-${item.id}`}
+                      >
+                        {avatarAndName}
+                      </Link>
                     ) : (
-                      authorInitials(item.author?.full_name ?? item.startup_name ?? undefined)
-                    )}
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-                      <span style={{ fontSize: '0.875rem', fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {item.author?.full_name ?? item.startup_name ?? 'Unknown'}
-                      </span>
-                      <span style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))' }}>
-                        {relativeTime(item.created_at)}
-                      </span>
-                    </div>
-                    {item.startup_name && item.author?.full_name && (
-                      <p style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))', margin: 0 }}>
-                        {item.startup_name}
-                      </p>
-                    )}
-                  </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flex: 1, minWidth: 0 }}>
+                        {avatarAndName}
+                      </div>
+                    )
+                  })()}
                   <span className="badge info" style={{ flexShrink: 0 }}>
                     {formatEventType(item.event_type)}
                   </span>
@@ -923,6 +996,21 @@ export function FeedPage() {
               <div className="empty-description">{emptyMessages[tab].desc}</div>
             </div>
           ) : null}
+
+          {/* Infinite scroll sentinel */}
+          {items.length > 0 && (
+            <div ref={sentinelRef} style={{ height: 1 }} />
+          )}
+          {loadingMore && (
+            <div style={{ display: 'flex', justifyContent: 'center', padding: '1rem', color: 'hsl(var(--muted-foreground))' }}>
+              <Loader2 size={20} className="animate-spin" />
+            </div>
+          )}
+          {!hasMore && items.length > 0 && (
+            <p style={{ textAlign: 'center', fontSize: '0.8125rem', color: 'hsl(var(--muted-foreground))', padding: '1rem 0' }}>
+              You've reached the end
+            </p>
+          )}
         </div>
       ) : null}
     </section>

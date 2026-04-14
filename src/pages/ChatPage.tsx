@@ -322,6 +322,24 @@ export function ChatPage() {
           ),
         )
       }
+      if (event.type === 'notification') {
+        // Backend wraps chat_notification channel events as type:"notification" before sending to WS client
+        const data = event.data as { notification_type?: string; conversation_id?: string; message_preview?: string; sender_name?: string }
+        if (data.notification_type === 'new_message' && data.conversation_id) {
+          setConversations((prev) =>
+            prev.map((item) =>
+              String(item.id) === String(data.conversation_id)
+                ? {
+                    ...item,
+                    last_message_preview: data.message_preview ?? item.last_message_preview ?? null,
+                    last_message_sender_name: data.sender_name ?? item.last_message_sender_name ?? null,
+                    unread_count: (item.unread_count ?? 0) + 1,
+                  }
+                : item,
+            ),
+          )
+        }
+      }
       if (event.type === 'typing') {
         const data = event.data as { conversation_id?: string; user_id?: string; is_typing?: boolean }
         if (!data.conversation_id || String(data.conversation_id) !== String(activeId)) return
@@ -334,6 +352,15 @@ export function ChatPage() {
       // ignore malformed events
     }
   }, [activeId, lastMessage])
+
+  // Heartbeat to prevent connection from being dropped by Azure/proxy idle timeouts
+  useEffect(() => {
+    if (wsStatus !== 'open') return
+    const id = window.setInterval(() => {
+      sendJson({ type: 'heartbeat' })
+    }, 30_000)
+    return () => window.clearInterval(id)
+  }, [wsStatus, sendJson])
 
   useEffect(() => {
     if (wsStatus !== 'open') return
@@ -712,11 +739,17 @@ export function ChatPage() {
     }
   }
 
-  const filteredConversations = sidebarSearch
-    ? conversations.filter((c) =>
-        formatConversationName(c).toLowerCase().includes(sidebarSearch.toLowerCase()),
-      )
-    : conversations
+  const filteredConversations = (
+    sidebarSearch
+      ? conversations.filter((c) =>
+          formatConversationName(c).toLowerCase().includes(sidebarSearch.toLowerCase()),
+        )
+      : conversations
+  ).slice().sort((a, b) => {
+    const ta = a.last_message_at ? new Date(a.last_message_at).getTime() : 0
+    const tb = b.last_message_at ? new Date(b.last_message_at).getTime() : 0
+    return tb - ta
+  })
   const isEditingMessage = Boolean(editingId)
   const composerValue = isEditingMessage ? editingContent : messageDraft
   const canSendOrSave = isEditingMessage ? Boolean(composerValue.trim()) : Boolean(composerValue.trim() || attachments.length)

@@ -4,7 +4,7 @@ import {
   Activity, Users, Briefcase, TrendingUp, Bell,
   Search, FileText, Wallet, ArrowRight,
   Zap, Target, Shield, Heart, CheckCircle, FolderHeart,
-  Calendar, Handshake
+  Calendar, Handshake, ClipboardList
 } from 'lucide-react'
 import { apiRequest } from '../lib/api'
 import { normalizeList } from '../lib/pagination'
@@ -51,6 +51,7 @@ export function Dashboard() {
   const [loading, setLoading] = useState(true)
   const [dealFlow, setDealFlow] = useState<IntroRequest[]>([])
   const [portfolio, setPortfolio] = useState<StartupListItem[]>([])
+  const [needsOnboarding, setNeedsOnboarding] = useState(false)
 
   const isInvestor = user?.role === 'investor' || user?.role === 'both'
 
@@ -59,38 +60,35 @@ export function Dashboard() {
     const load = async () => {
       setLoading(true)
       try {
-        const promises: Promise<unknown>[] = [
+        const [trustStatus, respectsRaw, sentIntrosRaw] = await Promise.all([
           apiRequest<TrustStatus>('/trust/status/'),
           flags.respects ? apiRequest<unknown[]>('/respects/received/') : Promise.resolve([]),
           apiRequest<unknown[]>('/intros/sent/'),
-        ]
-
-        if (isInvestor) {
-          promises.push(apiRequest<InvestorStats>('/investors/stats/'))
-          promises.push(apiRequest<IntroRequest[] | { results: IntroRequest[] }>('/investors/deal-flow/?status=pending&limit=5'))
-          promises.push(apiRequest<StartupListItem[] | { results: StartupListItem[] }>('/investors/portfolio/'))
-        }
-
-        const results = await Promise.all(promises)
+        ])
         if (cancelled) return
 
-        const trustStatus = results[0] as TrustStatus
-        const respects = normalizeList(results[1] as unknown[])
-        const sentIntros = normalizeList(results[2] as unknown[])
+        const respects = normalizeList(respectsRaw as unknown[])
+        const sentIntros = normalizeList(sentIntrosRaw as unknown[])
 
         if (isInvestor) {
-          const investorStats = results[3] as InvestorStats
-          const dealFlowData = normalizeList(results[4] as IntroRequest[] | { results: IntroRequest[] })
-          const portfolioData = normalizeList(results[5] as StartupListItem[] | { results: StartupListItem[] })
-
-          setStats([
-            { label: 'Pending Intros', value: investorStats.pending_intros, icon: Zap },
-            { label: 'Portfolio', value: investorStats.portfolio_count, icon: Briefcase },
-            { label: 'Saved Startups', value: investorStats.saved_startups, icon: FolderHeart },
-            { label: 'Accepted', value: investorStats.accepted_intros, icon: CheckCircle },
-          ])
-          setDealFlow(dealFlowData.slice(0, 5))
-          setPortfolio(portfolioData.slice(0, 5))
+          try {
+            const [investorStats, dealFlowRaw, portfolioRaw] = await Promise.all([
+              apiRequest<InvestorStats>('/investors/stats/'),
+              apiRequest<IntroRequest[] | { results: IntroRequest[] }>('/investors/deal-flow/?status=pending&limit=5'),
+              apiRequest<StartupListItem[] | { results: StartupListItem[] }>('/investors/portfolio/'),
+            ])
+            if (cancelled) return
+            setStats([
+              { label: 'Pending Intros', value: investorStats.pending_intros, icon: Zap },
+              { label: 'Portfolio', value: investorStats.portfolio_count, icon: Briefcase },
+              { label: 'Saved Startups', value: investorStats.saved_startups, icon: FolderHeart },
+              { label: 'Accepted', value: investorStats.accepted_intros, icon: CheckCircle },
+            ])
+            setDealFlow(normalizeList(dealFlowRaw).slice(0, 5))
+            setPortfolio(normalizeList(portfolioRaw).slice(0, 5))
+          } catch {
+            if (!cancelled) setNeedsOnboarding(true)
+          }
         } else {
           const founderStats: DashboardStats[] = []
           if (flags.leagues) founderStats.push({ label: 'League', value: trustStatus.league ?? '—', icon: Shield })
@@ -146,6 +144,16 @@ export function Dashboard() {
               <div className="stat-value">{stat.value}</div>
             </div>
           ))
+        ) : needsOnboarding ? (
+          <div className="stat-card" style={{ gridColumn: '1 / -1', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
+              <ClipboardList size={16} strokeWidth={1.5} style={{ color: 'hsl(var(--primary))', flexShrink: 0 }} />
+              <span className="stat-label" style={{ color: 'hsl(var(--foreground))' }}>Complete your profile to see your stats.</span>
+            </div>
+            <Link to="/onboarding" className="btn-sm primary" style={{ flexShrink: 0 }}>
+              Finish onboarding
+            </Link>
+          </div>
         ) : (
           <div className="stat-card" style={{ gridColumn: '1 / -1' }}>
             <div className="stat-label">Unable to load stats.</div>

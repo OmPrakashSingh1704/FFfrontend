@@ -123,7 +123,7 @@ export function NotificationDropdown() {
                     onClick={() => !item.is_read && handleMarkAsRead(item.id)}
                   >
                     <div className="notification-item-header">
-                      <span className="notification-type">{item.notification_type ?? 'Update'}</span>
+                      <span className="notification-type">{item.type ?? 'Update'}</span>
                       {!item.is_read && <span className="notification-dot" />}
                     </div>
                     <h4>{item.title ?? 'Notification'}</h4>

@@ -897,6 +897,15 @@ export function ProfilePage() {
                         onClick={(e) => e.stopPropagation()}
                         style={{ display: 'contents' }}
                       >
+                        <Link
+                          to={`/app/startups/${s.id}`}
+                          className="btn-sm ghost"
+                          style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '0.25rem 0.5rem', fontSize: '0.75rem' }}
+                          data-testid={`open-startup-${s.id}`}
+                        >
+                          <ExternalLink size={12} strokeWidth={1.5} />
+                          Open
+                        </Link>
                         <CopyLinkButton
                           url={`${window.location.origin}/app/startups/${s.id}`}
                           label="Share"

@@ -17,6 +17,7 @@ import {
   Briefcase,
   Handshake,
   ShieldCheck,
+  UserPlus,
   X,
 } from 'lucide-react'
 import { apiRequest, uploadRequest } from '../lib/api'
@@ -56,15 +57,19 @@ function formatFileSize(bytes?: number | null): string {
 
 function toRelativeApiPath(url: string | null | undefined) {
   if (!url) return null
+  let path = url
   if (url.startsWith('http://') || url.startsWith('https://')) {
     try {
       const parsed = new URL(url)
-      return `${parsed.pathname}${parsed.search}`
+      path = `${parsed.pathname}${parsed.search}`
     } catch {
       return null
     }
+  } else if (!path.startsWith('/')) {
+    path = `/${path}`
   }
-  return url.startsWith('/') ? url : `/${url}`
+  // Strip the /api/v1 prefix since apiRequest prepends API_BASE_URL which already includes it
+  return path.replace(/^\/api\/v\d+/, '')
 }
 
 export function StartupDetailPage() {
@@ -82,9 +87,155 @@ export function StartupDetailPage() {
   type DocQueueItem = { localId: string; file: File; docType: string; accessLevel: string }
   const [docQueue, setDocQueue] = useState<DocQueueItem[]>([])
   const [founderProfileIds, setFounderProfileIds] = useState<Record<string, string>>({})
+  const [investorProfileIds, setInvestorProfileIds] = useState<Record<string, string>>({})
+  const checkedUserIds = useRef<Set<string>>(new Set())
 
   const isInvestor = user?.role === 'investor' || user?.role === 'both'
   const isMember = startup?.members?.some((m) => m.user === user?.id) ?? false
+  const isStartupFounder = startup?.members?.some((m) => m.user === user?.id && (m.role === 'founder' || m.role === 'co_founder')) ?? false
+  const [togglingVisibility, setTogglingVisibility] = useState(false)
+
+  // Join requests (for members)
+  type JoinRequest = { id: string; requester_name?: string; requester_email?: string; message?: string; role?: string; created_at?: string }
+  const [joinRequests, setJoinRequests] = useState<JoinRequest[]>([])
+  const [reviewingId, setReviewingId] = useState<string | null>(null)
+
+  // Approve modal state
+  const [approveModal, setApproveModal] = useState<{ requestId: string; name: string } | null>(null)
+  const [approveRole, setApproveRole] = useState('employee')
+  const [approveTitle, setApproveTitle] = useState('')
+  const [approvingId, setApprovingId] = useState<string | null>(null)
+
+  // Member edit state
+  const [editingMemberId, setEditingMemberId] = useState<string | null>(null)
+  const [editRole, setEditRole] = useState('')
+  const [editTitle, setEditTitle] = useState('')
+  const [savingMember, setSavingMember] = useState(false)
+
+  useEffect(() => {
+    if (!isMember || !startup) return
+    apiRequest<{ results?: JoinRequest[] } | JoinRequest[]>(`/founders/startups/${startup.id}/join-requests/`)
+      .then((data) => {
+        const results = Array.isArray(data) ? data : data.results ?? []
+        setJoinRequests(results)
+      })
+      .catch(() => {})
+  }, [isMember, startup?.id])
+
+  const handleApprove = async () => {
+    if (!startup || !approveModal) return
+    setApprovingId(approveModal.requestId)
+    try {
+      await apiRequest(`/founders/startups/${startup.id}/join-requests/${approveModal.requestId}/review/`, {
+        method: 'POST',
+        body: { action: 'approve', role: approveRole, title: approveTitle },
+      })
+      setJoinRequests((prev) => prev.filter((r) => r.id !== approveModal.requestId))
+      pushToast('Member added!', 'success')
+      const updated = await apiRequest<StartupDetail>(`/founders/startups/${startup.id}/`)
+      setStartup(updated)
+      setApproveModal(null)
+      setApproveRole('employee')
+      setApproveTitle('')
+    } catch {
+      pushToast('Failed to approve request', 'error')
+    } finally {
+      setApprovingId(null)
+    }
+  }
+
+  const handleReject = async (requestId: string) => {
+    if (!startup) return
+    setReviewingId(requestId)
+    try {
+      await apiRequest(`/founders/startups/${startup.id}/join-requests/${requestId}/review/`, {
+        method: 'POST',
+        body: { action: 'reject' },
+      })
+      setJoinRequests((prev) => prev.filter((r) => r.id !== requestId))
+      pushToast('Request rejected', 'success')
+    } catch {
+      pushToast('Failed to reject request', 'error')
+    } finally {
+      setReviewingId(null)
+    }
+  }
+
+  const handleEditMember = (m: NonNullable<StartupDetail['members']>[number]) => {
+    setEditingMemberId(m.id)
+    setEditRole(m.role ?? 'employee')
+    setEditTitle(m.title ?? '')
+  }
+
+  const handleSaveMember = async (memberId: string) => {
+    if (!startup) return
+    setSavingMember(true)
+    try {
+      const updated = await apiRequest<NonNullable<StartupDetail['members']>[number]>(
+        `/founders/startups/${startup.id}/members/${memberId}/`,
+        { method: 'PATCH', body: { role: editRole, title: editTitle } }
+      )
+      setStartup((prev) => prev ? {
+        ...prev,
+        members: prev.members?.map((m) => m.id === memberId ? { ...m, ...updated } : m),
+      } : prev)
+      setEditingMemberId(null)
+      pushToast('Position updated', 'success')
+    } catch {
+      pushToast('Failed to update position', 'error')
+    } finally {
+      setSavingMember(false)
+    }
+  }
+
+  // Join request state
+  const [showJoinForm, setShowJoinForm] = useState(false)
+  const [joinMessage, setJoinMessage] = useState('')
+  const [joiningStartup, setJoiningStartup] = useState(false)
+  const [joinRequestSent, setJoinRequestSent] = useState(false)
+
+  useEffect(() => {
+    if (!startup || isMember) return
+    apiRequest<{ has_pending: boolean }>(`/founders/startups/${startup.id}/join-request/`)
+      .then((data) => { if (data.has_pending) setJoinRequestSent(true) })
+      .catch(() => {})
+  }, [startup?.id, isMember])
+
+  const handleJoinRequest = async () => {
+    if (!startup) return
+    setJoiningStartup(true)
+    try {
+      await apiRequest(`/founders/startups/${startup.id}/join-request/`, {
+        method: 'POST',
+        body: { message: joinMessage },
+      })
+      setJoinRequestSent(true)
+      setShowJoinForm(false)
+      setJoinMessage('')
+      pushToast('Join request sent!', 'success')
+    } catch {
+      pushToast('Failed to send join request', 'error')
+    } finally {
+      setJoiningStartup(false)
+    }
+  }
+
+  const toggleVisibility = async () => {
+    if (!startup) return
+    setTogglingVisibility(true)
+    try {
+      const updated = await apiRequest<StartupDetail>(`/founders/startups/${startup.id}/`, {
+        method: 'PATCH',
+        body: { is_public: !startup.is_public },
+      })
+      setStartup(updated)
+      pushToast(`Startup is now ${updated.is_public ? 'public' : 'private'}`, 'success')
+    } catch {
+      pushToast('Failed to update visibility', 'error')
+    } finally {
+      setTogglingVisibility(false)
+    }
+  }
 
   // Express Interest state
   const [investorProfile, setInvestorProfile] = useState<InvestorProfile | null>(null)
@@ -93,30 +244,51 @@ export function StartupDetailPage() {
   const [expressingInterest, setExpressingInterest] = useState(false)
 
   const fetchFounderProfilesForUsers = useCallback(async (userIds: string[]) => {
-    const remaining = new Set(userIds.filter(Boolean))
+    const ids = userIds.filter(Boolean)
     const found: Record<string, string> = {}
+    if (ids.length === 0) return found
 
-    if (remaining.size === 0) return found
-
-    let nextPath: string | null = '/founders/'
-    while (nextPath && remaining.size > 0) {
-      const data = await apiRequest<PaginatedResponse<FounderProfile> | FounderProfile[]>(nextPath)
+    // Use targeted user_ids filter — avoids paginating all founders
+    let nextPath: string | null = `/founders/?user_ids=${ids.join(',')}`
+    while (nextPath) {
+      type FounderPage = PaginatedResponse<FounderProfile> | FounderProfile[]
+      const data: FounderPage = await apiRequest<FounderPage>(nextPath)
       const results = Array.isArray(data) ? data : data.results ?? []
 
       for (const profile of results) {
         const userId = profile.user?.id
-        if (userId && remaining.has(userId) && !found[userId]) {
+        if (userId && !found[userId]) {
           found[userId] = profile.id
-          remaining.delete(userId)
         }
       }
 
-      if (remaining.size === 0) break
-      if (!Array.isArray(data) && data.next) {
-        nextPath = toRelativeApiPath(data.next)
-      } else {
-        nextPath = null
+      nextPath = (!Array.isArray(data) && data.next) ? toRelativeApiPath(data.next) : null
+    }
+
+    return found
+  }, [])
+
+  const fetchInvestorProfilesForUsers = useCallback(async (userIds: string[]) => {
+    const ids = userIds.filter(Boolean)
+    const found: Record<string, string> = {}
+    if (ids.length === 0) return found
+
+    // Use targeted user_ids filter — avoids paginating all investors
+    let nextPath: string | null = `/investors/?user_ids=${ids.join(',')}`
+    while (nextPath) {
+      type InvestorWithUserId = InvestorProfile & { user_id?: string }
+      type InvestorPage = PaginatedResponse<InvestorWithUserId> | InvestorWithUserId[]
+      const data: InvestorPage = await apiRequest<InvestorPage>(nextPath)
+      const results = Array.isArray(data) ? data : data.results ?? []
+
+      for (const profile of results) {
+        const userId = profile.user_id ?? profile.user?.id
+        if (userId && !found[userId]) {
+          found[userId] = profile.id
+        }
       }
+
+      nextPath = (!Array.isArray(data) && data.next) ? toRelativeApiPath(data.next) : null
     }
 
     return found
@@ -159,31 +331,35 @@ export function StartupDetailPage() {
   }, [isInvestor])
 
   useEffect(() => {
-    if (!startup?.founders_list?.length) return
+    const founderIds = (startup?.founders_list ?? []).map((f) => f.id).filter((id): id is string => typeof id === 'string' && id.length > 0)
+    const memberIds = (startup?.members ?? []).map((m) => m.user).filter((id): id is string => typeof id === 'string' && id.length > 0)
+    const allIds = [...new Set([...founderIds, ...memberIds])]
 
-    const missingUserIds = startup.founders_list
-      .map((founder) => founder.id)
-      .filter((id): id is string => typeof id === 'string' && id.length > 0 && !founderProfileIds[id])
+    // Only look up IDs we haven't checked yet — avoids infinite loop for users with no profile
+    const unchecked = allIds.filter((id) => !checkedUserIds.current.has(id))
+    if (unchecked.length === 0) return
 
-    if (missingUserIds.length === 0) return
+    unchecked.forEach((id) => checkedUserIds.current.add(id))
 
     let cancelled = false
     const resolveProfiles = async () => {
       try {
-        const mapping = await fetchFounderProfilesForUsers(missingUserIds)
-        if (!cancelled && Object.keys(mapping).length > 0) {
-          setFounderProfileIds((prev) => ({ ...prev, ...mapping }))
+        const [founderMapping, investorMapping] = await Promise.all([
+          fetchFounderProfilesForUsers(unchecked),
+          fetchInvestorProfilesForUsers(unchecked),
+        ])
+        if (!cancelled) {
+          if (Object.keys(founderMapping).length > 0) setFounderProfileIds((prev) => ({ ...prev, ...founderMapping }))
+          if (Object.keys(investorMapping).length > 0) setInvestorProfileIds((prev) => ({ ...prev, ...investorMapping }))
         }
       } catch {
-        // ignore errors; founders will remain unlinked
+        // ignore; members without profiles remain unlinked
       }
     }
 
     void resolveProfiles()
-    return () => {
-      cancelled = true
-    }
-  }, [startup?.founders_list, founderProfileIds, fetchFounderProfilesForUsers])
+    return () => { cancelled = true }
+  }, [startup?.founders_list, startup?.members, fetchFounderProfilesForUsers, fetchInvestorProfilesForUsers])
 
   const handleExpressInterest = async () => {
     if (!startup || !investorProfile) return
@@ -315,6 +491,21 @@ export function StartupDetailPage() {
                 </div>
               </div>
 
+              {/* Visibility toggle (members only) */}
+              {isMember && (
+                <button
+                  className={`btn-sm ${startup.is_public ? 'ghost' : 'primary'}`}
+                  type="button"
+                  onClick={() => void toggleVisibility()}
+                  disabled={togglingVisibility}
+                  style={{ flexShrink: 0 }}
+                  data-testid="visibility-toggle"
+                >
+                  {startup.is_public ? <Globe size={14} /> : <Lock size={14} />}
+                  {togglingVisibility ? 'Saving...' : startup.is_public ? 'Public' : 'Private'}
+                </button>
+              )}
+
               {/* Express Interest (investors only, non-members) */}
               {isInvestor && !isMember && investorProfile && (
                 <button
@@ -326,6 +517,24 @@ export function StartupDetailPage() {
                   <Handshake size={14} />
                   Express Interest
                 </button>
+              )}
+
+              {/* Request to Join (non-members) */}
+              {!isMember && (
+                joinRequestSent ? (
+                  <span className="badge info" style={{ flexShrink: 0 }}>Request sent</span>
+                ) : (
+                  <button
+                    className="btn-sm ghost"
+                    type="button"
+                    onClick={() => setShowJoinForm(true)}
+                    style={{ flexShrink: 0 }}
+                    data-testid="join-request-btn"
+                  >
+                    <UserPlus size={14} />
+                    Request to Join
+                  </button>
+                )
               )}
             </div>
 
@@ -362,6 +571,38 @@ export function StartupDetailPage() {
                 </span>
               )}
             </div>
+
+            {/* Join Request Form (inline) */}
+            {showJoinForm && (
+              <div style={{ marginTop: '1rem', padding: '1rem', background: 'hsl(var(--muted))', borderRadius: 10 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                  <span style={{ fontWeight: 600, fontSize: '0.875rem' }}>Request to Join</span>
+                  <button className="btn-sm ghost" style={{ padding: 4 }} onClick={() => setShowJoinForm(false)}>
+                    <X size={14} />
+                  </button>
+                </div>
+                <p style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))', marginBottom: '0.75rem' }}>
+                  The startup team will review your request.
+                </p>
+                <textarea
+                  className="input"
+                  rows={3}
+                  placeholder="Why do you want to join? (optional)"
+                  value={joinMessage}
+                  onChange={(e) => setJoinMessage(e.target.value)}
+                  style={{ resize: 'vertical', marginBottom: '0.5rem' }}
+                  data-testid="join-message-input"
+                />
+                <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+                  <button className="btn-sm ghost" onClick={() => setShowJoinForm(false)} disabled={joiningStartup}>
+                    Cancel
+                  </button>
+                  <button className="btn-sm primary" onClick={() => void handleJoinRequest()} disabled={joiningStartup} data-testid="join-request-submit">
+                    {joiningStartup ? <><Loader2 size={12} className="animate-spin" /> Sending...</> : <><UserPlus size={12} /> Send Request</>}
+                  </button>
+                </div>
+              </div>
+            )}
 
             {/* Express Interest Form (inline) */}
             {showInterestForm && (
@@ -465,6 +706,125 @@ export function StartupDetailPage() {
                       </Link>
                     )
                   })}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Join Requests (members only) */}
+          {isMember && joinRequests.length > 0 && (
+            <div className="section">
+              <div className="card">
+                <div className="section-label" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <UserPlus style={{ width: '0.875rem', height: '0.875rem' }} strokeWidth={1.5} />
+                  Join Requests
+                  <span className="badge info" style={{ fontSize: '0.7rem' }}>{joinRequests.length}</span>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.5rem' }}>
+                  {joinRequests.map((req) => (
+                    <div key={req.id} className="list-item" data-testid={`join-request-${req.id}`}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontWeight: 500, fontSize: '0.875rem' }}>{req.requester_name ?? req.requester_email ?? 'Unknown'}</div>
+                        {req.message && (
+                          <div style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))', marginTop: 2 }}>{req.message}</div>
+                        )}
+                      </div>
+                      <div style={{ display: 'flex', gap: '0.375rem', flexShrink: 0 }}>
+                        <button
+                          className="btn-sm primary"
+                          onClick={() => { setApproveModal({ requestId: req.id, name: req.requester_name ?? req.requester_email ?? 'this person' }); setApproveRole('employee'); setApproveTitle('') }}
+                          data-testid={`approve-${req.id}`}
+                        >
+                          Approve
+                        </button>
+                        <button
+                          className="btn-sm ghost"
+                          disabled={reviewingId === req.id}
+                          onClick={() => void handleReject(req.id)}
+                          data-testid={`reject-${req.id}`}
+                          style={{ color: '#ef4444' }}
+                        >
+                          {reviewingId === req.id ? <Loader2 size={12} className="animate-spin" /> : 'Reject'}
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Team Members */}
+          {(startup.members ?? []).length > 0 && (
+            <div className="section">
+              <div className="card">
+                <div className="section-label" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <Users style={{ width: '0.875rem', height: '0.875rem' }} strokeWidth={1.5} />
+                  Team
+                  <span className="badge">{startup.members!.length}</span>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem', marginTop: '0.5rem' }}>
+                  {startup.members!.map((m) => (
+                    <div key={m.id}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                        {(founderProfileIds[m.user] || investorProfileIds[m.user]) ? (
+                          <Link to={founderProfileIds[m.user] ? `/app/founders/${founderProfileIds[m.user]}` : `/app/investors/${investorProfileIds[m.user]}`} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flex: 1, minWidth: 0, textDecoration: 'none', color: 'inherit' }}>
+                            <div style={{ width: 34, height: 34, borderRadius: '50%', background: 'hsl(var(--muted))', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '0.7rem', fontWeight: 600, color: 'hsl(var(--muted-foreground))' }}>
+                              {(m.user_name ?? m.user_email ?? '?').slice(0, 2).toUpperCase()}
+                            </div>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontWeight: 500, fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
+                                {m.user_name ?? m.user_email ?? 'Unknown'}
+                                {m.is_primary_contact && (
+                                  <span style={{ fontSize: '0.65rem', fontWeight: 600, padding: '1px 6px', borderRadius: 999, background: 'hsl(var(--primary) / 0.15)', color: 'hsl(var(--primary))' }}>Primary</span>
+                                )}
+                              </div>
+                              <div style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))' }}>
+                                {m.title ? `${m.title} · ${formatLabel(m.role ?? '')}` : formatLabel(m.role ?? '')}
+                              </div>
+                            </div>
+                          </Link>
+                        ) : (
+                          <>
+                            <div style={{ width: 34, height: 34, borderRadius: '50%', background: 'hsl(var(--muted))', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '0.7rem', fontWeight: 600, color: 'hsl(var(--muted-foreground))' }}>
+                              {(m.user_name ?? m.user_email ?? '?').slice(0, 2).toUpperCase()}
+                            </div>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontWeight: 500, fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
+                                {m.user_name ?? m.user_email ?? 'Unknown'}
+                                {m.is_primary_contact && (
+                                  <span style={{ fontSize: '0.65rem', fontWeight: 600, padding: '1px 6px', borderRadius: 999, background: 'hsl(var(--primary) / 0.15)', color: 'hsl(var(--primary))' }}>Primary</span>
+                                )}
+                              </div>
+                              <div style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))' }}>
+                                {m.title ? `${m.title} · ${formatLabel(m.role ?? '')}` : formatLabel(m.role ?? '')}
+                              </div>
+                            </div>
+                          </>
+                        )}
+                        {isStartupFounder && editingMemberId !== m.id && (
+                          <button className="btn-sm ghost" style={{ flexShrink: 0 }} onClick={() => handleEditMember(m)}>Edit</button>
+                        )}
+                      </div>
+                      {editingMemberId === m.id && (
+                        <div style={{ marginTop: '0.5rem', marginLeft: 46, display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                          <select className="select" style={{ fontSize: '0.8125rem', padding: '4px 8px', flex: '0 0 auto' }} value={editRole} onChange={(e) => setEditRole(e.target.value)}>
+                            <option value="founder">Founder</option>
+                            <option value="co_founder">Co-Founder</option>
+                            <option value="executive">Executive</option>
+                            <option value="investor">Investor</option>
+                            <option value="advisor">Advisor</option>
+                            <option value="employee">Employee</option>
+                          </select>
+                          <input className="input" style={{ fontSize: '0.8125rem', padding: '4px 8px', flex: '1 1 120px', minWidth: 100 }} placeholder="Title (e.g. CTO)" value={editTitle} onChange={(e) => setEditTitle(e.target.value)} />
+                          <button className="btn-sm primary" disabled={savingMember} onClick={() => void handleSaveMember(m.id)}>
+                            {savingMember ? <Loader2 size={12} className="animate-spin" /> : 'Save'}
+                          </button>
+                          <button className="btn-sm ghost" onClick={() => setEditingMemberId(null)}>Cancel</button>
+                        </div>
+                      )}
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>
@@ -642,6 +1002,36 @@ export function StartupDetailPage() {
             </div>
           </div>
         </>
+      )}
+
+      {/* Approve modal */}
+      {approveModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+          <div className="card" style={{ maxWidth: 420, width: '90%', padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <div style={{ fontWeight: 600, fontSize: '1rem' }}>Approve {approveModal.name}</div>
+            <p style={{ fontSize: '0.875rem', color: 'hsl(var(--muted-foreground))', margin: 0 }}>Assign a role and title before adding them to the team.</p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+              <label style={{ fontSize: '0.8125rem', fontWeight: 500 }}>Role</label>
+              <select className="select" value={approveRole} onChange={(e) => setApproveRole(e.target.value)}>
+                <option value="founder">Founder</option>
+                <option value="co_founder">Co-Founder</option>
+                <option value="executive">Executive</option>
+                <option value="advisor">Advisor</option>
+                <option value="employee">Employee</option>
+              </select>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+              <label style={{ fontSize: '0.8125rem', fontWeight: 500 }}>Title <span style={{ color: 'hsl(var(--muted-foreground))', fontWeight: 400 }}>(optional)</span></label>
+              <input className="input" placeholder="e.g. CTO, Head of Design" value={approveTitle} onChange={(e) => setApproveTitle(e.target.value)} />
+            </div>
+            <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
+              <button className="btn-sm ghost" onClick={() => setApproveModal(null)}>Cancel</button>
+              <button className="btn-sm primary" disabled={!!approvingId} onClick={() => void handleApprove()}>
+                {approvingId ? <Loader2 size={12} className="animate-spin" /> : 'Approve & Add'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )

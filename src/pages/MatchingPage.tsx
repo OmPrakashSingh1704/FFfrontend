@@ -4,7 +4,7 @@ import { normalizeList } from '../lib/pagination'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 import { resolveMediaUrl } from '../lib/env'
-import { TrendingUp, Briefcase, Star, Loader2, ChevronRight, Zap } from 'lucide-react'
+import { TrendingUp, Briefcase, Star, Loader2, ChevronRight, Zap, Users, ClipboardList } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
 type ScoreBreakdown = {
@@ -34,6 +34,14 @@ type InvestorMatch = {
   score: ScoreBreakdown
 }
 
+type FounderInfo = {
+  user_id: string
+  full_name: string
+  profile_id?: string | null
+  headline?: string | null
+  avatar?: string | null
+}
+
 type StartupMatch = {
   startup: {
     id: string
@@ -43,6 +51,7 @@ type StartupMatch = {
     logo_url?: string | null
     logo?: string | null
     tagline?: string | null
+    founders?: FounderInfo[]
   }
   score: ScoreBreakdown
 }
@@ -107,20 +116,32 @@ export function MatchingPage() {
   const [startupMatches, setStartupMatches] = useState<StartupMatch[]>([])
   const [loading, setLoading] = useState(true)
   const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [needsInvestorOnboarding, setNeedsInvestorOnboarding] = useState(false)
+  const [needsFounderOnboarding, setNeedsFounderOnboarding] = useState(false)
 
   const fetchMatches = async () => {
     setLoading(true)
     try {
       if (isFounder) {
-        const data = await apiRequest<{ results: InvestorMatch[] } | InvestorMatch[]>('/match/knn/investors/')
-        setInvestorMatches(normalizeList(data))
+        try {
+          const data = await apiRequest<{ results: InvestorMatch[] } | InvestorMatch[]>('/match/knn/investors/')
+          setInvestorMatches(normalizeList(data))
+        } catch (err: unknown) {
+          const e = err as { status?: number }
+          if (e?.status === 400) setNeedsFounderOnboarding(true)
+          else pushToast('Failed to load investor matches', 'error')
+        }
       }
       if (isInvestor) {
-        const data = await apiRequest<{ results: StartupMatch[] } | StartupMatch[]>('/match/knn/startups/')
-        setStartupMatches(normalizeList(data))
+        try {
+          const data = await apiRequest<{ results: StartupMatch[] } | StartupMatch[]>('/match/knn/startups/')
+          setStartupMatches(normalizeList(data))
+        } catch (err: unknown) {
+          const e = err as { status?: number }
+          if (e?.status === 400) setNeedsInvestorOnboarding(true)
+          else pushToast('Failed to load startup matches', 'error')
+        }
       }
-    } catch {
-      pushToast('Failed to load matches', 'error')
     } finally {
       setLoading(false)
     }
@@ -159,7 +180,16 @@ export function MatchingPage() {
                 Matched Investors
                 <span className="badge">{investorMatches.length}</span>
               </h2>
-              {investorMatches.length === 0 ? (
+              {needsFounderOnboarding ? (
+                <div className="empty-state">
+                  <div className="empty-icon"><ClipboardList size={24} /></div>
+                  <span className="empty-title">Complete your startup profile</span>
+                  <span className="empty-description">Create a startup to get matched with investors.</span>
+                  <Link to="/onboarding" className="btn primary" style={{ marginTop: '0.75rem' }}>
+                    Finish onboarding
+                  </Link>
+                </div>
+              ) : investorMatches.length === 0 ? (
                 <div className="empty-state">
                   <div className="empty-icon"><TrendingUp size={24} /></div>
                   <span className="empty-title">No matches yet</span>
@@ -214,15 +244,24 @@ export function MatchingPage() {
             </div>
           )}
 
-          {/* Startup matches (for investors) */}
+          {/* Startup + Founder matches (for investors) */}
           {isInvestor && (
             <div>
               <h2 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: 8 }}>
                 <Briefcase size={16} strokeWidth={1.5} style={{ color: 'var(--gold)' }} />
-                Matched Startups
+                Matched Startups &amp; Founders
                 <span className="badge">{startupMatches.length}</span>
               </h2>
-              {startupMatches.length === 0 ? (
+              {needsInvestorOnboarding ? (
+                <div className="empty-state">
+                  <div className="empty-icon"><ClipboardList size={24} /></div>
+                  <span className="empty-title">Complete your investor profile</span>
+                  <span className="empty-description">Set up your investor profile to start discovering matching startups.</span>
+                  <Link to="/onboarding" className="btn primary" style={{ marginTop: '0.75rem' }}>
+                    Finish onboarding
+                  </Link>
+                </div>
+              ) : startupMatches.length === 0 ? (
                 <div className="empty-state">
                   <div className="empty-icon"><Briefcase size={24} /></div>
                   <span className="empty-title">No matches yet</span>
@@ -233,6 +272,7 @@ export function MatchingPage() {
                   {startupMatches.map((m) => {
                     const expanded = expandedId === m.startup.id
                     const logoSrc = resolveMediaUrl(m.startup.logo ?? m.startup.logo_url)
+                    const founders = m.startup.founders ?? []
                     return (
                       <div key={m.startup.id} className="card" style={{ padding: 0, overflow: 'hidden' }}>
                         <button
@@ -257,13 +297,48 @@ export function MatchingPage() {
                           <ChevronRight size={14} style={{ transform: expanded ? 'rotate(90deg)' : undefined, transition: 'transform 200ms' }} />
                         </button>
                         {expanded && (
-                          <div style={{ padding: '1rem', borderTop: '1px solid hsl(var(--border))', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                            <ScoreBar label="Industry fit" value={m.score.industry_score} />
-                            <ScoreBar label="Stage fit" value={m.score.stage_score} />
-                            <ScoreBar label="Capital fit" value={m.score.capital_fit_score} />
-                            <ScoreBar label="Verification" value={m.score.verification_score} />
-                            <ScoreBar label="Traction" value={m.score.traction_score} />
-                            <div style={{ marginTop: 8 }}>
+                          <div style={{ padding: '1rem', borderTop: '1px solid hsl(var(--border))', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                            {/* Score breakdown */}
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                              <ScoreBar label="Industry fit" value={m.score.industry_score} />
+                              <ScoreBar label="Stage fit" value={m.score.stage_score} />
+                              <ScoreBar label="Capital fit" value={m.score.capital_fit_score} />
+                              <ScoreBar label="Verification" value={m.score.verification_score} />
+                              <ScoreBar label="Traction" value={m.score.traction_score} />
+                            </div>
+
+                            {/* Founders */}
+                            {founders.length > 0 && (
+                              <div>
+                                <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'hsl(var(--muted-foreground))', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: 4 }}>
+                                  <Users size={12} strokeWidth={1.5} /> Founders
+                                </div>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                  {founders.map((f) => (
+                                    <div key={f.user_id} style={{ display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
+                                      <div style={{ width: 30, height: 30, borderRadius: '50%', background: 'hsl(var(--muted))', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, overflow: 'hidden', fontSize: '0.65rem', fontWeight: 600 }}>
+                                        {f.avatar ? (
+                                          <img src={resolveMediaUrl(f.avatar) ?? ''} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                        ) : (
+                                          f.full_name.slice(0, 2).toUpperCase()
+                                        )}
+                                      </div>
+                                      <div style={{ flex: 1, minWidth: 0 }}>
+                                        <div style={{ fontSize: '0.8125rem', fontWeight: 500 }}>{f.full_name}</div>
+                                        {f.headline && <div style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.headline}</div>}
+                                      </div>
+                                      {f.profile_id && (
+                                        <Link to={`/app/founders/${f.profile_id}`} className="btn-sm ghost" style={{ flexShrink: 0 }}>
+                                          View <ChevronRight size={11} />
+                                        </Link>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
+                            <div>
                               <Link to={`/app/startups/${m.startup.id}`} className="btn-sm ghost">
                                 View startup <ChevronRight size={12} />
                               </Link>

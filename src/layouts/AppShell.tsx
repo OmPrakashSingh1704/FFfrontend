@@ -2,7 +2,7 @@ import { Link, Outlet, useLocation } from 'react-router-dom'
 import {
   Home, Users, Briefcase, TrendingUp, MessageSquare, Bell,
   BarChart3, Settings, Search, FileText,
-  Activity, Wallet, Menu, X, Zap, Handshake
+  Activity, Wallet, Menu, X, Zap, Handshake, ClipboardList
 } from 'lucide-react'
 import { useState, useEffect, useCallback } from 'react'
 import logo from '../assets/logo.svg'
@@ -173,6 +173,27 @@ export function AppShell() {
           )}
         </div>
       </header>
+
+      {user && !user.onboarding_completed && (
+        <div style={{
+          background: 'linear-gradient(90deg, hsl(var(--primary) / 0.15), hsl(var(--primary) / 0.05))',
+          borderBottom: '1px solid hsl(var(--primary) / 0.2)',
+          padding: '0.625rem 1.25rem',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '1rem',
+          flexWrap: 'wrap',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.875rem' }}>
+            <ClipboardList size={16} strokeWidth={1.5} style={{ color: 'hsl(var(--primary))', flexShrink: 0 }} />
+            <span>Complete your profile to unlock all features and get discovered.</span>
+          </div>
+          <Link to="/onboarding" className="btn-sm primary" style={{ flexShrink: 0 }} data-testid="finish-onboarding-btn">
+            Finish onboarding
+          </Link>
+        </div>
+      )}
 
       <main className="app-main" id="main-content">
         <Outlet />
