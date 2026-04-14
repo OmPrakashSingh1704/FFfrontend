@@ -352,7 +352,7 @@ function App() {
               }
             />
             <Route
-              path="/onboarding"
+              path="/onboarding/*"
               element={
                 <ProtectedRoute allowOnboarding>
                   <OnboardingPage />

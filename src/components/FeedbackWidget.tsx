@@ -125,7 +125,7 @@ export function FeedbackWidget() {
         style={{
           position: 'fixed',
           bottom: '1.5rem',
-          right: '1.5rem',
+          left: '1.5rem',
           zIndex: 1000,
           width: 44,
           height: 44,
@@ -161,7 +161,7 @@ export function FeedbackWidget() {
             zIndex: 1001,
             display: 'flex',
             alignItems: 'flex-end',
-            justifyContent: 'flex-end',
+            justifyContent: 'flex-start',
             padding: '1.5rem',
           }}
           onClick={(e) => { if (e.target === e.currentTarget) handleClose() }}
