@@ -5,9 +5,10 @@ export type FeatureFlags = {
   credits: boolean
   leagues: boolean
   respects: boolean
+  connections: boolean
 }
 
-const defaults: FeatureFlags = { credits: true, leagues: true, respects: true }
+const defaults: FeatureFlags = { credits: true, leagues: true, respects: true, connections: true }
 
 const FeatureFlagsContext = createContext<FeatureFlags>(defaults)
 

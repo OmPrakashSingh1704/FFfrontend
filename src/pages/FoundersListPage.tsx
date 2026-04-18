@@ -1,10 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Users, MapPin, TrendingUp, MessageCircle, Search, X } from 'lucide-react'
+import { Users, MapPin, TrendingUp, MessageCircle, Search, X, UserPlus } from 'lucide-react'
 import { apiRequest } from '../lib/api'
 import { resolveMediaUrl } from '../lib/env'
 import { formatLabel } from '../lib/format'
 import { Pagination } from '../components/Pagination'
+import { useToast } from '../context/ToastContext'
+import { useAuth } from '../context/AuthContext'
+import { fetchConnectedUserIds } from '../lib/connections'
 import type { FounderProfile } from '../types/founder'
 
 const PAGE_SIZE = 20
@@ -12,12 +15,22 @@ const PAGE_SIZE = 20
 type PaginatedResponse = { count: number; next: string | null; previous: string | null; results: FounderProfile[] }
 
 export function FoundersListPage() {
+  const { pushToast } = useToast()
+  const { user: currentUser } = useAuth()
   const [founders, setFounders] = useState<FounderProfile[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
   const [totalCount, setTotalCount] = useState(0)
+  const [connecting, setConnecting] = useState<string | null>(null)
+  const [requested, setRequested] = useState<Set<string>>(new Set())
+
+  useEffect(() => {
+    if (currentUser?.id) {
+      fetchConnectedUserIds(currentUser.id).then(setRequested).catch(() => {})
+    }
+  }, [currentUser?.id])
   const searchTimer = useRef<number | null>(null)
   const navigate = useNavigate()
 
@@ -52,6 +65,24 @@ export function FoundersListPage() {
       setSearch(value)
       setPage(1)
     }, 300)
+  }
+
+  const handleConnect = async (e: React.MouseEvent, founder: FounderProfile) => {
+    e.preventDefault()
+    e.stopPropagation()
+    const userId = founder.user?.id
+    if (!userId) return
+    setConnecting(userId)
+    try {
+      await apiRequest('/connections/send/', { method: 'POST', body: { user_id: userId } })
+      setRequested((prev) => new Set(prev).add(userId))
+      pushToast('Connection request sent!', 'success')
+    } catch (err: unknown) {
+      const msg = (err as { detail?: string })?.detail ?? 'Failed to send request.'
+      pushToast(msg, 'error')
+    } finally {
+      setConnecting(null)
+    }
   }
 
   const handleStartChat = (e: React.MouseEvent, founder: FounderProfile) => {
@@ -228,16 +259,31 @@ export function FoundersListPage() {
                       )}
                     </div>
 
-                    <button
-                      type="button"
-                      className="btn-sm ghost"
-                      style={{ width: '100%', justifyContent: 'center' }}
-                      onClick={(e) => handleStartChat(e, founder)}
-                      data-testid={`chat-founder-${founder.id}`}
-                    >
-                      <MessageCircle style={{ width: '0.875rem', height: '0.875rem' }} strokeWidth={1.5} />
-                      Start Chat
-                    </button>
+                    <div style={{ display: 'flex', gap: '0.375rem' }}>
+                      <button
+                        type="button"
+                        className="btn-sm ghost"
+                        style={{ flex: 1, justifyContent: 'center' }}
+                        onClick={(e) => handleStartChat(e, founder)}
+                        data-testid={`chat-founder-${founder.id}`}
+                      >
+                        <MessageCircle style={{ width: '0.875rem', height: '0.875rem' }} strokeWidth={1.5} />
+                        Chat
+                      </button>
+                      {founder.user?.id && founder.user.id !== currentUser?.id && (
+                        <button
+                          type="button"
+                          className="btn-sm ghost"
+                          style={{ flex: 1, justifyContent: 'center' }}
+                          disabled={connecting === founder.user.id || requested.has(founder.user.id)}
+                          onClick={(e) => void handleConnect(e, founder)}
+                          data-testid={`connect-founder-${founder.id}`}
+                        >
+                          <UserPlus style={{ width: '0.875rem', height: '0.875rem' }} strokeWidth={1.5} />
+                          {connecting === founder.user.id ? '...' : requested.has(founder.user.id) ? 'Requested' : 'Connect'}
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </Link>
               )
