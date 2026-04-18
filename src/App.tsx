@@ -49,11 +49,14 @@ const DealsPage = lazyPage(() => import('./pages/DealsPage'), 'DealsPage')
 const VerificationPage = lazyPage(() => import('./pages/VerificationPage'), 'VerificationPage')
 const UploadsPage = lazyPage(() => import('./pages/UploadsPage'), 'UploadsPage')
 const ProfilePage = lazyPage(() => import('./pages/ProfilePage'), 'ProfilePage')
+const FounderProfileEditPage = lazyPage(() => import('./pages/FounderProfileEditPage'), 'FounderProfileEditPage')
+const InvestorProfileEditPage = lazyPage(() => import('./pages/InvestorProfileEditPage'), 'InvestorProfileEditPage')
 const SettingsPage = lazyPage(() => import('./pages/SettingsPage'), 'SettingsPage')
 const BillingPage = lazyPage(() => import('./pages/BillingPage'), 'BillingPage')
 const HelpPage = lazyPage(() => import('./pages/HelpPage'), 'HelpPage')
 const VerifyEmailPage = lazyPage(() => import('./pages/VerifyEmailPage'), 'VerifyEmailPage')
 const OnboardingPage = lazyPage(() => import('./pages/OnboardingPage'), 'OnboardingPage')
+const ConnectionsPage = lazyPage(() => import('./pages/ConnectionsPage'), 'ConnectionsPage')
 const NotFound = lazyPage(() => import('./pages/NotFound'), 'NotFound')
 
 function App() {
@@ -124,6 +127,14 @@ function App() {
               element={
                 <ProtectedRoute>
                   <IntrosPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/app/connections"
+              element={
+                <ProtectedRoute>
+                  <ConnectionsPage />
                 </ProtectedRoute>
               }
             />
@@ -324,6 +335,22 @@ function App() {
               element={
                 <ProtectedRoute>
                   <ProfilePage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/app/profile/founder/edit"
+              element={
+                <ProtectedRoute>
+                  <FounderProfileEditPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/app/profile/investor/edit"
+              element={
+                <ProtectedRoute>
+                  <InvestorProfileEditPage />
                 </ProtectedRoute>
               }
             />

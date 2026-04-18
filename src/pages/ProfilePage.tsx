@@ -29,6 +29,13 @@ import {
   ChevronDown,
   ChevronRight,
   Award,
+  MapPin,
+  Linkedin,
+  Twitter,
+  Globe,
+  TrendingUp,
+  Zap,
+  DollarSign,
 } from 'lucide-react'
 import { CopyLinkButton } from '../components/CopyLinkButton'
 import type { StartupListItem } from '../types/startup'
@@ -71,6 +78,86 @@ type DocQueueItem = {
 
 type StartupFormErrors = Partial<Record<'name' | 'description' | 'industry' | 'form', string>>
 
+// ── Founder / Investor profile section ───────────────────────────────────────
+
+const FOUNDER_STAGE_OPTIONS = ['idea', 'mvp', 'pre_seed', 'seed', 'series_a', 'series_b', 'growth']
+const FOUNDER_STAGE_LABELS: Record<string, string> = {
+  idea: 'Idea', mvp: 'MVP', pre_seed: 'Pre-Seed', seed: 'Seed',
+  series_a: 'Series A', series_b: 'Series B', growth: 'Growth',
+}
+const FUNDRAISING_STATUS_OPTIONS = ['not_fundraising', 'open_to_conversations', 'actively_fundraising', 'closed']
+const FUNDRAISING_STATUS_LABELS: Record<string, string> = {
+  not_fundraising: 'Not Fundraising', open_to_conversations: 'Open to Conversations',
+  actively_fundraising: 'Actively Fundraising', closed: 'Round Closed',
+}
+const INVESTOR_TYPE_OPTIONS = ['angel', 'vc', 'micro_vc', 'family_office', 'corporate_vc', 'accelerator', 'syndicate']
+const INVESTOR_TYPE_LABELS: Record<string, string> = {
+  angel: 'Angel', vc: 'VC', micro_vc: 'Micro VC', family_office: 'Family Office',
+  corporate_vc: 'Corporate VC', accelerator: 'Accelerator', syndicate: 'Syndicate',
+}
+const DISCOVERABILITY_OPTIONS = ['open', 'selective', 'closed']
+const DISCOVERABILITY_LABELS: Record<string, string> = {
+  open: 'Open – Anyone can reach out', selective: 'Selective – Warm intros only', closed: 'Closed – Not accepting intros',
+}
+const INVESTOR_STAGE_OPTIONS = ['Pre-Seed', 'Seed', 'Angel', 'Series A', 'Series B', 'Series C', 'Growth', 'Late Stage']
+const INDUSTRY_OPTIONS = [
+  'Technology', 'Financial Services', 'Healthcare & Life Sciences', 'Agriculture & Food',
+  'Consumer & Retail', 'Transportation & Logistics', 'Energy & Sustainability',
+  'Manufacturing & Industrial', 'Media & Entertainment', 'Professional Services', 'Education', 'Real Estate',
+]
+
+type FounderForm = {
+  headline: string; bio: string; location: string
+  linkedin_url: string; twitter_url: string; website_url: string
+  fundraising_status: string; current_stage: string; skills: string; is_public: boolean
+}
+type InvestorForm = {
+  display_name: string; fund_name: string; investor_type: string
+  headline: string; bio: string; investment_thesis: string; location: string
+  check_size_min: string; check_size_max: string
+  stages_focus: string[]; industries_focus: string[]; geography_focus: string
+  linkedin_url: string; twitter_url: string; website_url: string
+  portfolio_companies: string; discoverability_mode: string
+  risk_appetite: string; value_add: string
+  board_seat_requirement: boolean; lead_investor: boolean
+  follow_on_participation: boolean; co_invest_open: boolean
+}
+
+const defaultFounderForm = (): FounderForm => ({
+  headline: '', bio: '', location: '', linkedin_url: '', twitter_url: '',
+  website_url: '', fundraising_status: '', current_stage: '', skills: '', is_public: true,
+})
+const defaultInvestorForm = (): InvestorForm => ({
+  display_name: '', fund_name: '', investor_type: '', headline: '', bio: '',
+  investment_thesis: '', location: '', check_size_min: '', check_size_max: '',
+  stages_focus: [], industries_focus: [], geography_focus: '',
+  linkedin_url: '', twitter_url: '', website_url: '', portfolio_companies: '',
+  discoverability_mode: 'open', risk_appetite: '', value_add: '',
+  board_seat_requirement: false, lead_investor: false, follow_on_participation: false, co_invest_open: false,
+})
+
+function MultiSelectChips({ options, selected, onChange }: {
+  options: string[]; selected: string[]; onChange: (v: string[]) => void
+}) {
+  const toggle = (opt: string) =>
+    onChange(selected.includes(opt) ? selected.filter((s) => s !== opt) : [...selected, opt])
+  return (
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.375rem' }}>
+      {options.map((opt) => (
+        <button key={opt} type="button" onClick={() => toggle(opt)} style={{
+          padding: '0.2rem 0.65rem', borderRadius: '9999px', fontSize: '0.8rem', border: '1px solid',
+          cursor: 'pointer', transition: 'all 0.15s',
+          background: selected.includes(opt) ? 'hsl(var(--primary))' : 'transparent',
+          color: selected.includes(opt) ? 'hsl(var(--primary-foreground))' : 'hsl(var(--muted-foreground))',
+          borderColor: selected.includes(opt) ? 'hsl(var(--primary))' : 'hsl(var(--border))',
+        }}>
+          {opt}
+        </button>
+      ))}
+    </div>
+  )
+}
+
 function formatFileSize(bytes?: number | null): string {
   if (!bytes) return ''
   if (bytes < 1024) return `${bytes} B`
@@ -90,6 +177,22 @@ export function ProfilePage() {
   const [uploading, setUploading] = useState<'profile' | 'background' | null>(null)
   const [founderProfileId, setFounderProfileId] = useState<string | null>(null)
   const [investorProfileId, setInvestorProfileId] = useState<string | null>(null)
+
+  // Founder / Investor profile section
+  const role = user?.role
+  const showFounder = role === 'founder' || role === 'both'
+  const showInvestor = role === 'investor' || role === 'both'
+  const [profileTab, setProfileTab] = useState<'founder' | 'investor'>(showFounder ? 'founder' : 'investor')
+  const [founderForm, setFounderForm] = useState<FounderForm>(defaultFounderForm())
+  const [founderIsNew, setFounderIsNew] = useState(false)
+  const [founderLoading, setFounderLoading] = useState(true)
+  const [founderSaving, setFounderSaving] = useState(false)
+  const [founderErrors, setFounderErrors] = useState<Partial<Record<keyof FounderForm | 'form', string>>>({})
+  const [investorForm, setInvestorForm] = useState<InvestorForm>(defaultInvestorForm())
+  const [investorIsNew, setInvestorIsNew] = useState(false)
+  const [investorLoading, setInvestorLoading] = useState(true)
+  const [investorSaving, setInvestorSaving] = useState(false)
+  const [investorErrors, setInvestorErrors] = useState<Partial<Record<keyof InvestorForm | 'form', string>>>({})
 
   const profileInputRef = useRef<HTMLInputElement | null>(null)
   const backgroundInputRef = useRef<HTMLInputElement | null>(null)
@@ -121,20 +224,152 @@ export function ProfilePage() {
   const backgroundUrl = resolveMediaUrl(user?.background_image ?? user?.background_picture)
   const hasBackground = Boolean(backgroundUrl)
 
-  // Load shareable profile IDs
+  // Load shareable profile IDs + full profile data for edit forms
   useEffect(() => {
-    const role = user?.role
-    if (role === 'founder' || role === 'both') {
-      apiRequest<{ id: string }>('/founders/profile/me/')
-        .then((d) => setFounderProfileId(d.id))
-        .catch(() => {})
+    if (showFounder) {
+      setFounderLoading(true)
+      apiRequest<{
+        id?: string; headline?: string; bio?: string; location?: string
+        linkedin_url?: string; twitter_url?: string; website_url?: string
+        fundraising_status?: string; current_stage?: string; skills?: string[]; is_public?: boolean
+      }>('/founders/profile/me/')
+        .then((d) => {
+          if (d.id) setFounderProfileId(d.id)
+          setFounderForm({
+            headline: d.headline ?? '', bio: d.bio ?? '', location: d.location ?? '',
+            linkedin_url: d.linkedin_url ?? '', twitter_url: d.twitter_url ?? '',
+            website_url: d.website_url ?? '', fundraising_status: d.fundraising_status ?? '',
+            current_stage: d.current_stage ?? '', skills: (d.skills ?? []).join(', '),
+            is_public: d.is_public ?? true,
+          })
+          setFounderIsNew(false)
+        })
+        .catch(() => setFounderIsNew(true))
+        .finally(() => setFounderLoading(false))
+    } else {
+      setFounderLoading(false)
     }
-    if (role === 'investor' || role === 'both') {
-      apiRequest<{ id: string }>('/investors/profile/me/')
-        .then((d) => setInvestorProfileId(d.id))
-        .catch(() => {})
+
+    if (showInvestor) {
+      setInvestorLoading(true)
+      apiRequest<{
+        id?: string; display_name?: string; fund_name?: string; investor_type?: string
+        headline?: string; bio?: string; investment_thesis?: string; location?: string
+        check_size_min?: number | null; check_size_max?: number | null
+        stages_focus?: string[]; industries_focus?: string[]; geography_focus?: string[]
+        linkedin_url?: string; twitter_url?: string; website_url?: string
+        portfolio_companies?: string[]; discoverability_mode?: string
+        risk_appetite?: string; value_add?: string
+        board_seat_requirement?: boolean; lead_investor?: boolean
+        follow_on_participation?: boolean; co_invest_open?: boolean
+      }>('/investors/profile/me/')
+        .then((d) => {
+          if (d.id) setInvestorProfileId(d.id)
+          setInvestorForm({
+            display_name: d.display_name ?? '', fund_name: d.fund_name ?? '',
+            investor_type: d.investor_type ?? '', headline: d.headline ?? '',
+            bio: d.bio ?? '', investment_thesis: d.investment_thesis ?? '',
+            location: d.location ?? '',
+            check_size_min: d.check_size_min != null ? String(d.check_size_min) : '',
+            check_size_max: d.check_size_max != null ? String(d.check_size_max) : '',
+            stages_focus: d.stages_focus ?? [], industries_focus: d.industries_focus ?? [],
+            geography_focus: (d.geography_focus ?? []).join(', '),
+            linkedin_url: d.linkedin_url ?? '', twitter_url: d.twitter_url ?? '',
+            website_url: d.website_url ?? '',
+            portfolio_companies: (d.portfolio_companies ?? []).join(', '),
+            discoverability_mode: d.discoverability_mode ?? 'open',
+            risk_appetite: d.risk_appetite ?? '', value_add: d.value_add ?? '',
+            board_seat_requirement: d.board_seat_requirement ?? false,
+            lead_investor: d.lead_investor ?? false,
+            follow_on_participation: d.follow_on_participation ?? false,
+            co_invest_open: d.co_invest_open ?? false,
+          })
+          setInvestorIsNew(false)
+        })
+        .catch(() => setInvestorIsNew(true))
+        .finally(() => setInvestorLoading(false))
+    } else {
+      setInvestorLoading(false)
     }
-  }, [user?.role])
+  }, [showFounder, showInvestor])
+
+  const handleSaveFounderProfile = async (e: React.FormEvent) => {
+    e.preventDefault()
+    const errs = validateRequired(founderForm, ['headline'])
+    if (hasErrors(errs)) { setFounderErrors(errs); return }
+    setFounderErrors({})
+    setFounderSaving(true)
+    try {
+      const res = await apiRequest<{ id: string }>(
+        founderIsNew ? '/founders/profile/' : '/founders/profile/update/',
+        {
+          method: founderIsNew ? 'POST' : 'PATCH',
+          body: JSON.stringify({
+            headline: founderForm.headline, bio: founderForm.bio || null,
+            location: founderForm.location || null, linkedin_url: founderForm.linkedin_url || null,
+            twitter_url: founderForm.twitter_url || null, website_url: founderForm.website_url || null,
+            fundraising_status: founderForm.fundraising_status || null,
+            current_stage: founderForm.current_stage || null,
+            skills: founderForm.skills ? founderForm.skills.split(',').map((s) => s.trim()).filter(Boolean) : [],
+            is_public: founderForm.is_public,
+          }),
+        },
+      )
+      if (res.id) setFounderProfileId(res.id)
+      setFounderIsNew(false)
+      pushToast({ message: founderIsNew ? 'Founder profile created' : 'Founder profile updated', type: 'success' })
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to save'
+      setFounderErrors({ form: msg })
+    } finally {
+      setFounderSaving(false)
+    }
+  }
+
+  const handleSaveInvestorProfile = async (e: React.FormEvent) => {
+    e.preventDefault()
+    const errs = validateRequired(investorForm, ['display_name'])
+    if (hasErrors(errs)) { setInvestorErrors(errs); return }
+    setInvestorErrors({})
+    setInvestorSaving(true)
+    try {
+      const res = await apiRequest<{ id: string }>(
+        investorIsNew ? '/investors/profile/' : '/investors/profile/update/',
+        {
+          method: investorIsNew ? 'POST' : 'PATCH',
+          body: JSON.stringify({
+            display_name: investorForm.display_name, fund_name: investorForm.fund_name || null,
+            investor_type: investorForm.investor_type || null, headline: investorForm.headline || null,
+            bio: investorForm.bio || null, investment_thesis: investorForm.investment_thesis || null,
+            location: investorForm.location || null,
+            check_size_min: investorForm.check_size_min ? Number(investorForm.check_size_min) : null,
+            check_size_max: investorForm.check_size_max ? Number(investorForm.check_size_max) : null,
+            stages_focus: investorForm.stages_focus, industries_focus: investorForm.industries_focus,
+            geography_focus: investorForm.geography_focus
+              ? investorForm.geography_focus.split(',').map((s) => s.trim()).filter(Boolean) : [],
+            linkedin_url: investorForm.linkedin_url || null, twitter_url: investorForm.twitter_url || null,
+            website_url: investorForm.website_url || null,
+            portfolio_companies: investorForm.portfolio_companies
+              ? investorForm.portfolio_companies.split(',').map((s) => s.trim()).filter(Boolean) : [],
+            discoverability_mode: investorForm.discoverability_mode,
+            risk_appetite: investorForm.risk_appetite || null, value_add: investorForm.value_add || null,
+            board_seat_requirement: investorForm.board_seat_requirement,
+            lead_investor: investorForm.lead_investor,
+            follow_on_participation: investorForm.follow_on_participation,
+            co_invest_open: investorForm.co_invest_open,
+          }),
+        },
+      )
+      if (res.id) setInvestorProfileId(res.id)
+      setInvestorIsNew(false)
+      pushToast({ message: investorIsNew ? 'Investor profile created' : 'Investor profile updated', type: 'success' })
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to save'
+      setInvestorErrors({ form: msg })
+    } finally {
+      setInvestorSaving(false)
+    }
+  }
 
   // Load user's startups
   const loadStartups = useCallback(async () => {
@@ -399,16 +634,10 @@ export function ProfilePage() {
         </div>
         <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
           {founderProfileId && (
-            <CopyLinkButton
-              url={`${window.location.origin}/app/founders/${founderProfileId}`}
-              label="Share founder profile"
-            />
+            <CopyLinkButton url={`${window.location.origin}/app/founders/${founderProfileId}`} label="Share founder profile" />
           )}
           {investorProfileId && (
-            <CopyLinkButton
-              url={`${window.location.origin}/app/investors/${investorProfileId}`}
-              label="Share investor profile"
-            />
+            <CopyLinkButton url={`${window.location.origin}/app/investors/${investorProfileId}`} label="Share investor profile" />
           )}
         </div>
       </div>
@@ -674,6 +903,327 @@ export function ProfilePage() {
           </div>
         )}
       </div>
+
+      {/* Founder / Investor Profile Section */}
+      {(showFounder || showInvestor) && (
+        <div className="card" style={{ marginBottom: '1.5rem' }}>
+          <div className="card-header">
+            <span className="card-title">
+              {showFounder && showInvestor ? 'Founder & Investor Profile' : showFounder ? 'Founder Profile' : 'Investor Profile'}
+            </span>
+            {(showFounder && founderProfileId) && profileTab === 'founder' && (
+              <CopyLinkButton url={`${window.location.origin}/app/founders/${founderProfileId}`} label="Share" />
+            )}
+            {(showInvestor && investorProfileId) && profileTab === 'investor' && (
+              <CopyLinkButton url={`${window.location.origin}/app/investors/${investorProfileId}`} label="Share" />
+            )}
+          </div>
+
+          {/* Tabs */}
+          {showFounder && showInvestor && (
+            <div style={{ display: 'flex', gap: '0', borderBottom: '1px solid hsl(var(--border))', marginBottom: '1.5rem' }}>
+              {(['founder', 'investor'] as const).map((tab) => (
+                <button key={tab} type="button" onClick={() => setProfileTab(tab)} style={{
+                  padding: '0.5rem 1.25rem', fontSize: '0.875rem', fontWeight: 500, border: 'none',
+                  cursor: 'pointer', background: 'transparent', borderBottom: `2px solid ${profileTab === tab ? 'hsl(var(--primary))' : 'transparent'}`,
+                  color: profileTab === tab ? 'hsl(var(--primary))' : 'hsl(var(--muted-foreground))',
+                  marginBottom: '-1px', transition: 'all 0.15s',
+                }}>
+                  {tab === 'founder' ? 'Founder Profile' : 'Investor Profile'}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* ── Founder Profile Form ── */}
+          {profileTab === 'founder' && showFounder && (
+            founderLoading ? (
+              <div style={{ display: 'flex', justifyContent: 'center', padding: '2rem' }}>
+                <Loader2 className="w-5 h-5 animate-spin" />
+              </div>
+            ) : (
+              <form onSubmit={(e) => { void handleSaveFounderProfile(e) }}>
+                {founderIsNew && (
+                  <p style={{ fontSize: '0.875rem', color: 'hsl(var(--muted-foreground))', marginBottom: '1.25rem', padding: '0.75rem', background: 'hsl(var(--muted))', borderRadius: '0.5rem' }}>
+                    You don't have a founder profile yet. Fill in the details below to create one.
+                  </p>
+                )}
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                  <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                    <label><User size={13} strokeWidth={1.5} style={{ display: 'inline', verticalAlign: -2, marginRight: 5 }} />Headline *</label>
+                    <input className={`input${founderErrors.headline ? ' input-error' : ''}`} value={founderForm.headline}
+                      onChange={(e) => setFounderForm((p) => ({ ...p, headline: e.target.value }))}
+                      placeholder="e.g. Building the future of fintech" />
+                    {founderErrors.headline && <span className="field-error">{founderErrors.headline}</span>}
+                  </div>
+
+                  <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                    <label><FileText size={13} strokeWidth={1.5} style={{ display: 'inline', verticalAlign: -2, marginRight: 5 }} />Bio</label>
+                    <textarea className="input" rows={3} value={founderForm.bio}
+                      onChange={(e) => setFounderForm((p) => ({ ...p, bio: e.target.value }))}
+                      placeholder="Tell investors about yourself..." />
+                  </div>
+
+                  <div className="form-group">
+                    <label><MapPin size={13} strokeWidth={1.5} style={{ display: 'inline', verticalAlign: -2, marginRight: 5 }} />Location</label>
+                    <input className="input" value={founderForm.location}
+                      onChange={(e) => setFounderForm((p) => ({ ...p, location: e.target.value }))}
+                      placeholder="e.g. Bangalore, India" />
+                  </div>
+
+                  <div className="form-group">
+                    <label><TrendingUp size={13} strokeWidth={1.5} style={{ display: 'inline', verticalAlign: -2, marginRight: 5 }} />Current Stage</label>
+                    <select className="input" value={founderForm.current_stage}
+                      onChange={(e) => setFounderForm((p) => ({ ...p, current_stage: e.target.value }))}>
+                      <option value="">Select stage</option>
+                      {FOUNDER_STAGE_OPTIONS.map((s) => <option key={s} value={s}>{FOUNDER_STAGE_LABELS[s]}</option>)}
+                    </select>
+                  </div>
+
+                  <div className="form-group">
+                    <label><TrendingUp size={13} strokeWidth={1.5} style={{ display: 'inline', verticalAlign: -2, marginRight: 5 }} />Fundraising Status</label>
+                    <select className="input" value={founderForm.fundraising_status}
+                      onChange={(e) => setFounderForm((p) => ({ ...p, fundraising_status: e.target.value }))}>
+                      <option value="">Select status</option>
+                      {FUNDRAISING_STATUS_OPTIONS.map((s) => <option key={s} value={s}>{FUNDRAISING_STATUS_LABELS[s]}</option>)}
+                    </select>
+                  </div>
+
+                  <div className="form-group">
+                    <label><Zap size={13} strokeWidth={1.5} style={{ display: 'inline', verticalAlign: -2, marginRight: 5 }} />Skills (comma-separated)</label>
+                    <input className="input" value={founderForm.skills}
+                      onChange={(e) => setFounderForm((p) => ({ ...p, skills: e.target.value }))}
+                      placeholder="e.g. Product, Engineering, Sales" />
+                  </div>
+
+                  <div className="form-group">
+                    <label><Linkedin size={13} strokeWidth={1.5} style={{ display: 'inline', verticalAlign: -2, marginRight: 5 }} />LinkedIn</label>
+                    <input className="input" value={founderForm.linkedin_url}
+                      onChange={(e) => setFounderForm((p) => ({ ...p, linkedin_url: e.target.value }))}
+                      placeholder="https://linkedin.com/in/..." />
+                  </div>
+
+                  <div className="form-group">
+                    <label><Twitter size={13} strokeWidth={1.5} style={{ display: 'inline', verticalAlign: -2, marginRight: 5 }} />Twitter / X</label>
+                    <input className="input" value={founderForm.twitter_url}
+                      onChange={(e) => setFounderForm((p) => ({ ...p, twitter_url: e.target.value }))}
+                      placeholder="https://twitter.com/..." />
+                  </div>
+
+                  <div className="form-group">
+                    <label><Globe size={13} strokeWidth={1.5} style={{ display: 'inline', verticalAlign: -2, marginRight: 5 }} />Website</label>
+                    <input className="input" value={founderForm.website_url}
+                      onChange={(e) => setFounderForm((p) => ({ ...p, website_url: e.target.value }))}
+                      placeholder="https://yoursite.com" />
+                  </div>
+
+                  <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', margin: 0 }}>
+                      <input type="checkbox" checked={founderForm.is_public}
+                        onChange={(e) => setFounderForm((p) => ({ ...p, is_public: e.target.checked }))} />
+                      <Eye size={13} strokeWidth={1.5} />
+                      Public profile
+                    </label>
+                  </div>
+                </div>
+
+                {founderErrors.form && <p className="field-error" style={{ marginTop: '0.5rem' }}>{founderErrors.form}</p>}
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1rem' }}>
+                  <button type="submit" className="btn-sm primary" disabled={founderSaving}>
+                    {founderSaving ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
+                    {founderIsNew ? 'Create Profile' : 'Save Changes'}
+                  </button>
+                </div>
+              </form>
+            )
+          )}
+
+          {/* ── Investor Profile Form ── */}
+          {profileTab === 'investor' && showInvestor && (
+            investorLoading ? (
+              <div style={{ display: 'flex', justifyContent: 'center', padding: '2rem' }}>
+                <Loader2 className="w-5 h-5 animate-spin" />
+              </div>
+            ) : (
+              <form onSubmit={(e) => { void handleSaveInvestorProfile(e) }}>
+                {investorIsNew && (
+                  <p style={{ fontSize: '0.875rem', color: 'hsl(var(--muted-foreground))', marginBottom: '1.25rem', padding: '0.75rem', background: 'hsl(var(--muted))', borderRadius: '0.5rem' }}>
+                    You don't have an investor profile yet. Fill in the details below to create one.
+                  </p>
+                )}
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                  <div className="form-group">
+                    <label><User size={13} strokeWidth={1.5} style={{ display: 'inline', verticalAlign: -2, marginRight: 5 }} />Display Name *</label>
+                    <input className={`input${investorErrors.display_name ? ' input-error' : ''}`} value={investorForm.display_name}
+                      onChange={(e) => setInvestorForm((p) => ({ ...p, display_name: e.target.value }))}
+                      placeholder="Your name or alias" />
+                    {investorErrors.display_name && <span className="field-error">{investorErrors.display_name}</span>}
+                  </div>
+
+                  <div className="form-group">
+                    <label><Building2 size={13} strokeWidth={1.5} style={{ display: 'inline', verticalAlign: -2, marginRight: 5 }} />Fund Name</label>
+                    <input className="input" value={investorForm.fund_name}
+                      onChange={(e) => setInvestorForm((p) => ({ ...p, fund_name: e.target.value }))}
+                      placeholder="e.g. Accel Partners" />
+                  </div>
+
+                  <div className="form-group">
+                    <label><TrendingUp size={13} strokeWidth={1.5} style={{ display: 'inline', verticalAlign: -2, marginRight: 5 }} />Investor Type</label>
+                    <select className="input" value={investorForm.investor_type}
+                      onChange={(e) => setInvestorForm((p) => ({ ...p, investor_type: e.target.value }))}>
+                      <option value="">Select type</option>
+                      {INVESTOR_TYPE_OPTIONS.map((t) => <option key={t} value={t}>{INVESTOR_TYPE_LABELS[t]}</option>)}
+                    </select>
+                  </div>
+
+                  <div className="form-group">
+                    <label><MapPin size={13} strokeWidth={1.5} style={{ display: 'inline', verticalAlign: -2, marginRight: 5 }} />Location</label>
+                    <input className="input" value={investorForm.location}
+                      onChange={(e) => setInvestorForm((p) => ({ ...p, location: e.target.value }))}
+                      placeholder="e.g. Mumbai, India" />
+                  </div>
+
+                  <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                    <label><User size={13} strokeWidth={1.5} style={{ display: 'inline', verticalAlign: -2, marginRight: 5 }} />Headline</label>
+                    <input className="input" value={investorForm.headline}
+                      onChange={(e) => setInvestorForm((p) => ({ ...p, headline: e.target.value }))}
+                      placeholder="e.g. Early-stage investor focused on deep tech" />
+                  </div>
+
+                  <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                    <label><FileText size={13} strokeWidth={1.5} style={{ display: 'inline', verticalAlign: -2, marginRight: 5 }} />Bio</label>
+                    <textarea className="input" rows={3} value={investorForm.bio}
+                      onChange={(e) => setInvestorForm((p) => ({ ...p, bio: e.target.value }))}
+                      placeholder="Tell founders about your background..." />
+                  </div>
+
+                  <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                    <label><FileText size={13} strokeWidth={1.5} style={{ display: 'inline', verticalAlign: -2, marginRight: 5 }} />Investment Thesis</label>
+                    <textarea className="input" rows={2} value={investorForm.investment_thesis}
+                      onChange={(e) => setInvestorForm((p) => ({ ...p, investment_thesis: e.target.value }))}
+                      placeholder="Describe your investment philosophy..." />
+                  </div>
+
+                  <div className="form-group">
+                    <label><DollarSign size={13} strokeWidth={1.5} style={{ display: 'inline', verticalAlign: -2, marginRight: 5 }} />Min Check Size ($)</label>
+                    <input className="input" type="number" min={0} value={investorForm.check_size_min}
+                      onChange={(e) => setInvestorForm((p) => ({ ...p, check_size_min: e.target.value }))}
+                      placeholder="e.g. 50000" />
+                  </div>
+
+                  <div className="form-group">
+                    <label><DollarSign size={13} strokeWidth={1.5} style={{ display: 'inline', verticalAlign: -2, marginRight: 5 }} />Max Check Size ($)</label>
+                    <input className="input" type="number" min={0} value={investorForm.check_size_max}
+                      onChange={(e) => setInvestorForm((p) => ({ ...p, check_size_max: e.target.value }))}
+                      placeholder="e.g. 500000" />
+                  </div>
+
+                  <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                    <label>Stages Focus</label>
+                    <MultiSelectChips options={INVESTOR_STAGE_OPTIONS} selected={investorForm.stages_focus}
+                      onChange={(v) => setInvestorForm((p) => ({ ...p, stages_focus: v }))} />
+                  </div>
+
+                  <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                    <label>Industries Focus</label>
+                    <MultiSelectChips options={INDUSTRY_OPTIONS} selected={investorForm.industries_focus}
+                      onChange={(v) => setInvestorForm((p) => ({ ...p, industries_focus: v }))} />
+                  </div>
+
+                  <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                    <label><MapPin size={13} strokeWidth={1.5} style={{ display: 'inline', verticalAlign: -2, marginRight: 5 }} />Geography Focus (comma-separated)</label>
+                    <input className="input" value={investorForm.geography_focus}
+                      onChange={(e) => setInvestorForm((p) => ({ ...p, geography_focus: e.target.value }))}
+                      placeholder="e.g. India, Southeast Asia, USA" />
+                  </div>
+
+                  <div className="form-group">
+                    <label><TrendingUp size={13} strokeWidth={1.5} style={{ display: 'inline', verticalAlign: -2, marginRight: 5 }} />Risk Appetite</label>
+                    <select className="input" value={investorForm.risk_appetite}
+                      onChange={(e) => setInvestorForm((p) => ({ ...p, risk_appetite: e.target.value }))}>
+                      <option value="">Select</option>
+                      <option value="conservative">Conservative</option>
+                      <option value="moderate">Moderate</option>
+                      <option value="aggressive">Aggressive</option>
+                    </select>
+                  </div>
+
+                  <div className="form-group">
+                    <label><Eye size={13} strokeWidth={1.5} style={{ display: 'inline', verticalAlign: -2, marginRight: 5 }} />Discoverability</label>
+                    <select className="input" value={investorForm.discoverability_mode}
+                      onChange={(e) => setInvestorForm((p) => ({ ...p, discoverability_mode: e.target.value }))}>
+                      {DISCOVERABILITY_OPTIONS.map((d) => <option key={d} value={d}>{DISCOVERABILITY_LABELS[d]}</option>)}
+                    </select>
+                  </div>
+
+                  <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                    <label><FileText size={13} strokeWidth={1.5} style={{ display: 'inline', verticalAlign: -2, marginRight: 5 }} />Value Add</label>
+                    <textarea className="input" rows={2} value={investorForm.value_add}
+                      onChange={(e) => setInvestorForm((p) => ({ ...p, value_add: e.target.value }))}
+                      placeholder="How do you help beyond capital?" />
+                  </div>
+
+                  <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                    <label><Building2 size={13} strokeWidth={1.5} style={{ display: 'inline', verticalAlign: -2, marginRight: 5 }} />Portfolio Companies (comma-separated)</label>
+                    <input className="input" value={investorForm.portfolio_companies}
+                      onChange={(e) => setInvestorForm((p) => ({ ...p, portfolio_companies: e.target.value }))}
+                      placeholder="e.g. Razorpay, CRED, Zepto" />
+                  </div>
+
+                  <div className="form-group">
+                    <label><Linkedin size={13} strokeWidth={1.5} style={{ display: 'inline', verticalAlign: -2, marginRight: 5 }} />LinkedIn</label>
+                    <input className="input" value={investorForm.linkedin_url}
+                      onChange={(e) => setInvestorForm((p) => ({ ...p, linkedin_url: e.target.value }))}
+                      placeholder="https://linkedin.com/in/..." />
+                  </div>
+
+                  <div className="form-group">
+                    <label><Twitter size={13} strokeWidth={1.5} style={{ display: 'inline', verticalAlign: -2, marginRight: 5 }} />Twitter / X</label>
+                    <input className="input" value={investorForm.twitter_url}
+                      onChange={(e) => setInvestorForm((p) => ({ ...p, twitter_url: e.target.value }))}
+                      placeholder="https://twitter.com/..." />
+                  </div>
+
+                  <div className="form-group">
+                    <label><Globe size={13} strokeWidth={1.5} style={{ display: 'inline', verticalAlign: -2, marginRight: 5 }} />Website</label>
+                    <input className="input" value={investorForm.website_url}
+                      onChange={(e) => setInvestorForm((p) => ({ ...p, website_url: e.target.value }))}
+                      placeholder="https://yourfund.com" />
+                  </div>
+
+                  <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                    <label style={{ marginBottom: '0.5rem', display: 'block' }}>Deal Preferences</label>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem' }}>
+                      {([
+                        ['board_seat_requirement', 'Requires Board Seat'],
+                        ['lead_investor', 'Can Lead Round'],
+                        ['follow_on_participation', 'Follow-on Participation'],
+                        ['co_invest_open', 'Open to Co-investing'],
+                      ] as [keyof InvestorForm, string][]).map(([field, label]) => (
+                        <label key={field} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer', fontSize: '0.875rem' }}>
+                          <input type="checkbox" checked={investorForm[field] as boolean}
+                            onChange={(e) => setInvestorForm((p) => ({ ...p, [field]: e.target.checked }))} />
+                          {label}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {investorErrors.form && <p className="field-error" style={{ marginTop: '0.5rem' }}>{investorErrors.form}</p>}
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1rem' }}>
+                  <button type="submit" className="btn-sm primary" disabled={investorSaving}>
+                    {investorSaving ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
+                    {investorIsNew ? 'Create Profile' : 'Save Changes'}
+                  </button>
+                </div>
+              </form>
+            )
+          )}
+        </div>
+      )}
 
       {/* My Startups & Documents */}
       <div className="card">

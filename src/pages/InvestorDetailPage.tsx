@@ -14,8 +14,10 @@ import {
   Handshake,
   Loader2,
   X,
+  UserPlus,
 } from 'lucide-react'
 import { apiRequest } from '../lib/api'
+import { fetchConnectedUserIds } from '../lib/connections'
 import { resolveMediaUrl } from '../lib/env'
 import { formatLabel } from '../lib/format'
 import { CopyLinkButton } from '../components/CopyLinkButton'
@@ -39,6 +41,33 @@ export function InvestorDetailPage() {
   const [selectedStartupId, setSelectedStartupId] = useState('')
   const [interestMessage, setInterestMessage] = useState('')
   const [expressing, setExpressing] = useState(false)
+  const [connecting, setConnecting] = useState(false)
+  const [requested, setRequested] = useState(false)
+
+  // Pre-populate button state after investor loads
+  useEffect(() => {
+    const targetId = investor?.user?.id
+    if (!targetId || !user?.id) return
+    fetchConnectedUserIds(user.id)
+      .then((ids) => { if (ids.has(targetId)) setRequested(true) })
+      .catch(() => {})
+  }, [investor?.user?.id, user?.id])
+
+  const handleConnect = async () => {
+    const userId = investor?.user?.id
+    if (!userId) return
+    setConnecting(true)
+    try {
+      await apiRequest('/connections/send/', { method: 'POST', body: { user_id: userId } })
+      setRequested(true)
+      pushToast('Connection request sent!', 'success')
+    } catch (err: unknown) {
+      const msg = (err as { detail?: string })?.detail ?? 'Failed to send request.'
+      pushToast(msg, 'error')
+    } finally {
+      setConnecting(false)
+    }
+  }
 
   useEffect(() => {
     if (!id) return
@@ -152,17 +181,30 @@ export function InvestorDetailPage() {
                 </div>
               </div>
 
-              {/* Express Interest button — founders only, not your own profile */}
-              {isFounder && myStartups.length > 0 && investor.user?.id !== user?.id && (
-                <button
-                  className="btn-sm primary"
-                  type="button"
-                  onClick={() => setShowInterestForm((v) => !v)}
-                  style={{ flexShrink: 0 }}
-                >
-                  <Handshake size={14} strokeWidth={1.5} />
-                  Express Interest
-                </button>
+              {/* Actions — not your own profile */}
+              {investor.user?.id !== user?.id && (
+                <div style={{ display: 'flex', gap: '0.5rem', flexShrink: 0 }}>
+                  {isFounder && myStartups.length > 0 && (
+                    <button
+                      className="btn-sm ghost"
+                      type="button"
+                      onClick={() => setShowInterestForm((v) => !v)}
+                    >
+                      <Handshake size={14} strokeWidth={1.5} />
+                      Express Interest
+                    </button>
+                  )}
+                  <button
+                    className="btn-sm primary"
+                    type="button"
+                    disabled={connecting || requested}
+                    onClick={() => void handleConnect()}
+                    data-testid="connect-investor-btn"
+                  >
+                    <UserPlus size={14} strokeWidth={1.5} />
+                    {connecting ? 'Sending...' : requested ? 'Requested' : 'Connect'}
+                  </button>
+                </div>
               )}
             </div>
 

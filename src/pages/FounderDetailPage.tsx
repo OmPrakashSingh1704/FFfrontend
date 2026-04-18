@@ -1,17 +1,56 @@
 import { useEffect, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
-import { ArrowLeft, MapPin, TrendingUp, ExternalLink, Linkedin, Twitter, Globe, User, Briefcase, Sparkles } from 'lucide-react'
+import { Link, useParams, useNavigate } from 'react-router-dom'
+import { ArrowLeft, MapPin, TrendingUp, ExternalLink, Linkedin, Twitter, Globe, User, Briefcase, Sparkles, UserPlus, MessageCircle } from 'lucide-react'
 import { apiRequest } from '../lib/api'
 import { resolveMediaUrl } from '../lib/env'
 import { formatLabel } from '../lib/format'
 import { CopyLinkButton } from '../components/CopyLinkButton'
+import { useToast } from '../context/ToastContext'
+import { useAuth } from '../context/AuthContext'
+import { fetchConnectedUserIds } from '../lib/connections'
 import type { FounderProfile } from '../types/founder'
 
 export function FounderDetailPage() {
   const { id } = useParams()
+  const navigate = useNavigate()
+  const { pushToast } = useToast()
+  const { user: currentUser } = useAuth()
   const [founder, setFounder] = useState<FounderProfile | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [connecting, setConnecting] = useState(false)
+  const [requested, setRequested] = useState(false)
+
+  // Pre-populate button state after founder loads
+  useEffect(() => {
+    const targetId = founder?.user?.id
+    if (!targetId || !currentUser?.id) return
+    fetchConnectedUserIds(currentUser.id)
+      .then((ids) => { if (ids.has(targetId)) setRequested(true) })
+      .catch(() => {})
+  }, [founder?.user?.id, currentUser?.id])
+
+  const handleConnect = async () => {
+    const userId = founder?.user?.id
+    if (!userId) return
+    setConnecting(true)
+    try {
+      await apiRequest('/connections/send/', { method: 'POST', body: { user_id: userId } })
+      setRequested(true)
+      pushToast('Connection request sent!', 'success')
+    } catch (err: unknown) {
+      const msg = (err as { detail?: string })?.detail ?? 'Failed to send request.'
+      pushToast(msg, 'error')
+    } finally {
+      setConnecting(false)
+    }
+  }
+
+  const handleChat = () => {
+    const userId = founder?.user?.id
+    const name = founder?.user?.full_name ?? 'Founder'
+    if (userId) navigate(`/app/chat?newChat=${userId}&name=${encodeURIComponent(name)}`)
+  }
 
   useEffect(() => {
     if (!id) return
@@ -73,24 +112,38 @@ export function FounderDetailPage() {
         <>
           {/* Profile Header */}
           <div className="card" style={{ marginBottom: '1.5rem' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem' }}>
-              <div className="avatar xl">
-                {resolveMediaUrl(founder.profile_photo ?? founder.user?.picture ?? founder.user?.avatar_url) ? (
-                  <img src={resolveMediaUrl(founder.profile_photo ?? founder.user?.picture ?? founder.user?.avatar_url)!} alt={founder.user?.full_name ?? 'Founder'} />
-                ) : (
-                  getInitials(founder.user?.full_name ?? 'F')
-                )}
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '1rem', marginBottom: '1rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                <div className="avatar xl">
+                  {resolveMediaUrl(founder.profile_photo ?? founder.user?.picture ?? founder.user?.avatar_url) ? (
+                    <img src={resolveMediaUrl(founder.profile_photo ?? founder.user?.picture ?? founder.user?.avatar_url)!} alt={founder.user?.full_name ?? 'Founder'} />
+                  ) : (
+                    getInitials(founder.user?.full_name ?? 'F')
+                  )}
+                </div>
+                <div>
+                  <h1 style={{ fontSize: '1.25rem', fontWeight: 600, marginBottom: '0.25rem' }}>
+                    {founder.user?.full_name ?? 'Founder profile'}
+                  </h1>
+                  {founder.headline && (
+                    <p style={{ fontSize: '0.875rem', color: 'hsl(var(--muted-foreground))' }}>
+                      {founder.headline}
+                    </p>
+                  )}
+                </div>
               </div>
-              <div>
-                <h1 style={{ fontSize: '1.25rem', fontWeight: 600, marginBottom: '0.25rem' }}>
-                  {founder.user?.full_name ?? 'Founder profile'}
-                </h1>
-                {founder.headline && (
-                  <p style={{ fontSize: '0.875rem', color: 'hsl(var(--muted-foreground))' }}>
-                    {founder.headline}
-                  </p>
-                )}
-              </div>
+              {founder.user?.id && founder.user.id !== currentUser?.id && (
+                <div style={{ display: 'flex', gap: '0.5rem', flexShrink: 0 }}>
+                  <button type="button" className="btn-sm ghost" onClick={handleChat} data-testid="chat-founder-btn">
+                    <MessageCircle size={14} strokeWidth={1.5} />
+                    Chat
+                  </button>
+                  <button type="button" className="btn-sm primary" disabled={connecting || requested} onClick={() => void handleConnect()} data-testid="connect-founder-btn">
+                    <UserPlus size={14} strokeWidth={1.5} />
+                    {connecting ? 'Sending...' : requested ? 'Requested' : 'Connect'}
+                  </button>
+                </div>
+              )}
             </div>
 
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.375rem' }}>
