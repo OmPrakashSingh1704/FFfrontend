@@ -6,7 +6,7 @@ export type User = {
   avatar?: string | null
   picture?: string | null
   phone?: string | null
-  role?: string
+  role?: 'founder' | 'investor' | 'admin'
   league?: string
   credits?: number
   onboarding_completed?: boolean
