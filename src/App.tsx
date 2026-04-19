@@ -46,6 +46,8 @@ const ApplicationsListPage = lazyPage(() => import('./pages/ApplicationsListPage
 const ApplicationDetailPage = lazyPage(() => import('./pages/ApplicationDetailPage'), 'ApplicationDetailPage')
 const MatchingPage = lazyPage(() => import('./pages/MatchingPage'), 'MatchingPage')
 const DealsPage = lazyPage(() => import('./pages/DealsPage'), 'DealsPage')
+const DealRoomDetailPage = lazyPage(() => import('./pages/DealRoomDetailPage'), 'DealRoomDetailPage')
+const WorkflowSettingsPage = lazyPage(() => import('./pages/WorkflowSettingsPage'), 'WorkflowSettingsPage')
 const VerificationPage = lazyPage(() => import('./pages/VerificationPage'), 'VerificationPage')
 const UploadsPage = lazyPage(() => import('./pages/UploadsPage'), 'UploadsPage')
 const ProfilePage = lazyPage(() => import('./pages/ProfilePage'), 'ProfilePage')
@@ -303,6 +305,22 @@ function App() {
               element={
                 <ProtectedRoute>
                   <MatchingPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/app/deals/workflow-settings"
+              element={
+                <ProtectedRoute>
+                  <WorkflowSettingsPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/app/deals/:id"
+              element={
+                <ProtectedRoute>
+                  <DealRoomDetailPage />
                 </ProtectedRoute>
               }
             />
