@@ -3,7 +3,8 @@ import { Link } from 'react-router-dom'
 import { apiRequest } from '../lib/api'
 import { normalizeList } from '../lib/pagination'
 import { useToast } from '../context/ToastContext'
-import { Handshake, ArrowRight, Loader2 } from 'lucide-react'
+import { useAuth } from '../context/AuthContext'
+import { Handshake, ArrowRight, Loader2, Settings } from 'lucide-react'
 import type { DealRoomListItem } from '../types/deals'
 
 const STATUS_COLORS: Record<string, string> = {
@@ -37,6 +38,8 @@ function StatusBadge({ status }: { status: string }) {
 
 export function DealsPage() {
   const { pushToast } = useToast()
+  const { user } = useAuth()
+  const isInvestor = user?.role === 'investor'
   const [rooms, setRooms] = useState<DealRoomListItem[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -64,6 +67,17 @@ export function DealsPage() {
           <h1 className="page-title">Deal Rooms</h1>
           <p className="page-description">Manage active deals, NDA signing, and shared documents.</p>
         </div>
+        {isInvestor && (
+          <Link
+            to="/app/deals/workflow-settings"
+            className="btn-sm ghost"
+            style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}
+            data-testid="workflow-settings-link"
+          >
+            <Settings size={14} strokeWidth={1.5} />
+            Workflow Settings
+          </Link>
+        )}
       </div>
 
       {loading ? (
