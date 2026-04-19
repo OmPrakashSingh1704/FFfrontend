@@ -47,8 +47,9 @@ export type StartupDetail = {
   revenue_range?: string | null
   traction_metrics?: Record<string, unknown>
   fundraising_status?: string | null
-  funding_raised?: number | null
-  hiring_status?: string | null
+  funding_raised?: string | null
+  funding_required?: number | null
+  hiring_status?: boolean | null
   founders_list?: Array<{
     id: string | null
     profile_id?: string | null

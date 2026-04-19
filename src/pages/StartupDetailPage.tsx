@@ -30,6 +30,7 @@ import type { StartupDetail } from '../types/startup'
 import type { InvestorProfile } from '../types/investor'
 import type { FounderProfile } from '../types/founder'
 import type { PaginatedResponse } from '../lib/pagination'
+import { EditStartupModal } from './EditStartupModal'
 
 const DOC_TYPE_LABELS: Record<string, string> = {
   pitch_deck: 'Pitch Deck',
@@ -94,6 +95,8 @@ export function StartupDetailPage() {
   const isMember = startup?.members?.some((m) => m.user === user?.id) ?? false
   const isStartupFounder = startup?.members?.some((m) => m.user === user?.id && (m.role === 'founder' || m.role === 'co_founder')) ?? false
   const [togglingVisibility, setTogglingVisibility] = useState(false)
+  const [removingMemberId, setRemovingMemberId] = useState<string | null>(null)
+  const [showEditStartupModal, setShowEditStartupModal] = useState(false)
 
   // Join requests (for members)
   type JoinRequest = { id: string; requester_name?: string; requester_email?: string; message?: string; role?: string; created_at?: string }
@@ -185,6 +188,39 @@ export function StartupDetailPage() {
       pushToast('Failed to update position', 'error')
     } finally {
       setSavingMember(false)
+    }
+  }
+
+  const handleRemoveMember = async (m: NonNullable<StartupDetail['members']>[number]) => {
+    if (!startup) return
+    if (!window.confirm(`Remove ${m.user_name ?? 'this member'} from ${startup.name}?`)) return
+    setRemovingMemberId(m.id)
+    try {
+      await apiRequest(`/founders/startups/${startup.id}/members/${m.id}/`, { method: 'DELETE' })
+      setStartup((prev) => prev ? { ...prev, members: prev.members?.filter((x) => x.id !== m.id) } : prev)
+      pushToast('Member removed', 'success')
+    } catch (err: unknown) {
+      const msg = (err as { detail?: string })?.detail
+      if (msg) pushToast(msg, 'error')
+      else pushToast('Failed to remove member', 'error')
+    } finally {
+      setRemovingMemberId(null)
+    }
+  }
+
+  const handleLeaveStartup = async (m: NonNullable<StartupDetail['members']>[number]) => {
+    if (!startup) return
+    if (!window.confirm(`Leave ${startup.name}? You will lose access.`)) return
+    setRemovingMemberId(m.id)
+    try {
+      await apiRequest(`/founders/startups/${startup.id}/members/${m.id}/`, { method: 'DELETE' })
+      pushToast('You have left the startup', 'success')
+      window.location.href = '/app/my-startups'
+    } catch (err: unknown) {
+      const msg = (err as { detail?: string })?.detail
+      if (msg) pushToast(msg, 'error')
+      else pushToast('Failed to leave startup', 'error')
+      setRemovingMemberId(null)
     }
   }
 
@@ -506,6 +542,19 @@ export function StartupDetailPage() {
                 </button>
               )}
 
+              {/* Edit Startup button (founders only) */}
+              {isStartupFounder && (
+                <button
+                  className="btn-sm ghost"
+                  type="button"
+                  onClick={() => setShowEditStartupModal(true)}
+                  style={{ flexShrink: 0 }}
+                  data-testid="edit-startup-btn"
+                >
+                  Edit Startup
+                </button>
+              )}
+
               {/* Express Interest (investors only, non-members) */}
               {isInvestor && !isMember && investorProfile && (
                 <button
@@ -803,7 +852,40 @@ export function StartupDetailPage() {
                           </>
                         )}
                         {isStartupFounder && editingMemberId !== m.id && (
-                          <button className="btn-sm ghost" style={{ flexShrink: 0 }} onClick={() => handleEditMember(m)}>Edit</button>
+                          <>
+                            <button
+                              className="btn-sm ghost"
+                              style={{ flexShrink: 0 }}
+                              onClick={() => handleEditMember(m)}
+                              data-testid="edit-member-btn"
+                            >
+                              Edit
+                            </button>
+                            {m.user !== user?.id && (
+                              <button
+                                className="btn-sm ghost"
+                                style={{ flexShrink: 0, color: 'hsl(var(--destructive))' }}
+                                onClick={() => void handleRemoveMember(m)}
+                                disabled={removingMemberId === m.id}
+                                data-testid="remove-member-btn"
+                              >
+                                {removingMemberId === m.id ? <Loader2 size={12} className="animate-spin" /> : <X size={12} />}
+                                Remove
+                              </button>
+                            )}
+                          </>
+                        )}
+                        {!isStartupFounder && m.user === user?.id && editingMemberId !== m.id && (
+                          <button
+                            className="btn-sm ghost"
+                            style={{ flexShrink: 0, color: 'hsl(var(--destructive))' }}
+                            onClick={() => void handleLeaveStartup(m)}
+                            disabled={removingMemberId === m.id}
+                            data-testid="leave-startup-btn"
+                          >
+                            {removingMemberId === m.id ? <Loader2 size={12} className="animate-spin" /> : null}
+                            Leave Startup
+                          </button>
                         )}
                       </div>
                       {editingMemberId === m.id && (
@@ -1032,6 +1114,18 @@ export function StartupDetailPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Edit Startup Modal */}
+      {showEditStartupModal && startup && (
+        <EditStartupModal
+          startup={startup}
+          onClose={() => setShowEditStartupModal(false)}
+          onSave={(updated) => {
+            setStartup(updated)
+            setShowEditStartupModal(false)
+          }}
+        />
       )}
     </div>
   )
