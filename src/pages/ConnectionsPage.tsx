@@ -66,8 +66,13 @@ export function ConnectionsPage() {
       pushToast('Connection request sent!', 'success')
       setShowForm(false)
       setSendForm({ user_id: '', message: '' })
+      const cancelled = { current: false }
+      void loadItems(cancelled)
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Failed to send request.'
+      const msg =
+        err != null && typeof err === 'object' && 'message' in err
+          ? String((err as { message: unknown }).message)
+          : 'Failed to send request.'
       pushToast(msg, 'error')
     } finally {
       setSendLoading(false)

@@ -1,21 +1,19 @@
 import { useEffect, useMemo } from 'react'
 import { useToast } from '../context/ToastContext'
-import { getTokens } from '../lib/tokenStorage'
 import { buildWsUrl } from '../lib/ws'
 import { useWebSocket } from '../hooks/useWebSocket'
 import { useAuth } from '../context/AuthContext'
 
 export function RealtimeBridge() {
-  const { status } = useAuth()
+  const { status, accessToken } = useAuth()
   const { pushToast } = useToast()
-  const tokens = getTokens()
 
   const url = useMemo(() => {
     if (status !== 'authenticated') {
       return null
     }
-    return buildWsUrl('/ws/chat/', tokens.accessToken)
-  }, [status, tokens.accessToken])
+    return buildWsUrl('/ws/chat/', accessToken)
+  }, [status, accessToken])
 
   const { lastMessage } = useWebSocket(url, { reconnect: status === 'authenticated' })
 

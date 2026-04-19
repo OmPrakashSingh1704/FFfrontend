@@ -150,7 +150,7 @@ export function ChatPage() {
     return () => {
       cancelled = true
     }
-  }, [activeId, navigate, newChatId])
+  }, [navigate, newChatId])
 
   useEffect(() => {
     if (!id) return
