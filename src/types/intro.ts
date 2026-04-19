@@ -12,7 +12,8 @@ export type InvestorProfilePublic = {
 export type IntroRequest = {
   id: string
   founder_user: PublicUser
-  investor_profile: InvestorProfilePublic
+  recipient_user: PublicUser | null
+  investor_profile: InvestorProfilePublic | null
   startup: string
   startup_name: string
   startup_tagline: string
@@ -30,10 +31,17 @@ export type IntroRequest = {
 }
 
 export type IntroRequestCreate = {
-  investor_profile_id: string
-  startup_id: string
+  recipient_user_id: string
+  startup_id?: string
   pitch_summary: string
   relevance_justification: string
   deck_url?: string
   additional_notes?: string
+}
+
+export type RecipientOption = {
+  user_id: string
+  display_name: string
+  subtitle?: string
+  type: 'investor' | 'founder'
 }

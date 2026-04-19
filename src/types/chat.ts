@@ -5,6 +5,7 @@ export type ChatParticipant = {
   avatar_url?: string | null
   title?: string
   is_online?: boolean
+  is_connected?: boolean
 }
 
 export type ChatAttachment = {

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useParams, useNavigate } from 'react-router-dom'
 import {
   ArrowLeft,
   MapPin,
@@ -15,6 +15,7 @@ import {
   Loader2,
   X,
   UserPlus,
+  UserCheck,
 } from 'lucide-react'
 import { apiRequest } from '../lib/api'
 import { fetchConnectedUserIds } from '../lib/connections'
@@ -29,6 +30,7 @@ import type { StartupListItem } from '../types/startup'
 
 export function InvestorDetailPage() {
   const { id } = useParams()
+  const navigate = useNavigate()
   const { user } = useAuth()
   const { pushToast } = useToast()
   const [investor, setInvestor] = useState<InvestorProfile | null>(null)
@@ -43,6 +45,7 @@ export function InvestorDetailPage() {
   const [expressing, setExpressing] = useState(false)
   const [connecting, setConnecting] = useState(false)
   const [requested, setRequested] = useState(false)
+  const [showConnectPrompt, setShowConnectPrompt] = useState(false)
 
   // Pre-populate button state after investor loads
   useEffect(() => {
@@ -53,7 +56,7 @@ export function InvestorDetailPage() {
       .catch(() => {})
   }, [investor?.user?.id, user?.id])
 
-  const handleConnect = async () => {
+  const handleConnectDirect = async () => {
     const userId = investor?.user?.id
     if (!userId) return
     setConnecting(true)
@@ -198,7 +201,7 @@ export function InvestorDetailPage() {
                     className="btn-sm primary"
                     type="button"
                     disabled={connecting || requested}
-                    onClick={() => void handleConnect()}
+                    onClick={() => setShowConnectPrompt(true)}
                     data-testid="connect-investor-btn"
                   >
                     <UserPlus size={14} strokeWidth={1.5} />
@@ -207,6 +210,38 @@ export function InvestorDetailPage() {
                 </div>
               )}
             </div>
+
+            {/* Connect prompt */}
+            {showConnectPrompt && (
+              <div style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }}
+                onClick={(e) => { if (e.target === e.currentTarget) setShowConnectPrompt(false) }}>
+                <div className="card" style={{ width: '100%', maxWidth: '30rem' }}>
+                  <div className="card-header">
+                    <h2 style={{ fontSize: '1.125rem', fontWeight: 600 }}>How would you like to connect?</h2>
+                    <button type="button" className="btn-sm ghost" onClick={() => setShowConnectPrompt(false)}><X size={16} /></button>
+                  </div>
+                  <p style={{ fontSize: '0.875rem', color: 'hsl(var(--muted-foreground))', marginBottom: '1.25rem' }}>
+                    A Warm Introduction carries context about who you are and why you want to connect — it gets accepted far more often than a cold request.
+                  </p>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                    <button type="button" className="btn primary"
+                      style={{ flexDirection: 'column', height: 'auto', padding: '1rem', gap: '0.5rem', textAlign: 'center' }}
+                      onClick={() => { setShowConnectPrompt(false); navigate('/app/intros', { state: { openForm: true, target_user_id: investor?.user?.id ? String(investor.user.id) : undefined } }) }}>
+                      <UserCheck size={20} strokeWidth={1.5} />
+                      <span style={{ fontWeight: 600 }}>Warm Introduction</span>
+                      <span style={{ fontSize: '0.75rem', fontWeight: 400, opacity: 0.85 }}>Include your pitch and why you're a fit</span>
+                    </button>
+                    <button type="button" className="btn"
+                      style={{ flexDirection: 'column', height: 'auto', padding: '1rem', gap: '0.5rem', textAlign: 'center', background: 'hsl(var(--muted))', color: 'hsl(var(--foreground))' }}
+                      onClick={() => { setShowConnectPrompt(false); void handleConnectDirect() }}>
+                      <UserPlus size={20} strokeWidth={1.5} />
+                      <span style={{ fontWeight: 600 }}>Connection Request</span>
+                      <span style={{ fontSize: '0.75rem', fontWeight: 400, opacity: 0.7 }}>Quick request with an optional note</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Inline interest form */}
             {showInterestForm && (
