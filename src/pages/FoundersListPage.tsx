@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Users, MapPin, TrendingUp, MessageCircle, Search, X, UserPlus } from 'lucide-react'
+import { Users, MapPin, TrendingUp, MessageCircle, Search, X, UserPlus, UserCheck } from 'lucide-react'
 import { apiRequest } from '../lib/api'
 import { resolveMediaUrl } from '../lib/env'
 import { formatLabel } from '../lib/format'
@@ -25,6 +25,7 @@ export function FoundersListPage() {
   const [totalCount, setTotalCount] = useState(0)
   const [connecting, setConnecting] = useState<string | null>(null)
   const [requested, setRequested] = useState<Set<string>>(new Set())
+  const [pendingConnect, setPendingConnect] = useState<FounderProfile | null>(null)
 
   useEffect(() => {
     if (currentUser?.id) {
@@ -67,9 +68,7 @@ export function FoundersListPage() {
     }, 300)
   }
 
-  const handleConnect = async (e: React.MouseEvent, founder: FounderProfile) => {
-    e.preventDefault()
-    e.stopPropagation()
+  const handleConnectDirect = async (founder: FounderProfile) => {
     const userId = founder.user?.id
     if (!userId) return
     setConnecting(userId)
@@ -83,6 +82,12 @@ export function FoundersListPage() {
     } finally {
       setConnecting(null)
     }
+  }
+
+  const handleConnectClick = (e: React.MouseEvent, founder: FounderProfile) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setPendingConnect(founder)
   }
 
   const handleStartChat = (e: React.MouseEvent, founder: FounderProfile) => {
@@ -276,7 +281,7 @@ export function FoundersListPage() {
                           className="btn-sm ghost"
                           style={{ flex: 1, justifyContent: 'center' }}
                           disabled={connecting === founder.user.id || requested.has(founder.user.id)}
-                          onClick={(e) => void handleConnect(e, founder)}
+                          onClick={(e) => handleConnectClick(e, founder)}
                           data-testid={`connect-founder-${founder.id}`}
                         >
                           <UserPlus style={{ width: '0.875rem', height: '0.875rem' }} strokeWidth={1.5} />
@@ -291,6 +296,38 @@ export function FoundersListPage() {
           </div>
           <Pagination page={page} totalPages={totalPages} onChange={setPage} />
         </>
+      )}
+
+      {/* Connect prompt */}
+      {pendingConnect && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }}
+          onClick={(e) => { if (e.target === e.currentTarget) setPendingConnect(null) }}>
+          <div className="card" style={{ width: '100%', maxWidth: '30rem' }}>
+            <div className="card-header">
+              <h2 style={{ fontSize: '1.125rem', fontWeight: 600 }}>How would you like to connect?</h2>
+              <button type="button" className="btn-sm ghost" onClick={() => setPendingConnect(null)}><X size={16} /></button>
+            </div>
+            <p style={{ fontSize: '0.875rem', color: 'hsl(var(--muted-foreground))', marginBottom: '1.25rem' }}>
+              A Warm Introduction carries context about who you are and why you want to connect — it gets accepted far more often than a cold request.
+            </p>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+              <button type="button" className="btn primary"
+                style={{ flexDirection: 'column', height: 'auto', padding: '1rem', gap: '0.5rem', textAlign: 'center' }}
+                onClick={() => { const f = pendingConnect; setPendingConnect(null); navigate('/app/intros', { state: { openForm: true, target_user_id: f?.user?.id ? String(f.user.id) : undefined } }) }}>
+                <UserCheck size={20} strokeWidth={1.5} />
+                <span style={{ fontWeight: 600 }}>Warm Introduction</span>
+                <span style={{ fontSize: '0.75rem', fontWeight: 400, opacity: 0.85 }}>Include your pitch and why you're a fit</span>
+              </button>
+              <button type="button" className="btn"
+                style={{ flexDirection: 'column', height: 'auto', padding: '1rem', gap: '0.5rem', textAlign: 'center', background: 'hsl(var(--muted))', color: 'hsl(var(--foreground))' }}
+                onClick={() => { const f = pendingConnect; setPendingConnect(null); void handleConnectDirect(f) }}>
+                <UserPlus size={20} strokeWidth={1.5} />
+                <span style={{ fontWeight: 600 }}>Connection Request</span>
+                <span style={{ fontSize: '0.75rem', fontWeight: 400, opacity: 0.7 }}>Quick request with an optional note</span>
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )

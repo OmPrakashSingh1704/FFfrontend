@@ -1,12 +1,15 @@
 import { useEffect, useState } from 'react'
+import { useLocation } from 'react-router-dom'
 import { Plus, Send, X, ExternalLink, ArrowRight, Clock, Calendar } from 'lucide-react'
 import { apiRequest } from '../lib/api'
 import { normalizeList } from '../lib/pagination'
 import { useToast } from '../context/ToastContext'
 import { useFeatureFlags } from '../context/FeatureFlagsContext'
-import type { IntroRequest, IntroRequestCreate } from '../types/intro'
+import { useAuth } from '../context/AuthContext'
+import type { IntroRequest, IntroRequestCreate, RecipientOption } from '../types/intro'
 import type { StartupListItem } from '../types/startup'
 import type { InvestorProfile } from '../types/investor'
+import type { FounderProfile } from '../types/founder'
 
 type IntroTab = 'sent' | 'received'
 
@@ -16,9 +19,14 @@ const statusBadgeClass: Record<string, string> = {
   declined: 'error',
 }
 
+type LocationState = { openForm?: boolean; target_user_id?: string } | null
+
 export function IntrosPage() {
   const { pushToast } = useToast()
   const flags = useFeatureFlags()
+  const { user: currentUser } = useAuth()
+  const location = useLocation()
+  const locationState = location.state as LocationState
   const [tab, setTab] = useState<IntroTab>('sent')
   const [items, setItems] = useState<IntroRequest[]>([])
   const [loading, setLoading] = useState(true)
@@ -27,16 +35,29 @@ export function IntrosPage() {
   // Create form state
   const [showForm, setShowForm] = useState(false)
   const [myStartups, setMyStartups] = useState<StartupListItem[]>([])
-  const [investors, setInvestors] = useState<InvestorProfile[]>([])
+  const [recipients, setRecipients] = useState<RecipientOption[]>([])
   const [formLoading, setFormLoading] = useState(false)
   const [createForm, setCreateForm] = useState<IntroRequestCreate>({
-    investor_profile_id: '',
+    recipient_user_id: '',
     startup_id: '',
     pitch_summary: '',
     relevance_justification: '',
     deck_url: '',
     additional_notes: '',
   })
+
+  // Auto-open form if navigated here with openForm state
+  useEffect(() => {
+    if (locationState?.openForm) {
+      openCreateForm().then(() => {
+        if (locationState.target_user_id) {
+          setCreateForm((f) => ({ ...f, recipient_user_id: locationState.target_user_id! }))
+        }
+      })
+      window.history.replaceState({}, '')
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // Respond state
   const [respondingTo, setRespondingTo] = useState<string | null>(null)
@@ -69,16 +90,36 @@ export function IntrosPage() {
     return () => { cancelled.current = true }
   }, [tab])
 
-  // Load form data when opening create form
   const openCreateForm = async () => {
     setShowForm(true)
     try {
-      const [startupsData, investorsData] = await Promise.all([
+      const [startupsData, investorsData, foundersData] = await Promise.all([
         apiRequest<StartupListItem[] | { results: StartupListItem[] }>('/founders/my-startups/'),
         apiRequest<InvestorProfile[] | { results: InvestorProfile[] }>('/investors/'),
+        apiRequest<FounderProfile[] | { results: FounderProfile[] }>('/founders/'),
       ])
+
       setMyStartups(normalizeList(startupsData))
-      setInvestors(normalizeList(investorsData))
+
+      const investorOptions: RecipientOption[] = normalizeList(investorsData)
+        .filter((inv) => inv.user?.id && inv.user.id !== currentUser?.id)
+        .map((inv) => ({
+          user_id: inv.user!.id,
+          display_name: inv.display_name || inv.user?.full_name || 'Investor',
+          subtitle: inv.fund_name ?? undefined,
+          type: 'investor' as const,
+        }))
+
+      const founderOptions: RecipientOption[] = normalizeList(foundersData)
+        .filter((f) => f.user?.id && f.user.id !== currentUser?.id)
+        .map((f) => ({
+          user_id: f.user!.id,
+          display_name: f.user?.full_name || 'Founder',
+          subtitle: f.headline ?? undefined,
+          type: 'founder' as const,
+        }))
+
+      setRecipients([...investorOptions, ...founderOptions])
     } catch {
       pushToast('Failed to load form options.', 'error')
     }
@@ -86,26 +127,25 @@ export function IntrosPage() {
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!createForm.startup_id || !createForm.investor_profile_id || !createForm.pitch_summary || !createForm.relevance_justification) {
+    if (!createForm.recipient_user_id || !createForm.pitch_summary || !createForm.relevance_justification) {
       pushToast('Please fill in all required fields.', 'warning')
       return
     }
     setFormLoading(true)
     try {
       const body: IntroRequestCreate = {
-        investor_profile_id: createForm.investor_profile_id,
-        startup_id: createForm.startup_id,
+        recipient_user_id: createForm.recipient_user_id,
         pitch_summary: createForm.pitch_summary,
         relevance_justification: createForm.relevance_justification,
       }
+      if (createForm.startup_id) body.startup_id = createForm.startup_id
       if (createForm.deck_url) body.deck_url = createForm.deck_url
       if (createForm.additional_notes) body.additional_notes = createForm.additional_notes
 
       await apiRequest<IntroRequest>('/intros/', { method: 'POST', body })
       pushToast('Intro request sent!', 'success')
       setShowForm(false)
-      setCreateForm({ investor_profile_id: '', startup_id: '', pitch_summary: '', relevance_justification: '', deck_url: '', additional_notes: '' })
-      // Refresh list
+      setCreateForm({ recipient_user_id: '', startup_id: undefined, pitch_summary: '', relevance_justification: '', deck_url: '', additional_notes: '' })
       const cancelled = { current: false }
       void loadIntros(cancelled)
     } catch {
@@ -131,6 +171,12 @@ export function IntrosPage() {
     } finally {
       setRespondLoading(false)
     }
+  }
+
+  const getRecipientName = (intro: IntroRequest) => {
+    if (intro.investor_profile?.display_name) return intro.investor_profile.display_name
+    if (intro.recipient_user?.full_name) return intro.recipient_user.full_name
+    return 'Recipient'
   }
 
   return (
@@ -196,34 +242,49 @@ export function IntrosPage() {
             </div>
 
             <form onSubmit={handleCreate}>
+              {myStartups.length > 0 && (
+                <div className="form-group">
+                  <label>Your Startup</label>
+                  <select
+                    className="select"
+                    value={createForm.startup_id}
+                    onChange={(e) => setCreateForm((f) => ({ ...f, startup_id: e.target.value }))}
+                    data-testid="startup-select"
+                  >
+                    <option value="">No specific startup</option>
+                    {myStartups.map((s) => (
+                      <option key={s.id} value={s.id}>{s.name}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
               <div className="form-group">
-                <label>Startup *</label>
+                <label>Introduce me to *</label>
                 <select
                   className="select"
-                  value={createForm.startup_id}
-                  onChange={(e) => setCreateForm((f) => ({ ...f, startup_id: e.target.value }))}
-                  data-testid="startup-select"
+                  value={createForm.recipient_user_id}
+                  onChange={(e) => setCreateForm((f) => ({ ...f, recipient_user_id: e.target.value }))}
+                  data-testid="recipient-select"
                 >
-                  <option value="">Select your startup</option>
-                  {myStartups.map((s) => (
-                    <option key={s.id} value={s.id}>{s.name}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="form-group">
-                <label>Investor *</label>
-                <select
-                  className="select"
-                  value={createForm.investor_profile_id}
-                  onChange={(e) => setCreateForm((f) => ({ ...f, investor_profile_id: e.target.value }))}
-                  data-testid="investor-select"
-                >
-                  <option value="">Select an investor</option>
-                  {investors.map((inv) => (
-                    <option key={inv.id} value={inv.id}>
-                      {inv.display_name}{inv.fund_name ? ` (${inv.fund_name})` : ''}
-                    </option>
-                  ))}
+                  <option value="">Select a person</option>
+                  {recipients.filter((r) => r.type === 'investor').length > 0 && (
+                    <optgroup label="Investors">
+                      {recipients.filter((r) => r.type === 'investor').map((r) => (
+                        <option key={r.user_id} value={r.user_id}>
+                          {r.display_name}{r.subtitle ? ` — ${r.subtitle}` : ''}
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
+                  {recipients.filter((r) => r.type === 'founder').length > 0 && (
+                    <optgroup label="Founders">
+                      {recipients.filter((r) => r.type === 'founder').map((r) => (
+                        <option key={r.user_id} value={r.user_id}>
+                          {r.display_name}{r.subtitle ? ` — ${r.subtitle}` : ''}
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
                 </select>
               </div>
               <div className="form-group">
@@ -238,13 +299,13 @@ export function IntrosPage() {
                 />
               </div>
               <div className="form-group">
-                <label>Relevance Justification *</label>
+                <label>Why are you a fit? *</label>
                 <textarea
                   className="textarea"
                   rows={2}
                   value={createForm.relevance_justification}
                   onChange={(e) => setCreateForm((f) => ({ ...f, relevance_justification: e.target.value }))}
-                  placeholder="Why is this investor a good fit?"
+                  placeholder="Why is this person a good fit for your startup?"
                   data-testid="relevance-input"
                 />
               </div>
@@ -266,7 +327,7 @@ export function IntrosPage() {
                   rows={2}
                   value={createForm.additional_notes}
                   onChange={(e) => setCreateForm((f) => ({ ...f, additional_notes: e.target.value }))}
-                  placeholder="Anything else the investor should know..."
+                  placeholder="Anything else they should know..."
                   data-testid="additional-notes-input"
                 />
               </div>
@@ -303,7 +364,7 @@ export function IntrosPage() {
           <Send className="empty-icon" />
           <h3 className="empty-title">No intros yet</h3>
           <p className="empty-description">
-            {tab === 'sent' ? 'Send your first intro request to connect with investors!' : 'No intro requests received yet.'}
+            {tab === 'sent' ? 'Send your first intro request to connect with someone!' : 'No intro requests received yet.'}
           </p>
         </div>
       ) : null}
@@ -314,7 +375,6 @@ export function IntrosPage() {
           {items.map((intro) => (
             <div key={intro.id} className="card" data-testid="intro-card">
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
-                {/* Status Badge */}
                 <span className={`badge ${statusBadgeClass[intro.status] || ''}`}>
                   {intro.status}
                 </span>
@@ -325,11 +385,10 @@ export function IntrosPage() {
 
               {tab === 'sent' ? (
                 <div>
-                  {/* Flow indicator: Startup -> Investor */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
                     <span style={{ fontWeight: 600, fontSize: '0.9375rem' }}>{intro.startup_name}</span>
                     <ArrowRight style={{ width: 16, height: 16, color: 'var(--gold)', flexShrink: 0 }} />
-                    <span style={{ fontWeight: 600, fontSize: '0.9375rem' }}>{intro.investor_profile?.display_name || 'Investor'}</span>
+                    <span style={{ fontWeight: 600, fontSize: '0.9375rem' }}>{getRecipientName(intro)}</span>
                   </div>
                   <p style={{ color: 'hsl(var(--muted-foreground))', fontSize: '0.875rem', lineHeight: 1.5 }}>
                     {intro.pitch_summary ? `${intro.pitch_summary.slice(0, 150)}${intro.pitch_summary.length > 150 ? '...' : ''}` : 'No pitch summary.'}

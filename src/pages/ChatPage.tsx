@@ -4,7 +4,6 @@ import { Plus, Search, Paperclip, ArrowUp, Phone, X, Bot, LogOut, Pencil, Trash2
 import { apiRequest, uploadRequest } from '../lib/api'
 import { normalizeList } from '../lib/pagination'
 import { buildWsUrl } from '../lib/ws'
-import { getTokens } from '../lib/tokenStorage'
 import { useWebSocket } from '../hooks/useWebSocket'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
@@ -77,9 +76,8 @@ export function ChatPage() {
   const [searchParams] = useSearchParams()
   const newChatId = searchParams.get('newChat')
   const navigate = useNavigate()
-  const { user } = useAuth()
+  const { user, accessToken } = useAuth()
   const { pushToast } = useToast()
-  const tokens = getTokens()
   const newChatRequestRef = useRef<string | null>(null)
 
   const [conversations, setConversations] = useState<ChatConversation[]>([])
@@ -115,6 +113,7 @@ export function ChatPage() {
   const [commandsOpen, setCommandsOpen] = useState(false)
   const [commandsError, setCommandsError] = useState<string | null>(null)
   const [sidebarSearch, setSidebarSearch] = useState('')
+  const [showWarmIntroPrompt, setShowWarmIntroPrompt] = useState(false)
 
   const scrollRef = useRef<HTMLDivElement | null>(null)
   const typingTimer = useRef<number | null>(null)
@@ -290,9 +289,9 @@ export function ChatPage() {
   }, [activeId])
 
   const wsUrl = useMemo(() => {
-    if (!tokens.accessToken) return null
-    return buildWsUrl('/ws/chat/', tokens.accessToken)
-  }, [tokens.accessToken])
+    if (!accessToken) return null
+    return buildWsUrl('/ws/chat/', accessToken)
+  }, [accessToken])
 
   const { status: wsStatus, lastMessage, sendJson } = useWebSocket(wsUrl, { reconnect: true })
 
@@ -428,11 +427,20 @@ export function ChatPage() {
       .map((reaction) => reaction.emoji)
   }
 
-  const handleSend = async () => {
+  const handleSend = async (skipConnectionCheck = false) => {
     if (!activeId) return
     const trimmed = messageDraft.trim()
     const attachment = attachments[0]
     if (!trimmed && !attachment?.url) return
+
+    // Warn if sending a DM to someone we're not connected with
+    if (!skipConnectionCheck && activeConversation?.type === 'direct') {
+      const other = activeConversation.other_participant
+      if (other && other.is_connected === false) {
+        setShowWarmIntroPrompt(true)
+        return
+      }
+    }
 
     if (trimmed.startsWith('/')) {
       const commandMatch = resolveCommand(trimmed)
@@ -1204,6 +1212,48 @@ export function ChatPage() {
           </div>
         </div>
       </div>
+
+      {/* Warm Intro Prompt */}
+      {showWarmIntroPrompt && activeConversation?.other_participant && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.6)' }} role="dialog" aria-modal="true">
+          <div className="card w-full max-w-sm mx-4">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-base font-semibold">Not connected</h3>
+              <button type="button" onClick={() => setShowWarmIntroPrompt(false)} className="p-1 rounded hover:bg-[hsl(var(--muted))]">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <p className="text-sm mb-4" style={{ color: 'hsl(var(--muted-foreground))' }}>
+              You're not connected with <strong>{activeConversation.other_participant.full_name ?? 'this person'}</strong>. Your message may not be delivered.
+              <br /><br />
+              Send a <strong>Warm Introduction</strong> to formally connect and start the conversation on the right foot.
+            </p>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                className="btn btn-primary flex-1"
+                onClick={() => {
+                  setShowWarmIntroPrompt(false)
+                  navigate('/app/intros', { state: { openForm: true } })
+                }}
+              >
+                Send Warm Intro
+              </button>
+              <button
+                type="button"
+                className="btn flex-1"
+                style={{ background: 'hsl(var(--muted))', color: 'hsl(var(--foreground))' }}
+                onClick={() => {
+                  setShowWarmIntroPrompt(false)
+                  void handleSend(true)
+                }}
+              >
+                Send Anyway
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* New Conversation Modal */}
       {showNewConversation ? (

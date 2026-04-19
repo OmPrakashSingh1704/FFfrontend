@@ -16,8 +16,8 @@ export function FeatureFlagsProvider({ children }: { children: React.ReactNode }
   const [flags, setFlags] = useState<FeatureFlags>(defaults)
 
   useEffect(() => {
-    apiRequest<{ features: FeatureFlags }>('/config/')
-      .then((data) => setFlags(data.features))
+    apiRequest<{ features: FeatureFlags }>('/config/', { auth: false })
+      .then((data) => setFlags({ ...defaults, ...data.features }))
       .catch(() => {
         // network error or config unavailable — keep defaults (all enabled)
       })

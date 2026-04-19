@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { UserCheck, UserPlus, Clock, X, Check, Trash2, Users, Calendar } from 'lucide-react'
 import { apiRequest } from '../lib/api'
 import { normalizeList } from '../lib/pagination'
@@ -16,9 +17,11 @@ const statusBadgeClass: Record<string, string> = {
 }
 
 export function ConnectionsPage() {
+  const navigate = useNavigate()
   const { pushToast } = useToast()
   const { user } = useAuth()
   const [tab, setTab] = useState<Tab>('connections')
+  const [showIntroPrompt, setShowIntroPrompt] = useState(false)
   const [items, setItems] = useState<ConnectionRequest[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -133,7 +136,7 @@ export function ConnectionsPage() {
         <button
           type="button"
           className="btn-sm primary"
-          onClick={() => setShowForm(true)}
+          onClick={() => setShowIntroPrompt(true)}
           data-testid="send-connection-btn"
         >
           <UserPlus style={{ width: 14, height: 14 }} />
@@ -155,6 +158,48 @@ export function ConnectionsPage() {
           </button>
         ))}
       </div>
+
+      {/* Warm Intro Prompt */}
+      {showIntroPrompt && (
+        <div
+          style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }}
+          onClick={(e) => { if (e.target === e.currentTarget) setShowIntroPrompt(false) }}
+        >
+          <div className="card" style={{ width: '100%', maxWidth: '30rem' }}>
+            <div className="card-header">
+              <h2 style={{ fontSize: '1.125rem', fontWeight: 600 }}>How would you like to connect?</h2>
+              <button type="button" className="btn-sm ghost" onClick={() => setShowIntroPrompt(false)}>
+                <X style={{ width: 16, height: 16 }} />
+              </button>
+            </div>
+            <p style={{ fontSize: '0.875rem', color: 'hsl(var(--muted-foreground))', marginBottom: '1.25rem' }}>
+              A Warm Introduction carries context about who you are and why you want to connect — it gets accepted far more often than a cold request.
+            </p>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+              <button
+                type="button"
+                className="btn primary"
+                style={{ flexDirection: 'column', height: 'auto', padding: '1rem', gap: '0.5rem', textAlign: 'center' }}
+                onClick={() => { setShowIntroPrompt(false); navigate('/app/intros', { state: { openForm: true } }) }}
+              >
+                <UserCheck style={{ width: 20, height: 20 }} />
+                <span style={{ fontWeight: 600 }}>Warm Introduction</span>
+                <span style={{ fontSize: '0.75rem', fontWeight: 400, opacity: 0.85 }}>Include your pitch and why you're a fit</span>
+              </button>
+              <button
+                type="button"
+                className="btn"
+                style={{ flexDirection: 'column', height: 'auto', padding: '1rem', gap: '0.5rem', textAlign: 'center', background: 'hsl(var(--muted))', color: 'hsl(var(--foreground))' }}
+                onClick={() => { setShowIntroPrompt(false); setShowForm(true) }}
+              >
+                <UserPlus style={{ width: 20, height: 20 }} />
+                <span style={{ fontWeight: 600 }}>Connection Request</span>
+                <span style={{ fontSize: '0.75rem', fontWeight: 400, opacity: 0.7 }}>Quick request with an optional note</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Send Connection Modal */}
       {showForm && (
