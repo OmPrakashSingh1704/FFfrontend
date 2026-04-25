@@ -1,78 +1,53 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
+import { ArrowLeft, Settings, Plus, Pencil, Loader2, Check, X, Save } from 'lucide-react'
+
 import { apiRequest } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 import {
-  ArrowLeft, Settings, Lock, Plus, Pencil, Trash2, Loader2, Check, X,
-} from 'lucide-react'
-import type { WorkflowTemplate, WorkflowTemplateNode } from '../types/deals'
+  WorkflowCanvas,
+  WorkflowValidationBanner,
+} from '../components/workflow'
+import type {
+  BulkPositionItem,
+  TerminalOutcome,
+  WorkflowTemplate,
+  WorkflowTemplateEdge,
+  WorkflowTemplateNode,
+  WorkflowValidationResponse,
+} from '../types/deals'
 
-function NodeRow({
-  node,
-  onEdit,
-  onDelete,
-}: {
-  node: WorkflowTemplateNode
-  onEdit: (node: WorkflowTemplateNode) => void
-  onDelete: (id: string) => void
-}) {
-  const isSystem = node.node_type === 'system'
-  return (
-    <div
-      className="card"
-      data-testid="workflow-node-row"
-      style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', padding: '0.75rem 1rem' }}
-    >
-      <div
-        style={{
-          width: 28, height: 28, borderRadius: '50%', flexShrink: 0, display: 'flex',
-          alignItems: 'center', justifyContent: 'center',
-          background: isSystem ? 'hsl(var(--muted))' : 'hsl(var(--primary) / 0.12)',
-        }}
-      >
-        {isSystem
-          ? <Lock size={13} strokeWidth={1.5} style={{ color: 'hsl(var(--muted-foreground))' }} />
-          : <span style={{ fontSize: '0.6875rem', fontWeight: 700, color: 'hsl(var(--primary))' }}>{node.order}</span>
-        }
-      </div>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <span style={{ display: 'block', fontWeight: 500, fontSize: '0.875rem' }}>{node.name}</span>
-        {node.description && (
-          <span style={{ display: 'block', fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))', marginTop: 2 }}>
-            {node.description}
-          </span>
-        )}
-        {isSystem && (
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, marginTop: 4, fontSize: '0.6875rem', color: 'hsl(var(--muted-foreground))' }}>
-            <Lock size={10} strokeWidth={1.5} /> System node
-          </span>
-        )}
-      </div>
-      {!isSystem && (
-        <div style={{ display: 'flex', gap: '0.25rem', flexShrink: 0 }}>
-          <button
-            className="btn-sm ghost"
-            data-testid="edit-node-btn"
-            onClick={() => onEdit(node)}
-            style={{ padding: '4px 8px' }}
-            title="Edit node"
-          >
-            <Pencil size={12} strokeWidth={1.5} />
-          </button>
-          <button
-            className="btn-sm ghost"
-            data-testid="delete-node-btn"
-            onClick={() => onDelete(node.id)}
-            style={{ padding: '4px 8px', color: '#ef4444' }}
-            title="Delete node"
-          >
-            <Trash2 size={12} strokeWidth={1.5} />
-          </button>
-        </div>
-      )}
-    </div>
-  )
+type NodeFormState = {
+  open: boolean
+  mode: 'create' | 'edit'
+  nodeId: string | null
+  name: string
+  description: string
+  terminal_outcome: TerminalOutcome
+}
+
+type EdgeFormState = {
+  open: boolean
+  edgeId: string | null
+  label: string
+  order_hint: number
+}
+
+const EMPTY_NODE_FORM: NodeFormState = {
+  open: false,
+  mode: 'create',
+  nodeId: null,
+  name: '',
+  description: '',
+  terminal_outcome: '',
+}
+
+const EMPTY_EDGE_FORM: EdgeFormState = {
+  open: false,
+  edgeId: null,
+  label: '',
+  order_hint: 0,
 }
 
 export function WorkflowSettingsPage() {
@@ -83,19 +58,22 @@ export function WorkflowSettingsPage() {
   const [template, setTemplate] = useState<WorkflowTemplate | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [deleting, setDeleting] = useState<string | null>(null)
+  const [validating, setValidating] = useState(false)
+  const [validation, setValidation] = useState<WorkflowValidationResponse | null>(null)
 
   const [templateName, setTemplateName] = useState('')
   const [editingName, setEditingName] = useState(false)
-
-  const [showAddForm, setShowAddForm] = useState(false)
-  const [editingNode, setEditingNode] = useState<WorkflowTemplateNode | null>(null)
-  const [nodeName, setNodeName] = useState('')
-  const [nodeDesc, setNodeDesc] = useState('')
-  const [nodeOrder, setNodeOrder] = useState(1)
-  const [submittingNode, setSubmittingNode] = useState(false)
-
   const nameInputRef = useRef<HTMLInputElement>(null)
+
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
+  const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null)
+
+  const [nodeForm, setNodeForm] = useState<NodeFormState>(EMPTY_NODE_FORM)
+  const [edgeForm, setEdgeForm] = useState<EdgeFormState>(EMPTY_EDGE_FORM)
+  const [submittingNode, setSubmittingNode] = useState(false)
+  const [submittingEdge, setSubmittingEdge] = useState(false)
+
+  const pendingPositionsRef = useRef<Map<string, { x: number; y: number }>>(new Map())
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -123,13 +101,31 @@ export function WorkflowSettingsPage() {
     if (editingName && nameInputRef.current) nameInputRef.current.focus()
   }, [editingName])
 
+  const nodesById = useMemo(() => {
+    const map: Record<string, WorkflowTemplateNode> = {}
+    template?.nodes.forEach((n) => { map[n.id] = n })
+    return map
+  }, [template])
+
+  const edgesById = useMemo(() => {
+    const map: Record<string, WorkflowTemplateEdge> = {}
+    template?.edges.forEach((e) => { map[e.id] = e })
+    return map
+  }, [template])
+
+  const selectedNode = selectedNodeId ? nodesById[selectedNodeId] ?? null : null
+  const selectedEdge = selectedEdgeId ? edgesById[selectedEdgeId] ?? null : null
+
   const handleSaveName = async () => {
-    if (!template || templateName.trim() === template.name) { setEditingName(false); return }
+    if (!template || templateName.trim() === template.name) {
+      setEditingName(false)
+      return
+    }
     setSaving(true)
     try {
       const updated = await apiRequest<WorkflowTemplate>('/deals/workflow/', {
         method: 'PATCH',
-        body: JSON.stringify({ name: templateName.trim() }),
+        body: { name: templateName.trim() },
       })
       setTemplate(updated)
       setTemplateName(updated.name)
@@ -142,64 +138,176 @@ export function WorkflowSettingsPage() {
     }
   }
 
-  const openAddForm = () => {
-    setEditingNode(null)
-    setNodeName('')
-    setNodeDesc('')
-    const maxOrder = template?.nodes.filter(n => n.node_type === 'custom').reduce((m, n) => Math.max(m, n.order), 0) ?? 0
-    setNodeOrder(maxOrder + 1)
-    setShowAddForm(true)
+  const openCreateNode = () => {
+    setNodeForm({
+      open: true, mode: 'create', nodeId: null,
+      name: '', description: '', terminal_outcome: '',
+    })
   }
 
-  const openEditForm = (node: WorkflowTemplateNode) => {
-    setEditingNode(node)
-    setNodeName(node.name)
-    setNodeDesc(node.description)
-    setNodeOrder(node.order)
-    setShowAddForm(true)
+  const openEditNode = (node: WorkflowTemplateNode) => {
+    if (node.node_type === 'system_start') {
+      pushToast('The start node cannot be edited.', 'info')
+      return
+    }
+    setNodeForm({
+      open: true, mode: 'edit', nodeId: node.id,
+      name: node.name, description: node.description,
+      terminal_outcome: node.terminal_outcome,
+    })
   }
 
-  const closeForm = () => {
-    setShowAddForm(false)
-    setEditingNode(null)
-  }
+  const closeNodeForm = () => setNodeForm(EMPTY_NODE_FORM)
 
   const handleSubmitNode = async () => {
-    if (!nodeName.trim()) { pushToast('Node name is required', 'error'); return }
+    if (!template) return
+    if (!nodeForm.name.trim()) {
+      pushToast('Node name is required', 'error')
+      return
+    }
     setSubmittingNode(true)
     try {
-      if (editingNode) {
-        await apiRequest(`/deals/workflow/nodes/${editingNode.id}/`, {
+      if (nodeForm.mode === 'edit' && nodeForm.nodeId) {
+        await apiRequest(`/deals/workflow/nodes/${nodeForm.nodeId}/`, {
           method: 'PATCH',
-          body: JSON.stringify({ name: nodeName.trim(), description: nodeDesc.trim(), order: nodeOrder }),
+          body: {
+            name: nodeForm.name.trim(),
+            description: nodeForm.description.trim(),
+            terminal_outcome: nodeForm.terminal_outcome,
+          },
         })
         pushToast('Node updated', 'success')
       } else {
+        const xs = template.nodes.map((n) => n.position_x)
+        const maxX = xs.length ? Math.max(...xs) : 0
         await apiRequest('/deals/workflow/nodes/', {
           method: 'POST',
-          body: JSON.stringify({ name: nodeName.trim(), description: nodeDesc.trim(), order: nodeOrder }),
+          body: {
+            name: nodeForm.name.trim(),
+            description: nodeForm.description.trim(),
+            terminal_outcome: nodeForm.terminal_outcome,
+            position_x: maxX + 220,
+            position_y: 0,
+          },
         })
         pushToast('Node added', 'success')
       }
-      closeForm()
+      closeNodeForm()
+      setValidation(null)
       void load()
-    } catch {
-      pushToast(editingNode ? 'Failed to update node' : 'Failed to add node', 'error')
+    } catch (e) {
+      const detail = (e as { details?: { detail?: string } })?.details?.detail
+      pushToast(detail || (nodeForm.mode === 'edit' ? 'Failed to update node' : 'Failed to add node'), 'error')
     } finally {
       setSubmittingNode(false)
     }
   }
 
   const handleDeleteNode = async (nodeId: string) => {
-    setDeleting(nodeId)
+    const node = nodesById[nodeId]
+    if (!node) return
+    if (node.node_type === 'system_start') {
+      pushToast('The start node cannot be deleted.', 'error')
+      return
+    }
     try {
       await apiRequest(`/deals/workflow/nodes/${nodeId}/`, { method: 'DELETE' })
       pushToast('Node deleted', 'success')
+      setSelectedNodeId(null)
+      setValidation(null)
       void load()
     } catch {
       pushToast('Failed to delete node', 'error')
+    }
+  }
+
+  const handleConnect = async (sourceId: string, targetId: string) => {
+    if (!template) return
+    try {
+      await apiRequest('/deals/workflow/edges/', {
+        method: 'POST',
+        body: { from_node: sourceId, to_node: targetId, label: '', order_hint: 0 },
+      })
+      pushToast('Edge created', 'success')
+      setValidation(null)
+      void load()
+    } catch (e) {
+      const detail = (e as { details?: { detail?: string } })?.details?.detail
+      pushToast(detail || 'Failed to create edge', 'error')
+    }
+  }
+
+  const handleDeleteEdge = async (edgeId: string) => {
+    try {
+      await apiRequest(`/deals/workflow/edges/${edgeId}/`, { method: 'DELETE' })
+      pushToast('Edge deleted', 'success')
+      setSelectedEdgeId(null)
+      setValidation(null)
+      void load()
+    } catch {
+      pushToast('Failed to delete edge', 'error')
+    }
+  }
+
+  const openEditEdge = (edge: WorkflowTemplateEdge) => {
+    setEdgeForm({
+      open: true, edgeId: edge.id, label: edge.label, order_hint: edge.order_hint,
+    })
+  }
+
+  const closeEdgeForm = () => setEdgeForm(EMPTY_EDGE_FORM)
+
+  const handleSubmitEdge = async () => {
+    if (!edgeForm.edgeId) return
+    setSubmittingEdge(true)
+    try {
+      await apiRequest(`/deals/workflow/edges/${edgeForm.edgeId}/`, {
+        method: 'PATCH',
+        body: { label: edgeForm.label, order_hint: edgeForm.order_hint },
+      })
+      pushToast('Edge updated', 'success')
+      closeEdgeForm()
+      void load()
+    } catch {
+      pushToast('Failed to update edge', 'error')
     } finally {
-      setDeleting(null)
+      setSubmittingEdge(false)
+    }
+  }
+
+  const handlePositionsChange = useCallback(
+    async (positions: BulkPositionItem[]) => {
+      positions.forEach((p) => pendingPositionsRef.current.set(p.node_id, { x: p.x, y: p.y }))
+      const payload = Array.from(pendingPositionsRef.current.entries()).map(
+        ([node_id, { x, y }]) => ({ node_id, x, y }),
+      )
+      pendingPositionsRef.current.clear()
+      try {
+        await apiRequest('/deals/workflow/positions/', {
+          method: 'PATCH',
+          body: { positions: payload },
+        })
+      } catch {
+        pushToast('Failed to save node positions', 'error')
+      }
+    },
+    [pushToast],
+  )
+
+  const handleValidate = async () => {
+    setValidating(true)
+    try {
+      const result = await apiRequest<WorkflowValidationResponse>(
+        '/deals/workflow/validate/',
+        { method: 'POST' },
+      )
+      setValidation(result)
+      if (result.valid) pushToast('Workflow is valid', 'success')
+      else pushToast(`Workflow has ${result.errors.length} issue${result.errors.length === 1 ? '' : 's'}`, 'error')
+    } catch {
+      pushToast('Failed to validate workflow', 'error')
+    } finally {
+      setValidating(false)
     }
   }
 
@@ -214,10 +322,8 @@ export function WorkflowSettingsPage() {
 
   if (!template) return null
 
-  const sortedNodes = [...template.nodes].sort((a, b) => a.order - b.order)
-
   return (
-    <div style={{ maxWidth: 700, margin: '0 auto' }}>
+    <div style={{ maxWidth: 1100, margin: '0 auto' }}>
       <div className="page-header">
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
           <Link to="/app/deals" className="btn-sm ghost" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
@@ -228,13 +334,16 @@ export function WorkflowSettingsPage() {
               <Settings size={20} strokeWidth={1.5} style={{ color: 'var(--gold)' }} />
               Workflow Settings
             </h1>
-            <p className="page-description">Configure the deal workflow template applied to all your deal rooms.</p>
+            <p className="page-description">
+              Design your deal workflow as a graph. Drag to position, connect to add steps. Branches let you fork the
+              path, with both parties choosing the next step.
+            </p>
           </div>
         </div>
       </div>
 
       {/* Template name */}
-      <div className="card" style={{ marginBottom: '1.5rem' }}>
+      <div className="card" style={{ marginBottom: '1rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem' }}>
           <div style={{ flex: 1 }}>
             <span style={{ display: 'block', fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))', marginBottom: 4 }}>Template Name</span>
@@ -245,8 +354,11 @@ export function WorkflowSettingsPage() {
                   data-testid="template-name-input"
                   className="input"
                   value={templateName}
-                  onChange={e => setTemplateName(e.target.value)}
-                  onKeyDown={e => { if (e.key === 'Enter') void handleSaveName(); if (e.key === 'Escape') setEditingName(false) }}
+                  onChange={(e) => setTemplateName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') void handleSaveName()
+                    if (e.key === 'Escape') { setEditingName(false); setTemplateName(template.name) }
+                  }}
                   style={{ flex: 1 }}
                 />
                 <button className="btn-sm" data-testid="save-name-btn" onClick={() => void handleSaveName()} disabled={saving}>
@@ -273,91 +385,237 @@ export function WorkflowSettingsPage() {
         </div>
       </div>
 
-      {/* Nodes */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
-        <span style={{ fontWeight: 600, fontSize: '0.875rem' }}>Workflow Steps ({sortedNodes.length})</span>
+      {/* Toolbar */}
+      <div
+        style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          gap: '0.75rem', marginBottom: '0.75rem', flexWrap: 'wrap',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <button
+            className="btn-sm"
+            data-testid="add-node-btn"
+            onClick={openCreateNode}
+            style={{ display: 'flex', alignItems: 'center', gap: 4 }}
+          >
+            <Plus size={13} strokeWidth={1.5} /> Add Node
+          </button>
+          {selectedNode && selectedNode.node_type !== 'system_start' && (
+            <>
+              <button
+                className="btn-sm ghost"
+                data-testid="edit-selected-node-btn"
+                onClick={() => openEditNode(selectedNode)}
+                style={{ display: 'flex', alignItems: 'center', gap: 4 }}
+              >
+                <Pencil size={12} /> Edit "{selectedNode.name}"
+              </button>
+              <button
+                className="btn-sm ghost"
+                data-testid="delete-selected-node-btn"
+                onClick={() => void handleDeleteNode(selectedNode.id)}
+                style={{ display: 'flex', alignItems: 'center', gap: 4, color: '#ef4444' }}
+              >
+                <X size={12} /> Delete node
+              </button>
+            </>
+          )}
+          {selectedEdge && (
+            <>
+              <button
+                className="btn-sm ghost"
+                data-testid="edit-selected-edge-btn"
+                onClick={() => openEditEdge(selectedEdge)}
+                style={{ display: 'flex', alignItems: 'center', gap: 4 }}
+              >
+                <Pencil size={12} /> Edit edge label
+              </button>
+              <button
+                className="btn-sm ghost"
+                data-testid="delete-selected-edge-btn"
+                onClick={() => void handleDeleteEdge(selectedEdge.id)}
+                style={{ display: 'flex', alignItems: 'center', gap: 4, color: '#ef4444' }}
+              >
+                <X size={12} /> Delete edge
+              </button>
+            </>
+          )}
+        </div>
         <button
-          className="btn-sm"
-          data-testid="add-node-btn"
-          onClick={openAddForm}
+          className="btn-sm primary"
+          data-testid="validate-btn"
+          onClick={() => void handleValidate()}
+          disabled={validating}
           style={{ display: 'flex', alignItems: 'center', gap: 4 }}
         >
-          <Plus size={13} strokeWidth={1.5} /> Add Step
+          {validating ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
+          Save & Validate
         </button>
       </div>
 
-      {showAddForm && (
-        <div className="card" style={{ marginBottom: '1rem', borderColor: 'hsl(var(--primary) / 0.4)' }}>
-          <span style={{ display: 'block', fontWeight: 600, fontSize: '0.875rem', marginBottom: '0.75rem' }}>
-            {editingNode ? 'Edit Step' : 'Add Custom Step'}
-          </span>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-            <input
-              data-testid="node-name-input"
-              className="input"
-              placeholder="Step name (e.g. Due Diligence)"
-              value={nodeName}
-              onChange={e => setNodeName(e.target.value)}
-            />
-            <textarea
-              data-testid="node-desc-input"
-              className="input"
-              placeholder="Description (optional)"
-              value={nodeDesc}
-              onChange={e => setNodeDesc(e.target.value)}
-              rows={2}
-              style={{ resize: 'vertical' }}
-            />
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <label style={{ fontSize: '0.8125rem', color: 'hsl(var(--muted-foreground))' }}>Order:</label>
-              <input
-                data-testid="node-order-input"
-                className="input"
-                type="number"
-                min={1}
-                value={nodeOrder}
-                onChange={e => setNodeOrder(Number(e.target.value))}
-                style={{ width: 72 }}
-              />
+      {validation && (
+        <div style={{ marginBottom: '0.75rem' }}>
+          <WorkflowValidationBanner valid={validation.valid} errors={validation.errors} />
+        </div>
+      )}
+
+      <WorkflowCanvas
+        mode="edit"
+        nodes={template.nodes}
+        edges={template.edges}
+        selectedNodeId={selectedNodeId}
+        onNodeSelect={(id) => { setSelectedNodeId(id); if (id) setSelectedEdgeId(null) }}
+        onEdgeSelect={(id) => { setSelectedEdgeId(id); if (id) setSelectedNodeId(null) }}
+        onPositionsChange={(positions) => void handlePositionsChange(positions)}
+        onConnect={(s, t) => void handleConnect(s, t)}
+        onNodeDelete={(id) => void handleDeleteNode(id)}
+        onEdgeDelete={(id) => void handleDeleteEdge(id)}
+        height={560}
+      />
+
+      <div style={{ marginTop: '1rem', padding: '0.75rem 1rem', borderRadius: 8, background: 'hsl(var(--muted) / 0.5)', fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))', lineHeight: 1.6 }}>
+        <strong style={{ color: 'hsl(var(--foreground))' }}>Tips.</strong>{' '}
+        Drag nodes to position. Drag from a node's bottom handle onto another node's top handle to connect.
+        Click an edge to select it, then press Delete (or use the toolbar) to disconnect. Left-drag empty canvas
+        to box-select multiple nodes; right-drag or middle-drag to pan. Multiple outgoing edges become a branch
+        where both parties pick the next step. Mark a leaf node as a terminal outcome (Won, Lost, Abandoned, Other)
+        to close the deal when reached.
+      </div>
+
+      {/* Node modal */}
+      {nodeForm.open && (
+        <div
+          data-testid="node-form-modal"
+          style={{
+            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem',
+          }}
+          onClick={closeNodeForm}
+        >
+          <div
+            className="card"
+            style={{ width: '100%', maxWidth: 480, padding: '1rem 1.25rem' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
+              <span style={{ fontWeight: 600, fontSize: '1rem' }}>
+                {nodeForm.mode === 'edit' ? 'Edit Node' : 'Add Node'}
+              </span>
+              <button className="btn-sm ghost" onClick={closeNodeForm}><X size={14} /></button>
             </div>
-            <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.25rem' }}>
-              <button
-                className="btn-sm"
-                data-testid="submit-node-btn"
-                onClick={() => void handleSubmitNode()}
-                disabled={submittingNode}
-                style={{ display: 'flex', alignItems: 'center', gap: 4 }}
-              >
-                {submittingNode ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
-                {editingNode ? 'Save Changes' : 'Add Step'}
-              </button>
-              <button className="btn-sm ghost" onClick={closeForm}>Cancel</button>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
+              <input
+                data-testid="node-name-input"
+                className="input"
+                placeholder="Step name (e.g. Due Diligence)"
+                value={nodeForm.name}
+                onChange={(e) => setNodeForm((s) => ({ ...s, name: e.target.value }))}
+                autoFocus
+              />
+              <textarea
+                data-testid="node-desc-input"
+                className="input"
+                placeholder="Description (optional)"
+                value={nodeForm.description}
+                onChange={(e) => setNodeForm((s) => ({ ...s, description: e.target.value }))}
+                rows={2}
+                style={{ resize: 'vertical' }}
+              />
+              <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: '0.8125rem' }}>
+                <span style={{ color: 'hsl(var(--muted-foreground))' }}>
+                  Terminal outcome (optional — marks this as a leaf that closes the deal)
+                </span>
+                <select
+                  data-testid="node-terminal-input"
+                  className="input"
+                  value={nodeForm.terminal_outcome}
+                  onChange={(e) => setNodeForm((s) => ({ ...s, terminal_outcome: e.target.value as TerminalOutcome }))}
+                >
+                  <option value="">Not terminal</option>
+                  <option value="won">Won</option>
+                  <option value="lost">Lost</option>
+                  <option value="abandoned">Abandoned</option>
+                  <option value="other">Other</option>
+                </select>
+              </label>
+              <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.25rem', justifyContent: 'flex-end' }}>
+                <button className="btn-sm ghost" onClick={closeNodeForm}>Cancel</button>
+                <button
+                  className="btn-sm primary"
+                  data-testid="submit-node-btn"
+                  onClick={() => void handleSubmitNode()}
+                  disabled={submittingNode}
+                  style={{ display: 'flex', alignItems: 'center', gap: 4 }}
+                >
+                  {submittingNode ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
+                  {nodeForm.mode === 'edit' ? 'Save' : 'Add'}
+                </button>
+              </div>
             </div>
           </div>
         </div>
       )}
 
-      {sortedNodes.length === 0 ? (
-        <div className="empty-state" style={{ paddingTop: '2rem' }}>
-          <span className="empty-description">No workflow steps yet. Add your first step above.</span>
-        </div>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-          {sortedNodes.map(node =>
-            deleting === node.id ? (
-              <div key={node.id} className="card" style={{ padding: '0.75rem 1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', opacity: 0.5 }}>
-                <Loader2 size={14} className="animate-spin" /> Deleting...
+      {/* Edge modal */}
+      {edgeForm.open && (
+        <div
+          data-testid="edge-form-modal"
+          style={{
+            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem',
+          }}
+          onClick={closeEdgeForm}
+        >
+          <div
+            className="card"
+            style={{ width: '100%', maxWidth: 420, padding: '1rem 1.25rem' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
+              <span style={{ fontWeight: 600, fontSize: '1rem' }}>Edit Edge</span>
+              <button className="btn-sm ghost" onClick={closeEdgeForm}><X size={14} /></button>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
+              <input
+                data-testid="edge-label-input"
+                className="input"
+                placeholder="Edge label (e.g. 'If approved')"
+                value={edgeForm.label}
+                onChange={(e) => setEdgeForm((s) => ({ ...s, label: e.target.value }))}
+                autoFocus
+              />
+              <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: '0.8125rem' }}>
+                <span style={{ color: 'hsl(var(--muted-foreground))' }}>
+                  Order hint (lower numbers appear first in the picker)
+                </span>
+                <input
+                  data-testid="edge-order-input"
+                  className="input"
+                  type="number"
+                  min={0}
+                  value={edgeForm.order_hint}
+                  onChange={(e) => setEdgeForm((s) => ({ ...s, order_hint: Number(e.target.value) }))}
+                  style={{ width: 100 }}
+                />
+              </label>
+              <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.25rem', justifyContent: 'flex-end' }}>
+                <button className="btn-sm ghost" onClick={closeEdgeForm}>Cancel</button>
+                <button
+                  className="btn-sm primary"
+                  data-testid="submit-edge-btn"
+                  onClick={() => void handleSubmitEdge()}
+                  disabled={submittingEdge}
+                  style={{ display: 'flex', alignItems: 'center', gap: 4 }}
+                >
+                  {submittingEdge ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
+                  Save
+                </button>
               </div>
-            ) : (
-              <NodeRow key={node.id} node={node} onEdit={openEditForm} onDelete={id => void handleDeleteNode(id)} />
-            )
-          )}
+            </div>
+          </div>
         </div>
       )}
-
-      <div style={{ marginTop: '1.5rem', padding: '0.75rem 1rem', borderRadius: 8, background: 'hsl(var(--muted) / 0.5)', fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))' }}>
-        System nodes (NDA Signing, Term Sheet, Closing) are built-in and cannot be removed. Custom steps can be reordered by setting the order number.
-      </div>
     </div>
   )
 }

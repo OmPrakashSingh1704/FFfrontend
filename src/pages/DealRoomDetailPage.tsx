@@ -1,13 +1,25 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
+import {
+  ArrowLeft, CheckCircle, XCircle, Clock, Shield, FileText,
+  Upload, Loader2,
+} from 'lucide-react'
+
 import { apiRequest, uploadRequest } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 import {
-  ArrowLeft, CheckCircle, XCircle, Clock, Shield, FileText,
-  Upload, Loader2, Lock, ChevronDown, ChevronUp,
-} from 'lucide-react'
-import type { DealRoomDetail, DealRoomWorkflow, DealRoomWorkflowNode } from '../types/deals'
+  WorkflowApprovalPanel,
+  WorkflowCanvas,
+  type ApprovalRole,
+  type ApprovalSubmit,
+} from '../components/workflow'
+import type {
+  DealRoomDetail,
+  DealRoomWorkflow,
+  DealRoomWorkflowEdge,
+  DealRoomWorkflowNode,
+} from '../types/deals'
 
 function formatBytes(bytes?: number | null) {
   if (!bytes) return ''
@@ -21,11 +33,10 @@ function formatDate(iso: string | null | undefined) {
   return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
-function NodeIcon({ node, isCurrent }: { node: DealRoomWorkflowNode; isCurrent: boolean }) {
-  if (node.status === 'approved') return <CheckCircle size={16} style={{ color: '#22c55e', flexShrink: 0 }} />
-  if (node.node_type === 'system') return <Lock size={16} style={{ color: 'hsl(var(--muted-foreground))', flexShrink: 0 }} />
-  if (isCurrent) return <Clock size={16} style={{ color: 'hsl(var(--primary))', flexShrink: 0 }} />
-  return <div style={{ width: 16, height: 16, borderRadius: '50%', border: '2px solid hsl(var(--border))', flexShrink: 0 }} />
+function roleFromUser(role: string | undefined): ApprovalRole {
+  if (role === 'investor') return 'investor'
+  if (role === 'founder') return 'founder'
+  return null
 }
 
 export function DealRoomDetailPage() {
@@ -37,10 +48,10 @@ export function DealRoomDetailPage() {
   const [workflow, setWorkflow] = useState<DealRoomWorkflow | null>(null)
   const [loading, setLoading] = useState(true)
   const [approving, setApproving] = useState(false)
-  const [approvalNote, setApprovalNote] = useState('')
+  const [approveError, setApproveError] = useState<string | null>(null)
   const [signingNda, setSigningNda] = useState(false)
   const [uploadingDoc, setUploadingDoc] = useState(false)
-  const [expandedDesc, setExpandedDesc] = useState<string | null>(null)
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
 
   const loadWorkflow = useCallback(async () => {
     if (!id) return
@@ -58,9 +69,7 @@ export function DealRoomDetailPage() {
     const load = async () => {
       setLoading(true)
       try {
-        const [roomData] = await Promise.all([
-          apiRequest<DealRoomDetail>(`/deals/rooms/${id}/`),
-        ])
+        const roomData = await apiRequest<DealRoomDetail>(`/deals/rooms/${id}/`)
         if (!cancelled) {
           setRoom(roomData)
           await loadWorkflow()
@@ -75,19 +84,33 @@ export function DealRoomDetailPage() {
     return () => { cancelled = true }
   }, [id, loadWorkflow, pushToast])
 
-  const handleApprove = async () => {
+  const nodesById = useMemo(() => {
+    const map: Record<string, DealRoomWorkflowNode> = {}
+    workflow?.nodes.forEach((n) => { map[n.id] = n })
+    return map
+  }, [workflow])
+
+  const currentNode = workflow?.current_node ?? null
+  const outgoingEdges = useMemo<DealRoomWorkflowEdge[]>(() => {
+    if (!workflow || !currentNode) return []
+    return workflow.edges.filter((e) => e.from_node_id === currentNode.id)
+  }, [workflow, currentNode])
+
+  const handleApprove = async (payload: ApprovalSubmit) => {
     if (!id) return
+    setApproveError(null)
     setApproving(true)
     try {
       await apiRequest(`/deals/rooms/${id}/workflow/approve/`, {
         method: 'POST',
-        body: JSON.stringify({ approval_note: approvalNote }),
+        body: payload,
       })
-      setApprovalNote('')
       pushToast('Approved successfully', 'success')
       await loadWorkflow()
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Approval failed'
+      const detail = (err as { details?: { detail?: string } })?.details?.detail
+      const msg = detail || (err instanceof Error ? err.message : 'Approval failed')
+      setApproveError(msg)
       pushToast(msg, 'error')
     } finally {
       setApproving(false)
@@ -145,24 +168,12 @@ export function DealRoomDetailPage() {
     )
   }
 
-  const role = user?.role
-  const currentNode = workflow?.current_node ?? null
+  const role = roleFromUser(user?.role)
   const isComplete = workflow?.is_complete ?? false
-
-  const userApprovedCurrent =
-    currentNode &&
-    ((role === 'investor' && currentNode.investor_approved) ||
-      (role === 'founder' && currentNode.founder_approved))
-
-  const canApprove =
-    currentNode &&
-    !isComplete &&
-    !userApprovedCurrent &&
-    currentNode.node_type !== 'system' &&
-    room.status !== 'closed'
+  const isClosed = room.status === 'closed'
 
   return (
-    <div style={{ maxWidth: 720, margin: '0 auto' }}>
+    <div style={{ maxWidth: 1100, margin: '0 auto' }}>
       {/* Header */}
       <div style={{ marginBottom: '1.5rem' }}>
         <Link
@@ -182,8 +193,8 @@ export function DealRoomDetailPage() {
 
       {/* Workflow */}
       {workflow ? (
-        <section className="card" style={{ marginBottom: '1rem' }} data-testid="workflow-section">
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
+        <section style={{ marginBottom: '1rem' }} data-testid="workflow-section">
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
             <h2 style={{ fontWeight: 600, fontSize: '0.9375rem', margin: 0 }}>Workflow</h2>
             {isComplete && (
               <span style={{ fontSize: '0.75rem', color: '#22c55e', display: 'flex', alignItems: 'center', gap: 4 }}>
@@ -192,107 +203,28 @@ export function DealRoomDetailPage() {
             )}
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: currentNode && !isComplete ? '1rem' : 0 }}>
-            {workflow.nodes.map((node) => {
-              const isCurrent = currentNode?.id === node.id
-              const isExpanded = expandedDesc === node.id
-              return (
-                <div
-                  key={node.id}
-                  data-testid={`workflow-node-${node.status}`}
-                  style={{
-                    padding: '0.625rem 0.75rem',
-                    borderRadius: 8,
-                    background: isCurrent ? 'hsl(var(--primary) / 0.08)' : 'hsl(var(--muted))',
-                    border: isCurrent ? '1px solid hsl(var(--primary) / 0.3)' : '1px solid transparent',
-                    opacity: node.status === 'pending' && !isCurrent ? 0.55 : 1,
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
-                    <NodeIcon node={node} isCurrent={isCurrent} />
-                    <span style={{ flex: 1, fontSize: '0.8125rem', fontWeight: isCurrent ? 600 : 400 }}>{node.name}</span>
-                    {node.status === 'approved' && node.completed_at && (
-                      <span style={{ fontSize: '0.6875rem', color: 'hsl(var(--muted-foreground))' }}>{formatDate(node.completed_at)}</span>
-                    )}
-                    {isCurrent && (
-                      <span style={{ fontSize: '0.6875rem', padding: '1px 6px', borderRadius: 999, background: 'hsl(var(--primary) / 0.15)', color: 'hsl(var(--primary))' }}>
-                        Current
-                      </span>
-                    )}
-                    {node.description && (
-                      <button
-                        type="button"
-                        onClick={() => setExpandedDesc(isExpanded ? null : node.id)}
-                        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: 'hsl(var(--muted-foreground))' }}
-                      >
-                        {isExpanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-                      </button>
-                    )}
-                  </div>
-
-                  {isExpanded && node.description && (
-                    <p style={{ margin: '0.375rem 0 0 22px', fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))' }}>
-                      {node.description}
-                    </p>
-                  )}
-
-                  {isCurrent && (
-                    <div style={{ display: 'flex', gap: '1.5rem', marginTop: '0.5rem', marginLeft: 22, fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))' }}>
-                      <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                        {node.investor_approved
-                          ? <CheckCircle size={11} style={{ color: '#22c55e' }} />
-                          : <Clock size={11} />}
-                        Investor
-                      </span>
-                      <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                        {node.founder_approved
-                          ? <CheckCircle size={11} style={{ color: '#22c55e' }} />
-                          : <Clock size={11} />}
-                        Founder
-                      </span>
-                    </div>
-                  )}
-                </div>
-              )
-            })}
+          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 320px', gap: '1rem', alignItems: 'start' }}>
+            <WorkflowCanvas
+              mode="view"
+              nodes={workflow.nodes}
+              edges={workflow.edges}
+              currentNodeId={currentNode?.id ?? null}
+              selectedNodeId={selectedNodeId}
+              onNodeSelect={setSelectedNodeId}
+              height={460}
+            />
+            <WorkflowApprovalPanel
+              currentNode={currentNode}
+              outgoingEdges={outgoingEdges}
+              nodesById={nodesById}
+              role={role}
+              isComplete={isComplete}
+              isClosed={isClosed}
+              submitting={approving}
+              errorMessage={approveError}
+              onApprove={(payload) => void handleApprove(payload)}
+            />
           </div>
-
-          {canApprove && (
-            <div style={{ borderTop: '1px solid hsl(var(--border))', paddingTop: '0.875rem' }}>
-              <p style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))', marginBottom: '0.5rem' }}>
-                Your turn to approve: <strong>{currentNode?.name}</strong>
-              </p>
-              <textarea
-                placeholder="Optional note (why are you approving?)"
-                value={approvalNote}
-                onChange={(e) => setApprovalNote(e.target.value)}
-                rows={2}
-                data-testid="approval-note-input"
-                style={{
-                  width: '100%', resize: 'vertical', fontSize: '0.8125rem',
-                  padding: '0.5rem', borderRadius: 6, border: '1px solid hsl(var(--border))',
-                  background: 'hsl(var(--muted))', color: 'inherit', marginBottom: '0.5rem',
-                  boxSizing: 'border-box',
-                }}
-              />
-              <button
-                type="button"
-                className="btn-sm primary"
-                disabled={approving}
-                onClick={() => void handleApprove()}
-                data-testid="approve-btn"
-              >
-                {approving ? <><Loader2 size={12} className="animate-spin" /> Approving...</> : 'Approve this step'}
-              </button>
-            </div>
-          )}
-
-          {userApprovedCurrent && !isComplete && (
-            <p style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))', marginTop: '0.25rem' }}>
-              <CheckCircle size={11} style={{ color: '#22c55e', display: 'inline', marginRight: 4 }} />
-              You approved this step. Waiting for the other party.
-            </p>
-          )}
         </section>
       ) : null}
 
