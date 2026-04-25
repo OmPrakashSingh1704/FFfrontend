@@ -208,11 +208,57 @@ describe('WorkflowCanvas', () => {
     }
   })
 
-  it('does not emit position/connect/delete callbacks in view mode', () => {
+  it('does not emit connect/delete callbacks in view mode but flushes positions when handler provided', async () => {
+    vi.useFakeTimers()
+    try {
+      const onPositionsChange = vi.fn()
+      const onConnect = vi.fn()
+      const onNodeDelete = vi.fn()
+      const nodes = [makeNode({ id: 'n1' }), makeNode({ id: 'n2' })]
+
+      render(
+        <WorkflowCanvas
+          mode="view"
+          nodes={nodes}
+          edges={[]}
+          onPositionsChange={onPositionsChange}
+          onConnect={onConnect}
+          onNodeDelete={onNodeDelete}
+        />,
+      )
+
+      lastReactFlowProps.current?.onNodesChange?.([
+        { type: 'position', id: 'n1', position: { x: 99, y: 99 }, dragging: false },
+      ])
+      lastReactFlowProps.current?.onNodesChange?.([{ type: 'remove', id: 'n1' }])
+      lastReactFlowProps.current?.onConnect?.({ source: 'n1', target: 'n2' })
+
+      vi.advanceTimersByTime(500)
+
+      expect(onPositionsChange).toHaveBeenCalledTimes(1)
+      expect(onPositionsChange.mock.calls[0][0]).toEqual([{ node_id: 'n1', x: 99, y: 99 }])
+      expect(onConnect).not.toHaveBeenCalled()
+      expect(onNodeDelete).not.toHaveBeenCalled()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('view mode without onPositionsChange disables drag/select/pan', () => {
+    const nodes = [makeNode({ id: 'n1' })]
+
+    render(<WorkflowCanvas mode="view" nodes={nodes} edges={[]} />)
+
+    const props = lastReactFlowProps.current as unknown as Record<string, unknown>
+    expect(props.nodesDraggable).toBe(false)
+    expect(props.nodesConnectable).toBe(false)
+    expect(props.selectionOnDrag).toBe(false)
+    expect(props.panOnDrag).toBe(true)
+  })
+
+  it('view mode WITH onPositionsChange enables drag/select but not connect or delete', () => {
     const onPositionsChange = vi.fn()
-    const onConnect = vi.fn()
-    const onNodeDelete = vi.fn()
-    const nodes = [makeNode({ id: 'n1' }), makeNode({ id: 'n2' })]
+    const nodes = [makeNode({ id: 'n1' })]
 
     render(
       <WorkflowCanvas
@@ -220,20 +266,16 @@ describe('WorkflowCanvas', () => {
         nodes={nodes}
         edges={[]}
         onPositionsChange={onPositionsChange}
-        onConnect={onConnect}
-        onNodeDelete={onNodeDelete}
       />,
     )
 
-    lastReactFlowProps.current?.onNodesChange?.([
-      { type: 'position', id: 'n1', position: { x: 99, y: 99 }, dragging: false },
-    ])
-    lastReactFlowProps.current?.onNodesChange?.([{ type: 'remove', id: 'n1' }])
-    lastReactFlowProps.current?.onConnect?.({ source: 'n1', target: 'n2' })
-
-    expect(onPositionsChange).not.toHaveBeenCalled()
-    expect(onConnect).not.toHaveBeenCalled()
-    expect(onNodeDelete).not.toHaveBeenCalled()
+    const props = lastReactFlowProps.current as unknown as Record<string, unknown>
+    expect(props.nodesDraggable).toBe(true)
+    expect(props.selectionOnDrag).toBe(true)
+    expect(props.panOnDrag).toEqual([1, 2])
+    expect(props.nodesConnectable).toBe(false)
+    const rfNode = (props.nodes as Array<{ deletable: boolean }>)[0]
+    expect(rfNode.deletable).toBe(false)
   })
 })
 

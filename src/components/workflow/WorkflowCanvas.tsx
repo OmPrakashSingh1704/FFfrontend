@@ -48,6 +48,7 @@ const NODE_TYPES = { workflow: WorkflowNode }
 function toRfNodes(
   nodes: AnyNode[],
   currentNodeId: string | null | undefined,
+  allowDelete: boolean,
 ): Node[] {
   return nodes.map((n) => {
     const status = 'status' in n ? n.status : undefined
@@ -65,17 +66,20 @@ function toRfNodes(
       position: { x: n.position_x ?? 0, y: n.position_y ?? 0 },
       data: data as unknown as Record<string, unknown>,
       // All nodes draggable. system_start is a structural anchor (one per
-      // template, can't be deleted) but its position is just layout.
-      deletable: n.node_type !== 'system_start',
+      // template, can't be deleted) but its position is just layout. In
+      // preview/view (non-edit) mode nothing is deletable, so the founder
+      // pressing Delete during layout doesn't strip nodes from the graph.
+      deletable: allowDelete && n.node_type !== 'system_start',
     }
   })
 }
 
-function toRfEdges(edges: AnyEdge[]): Edge[] {
+function toRfEdges(edges: AnyEdge[], allowDelete: boolean): Edge[] {
   return edges.map((e) => ({
     id: e.id,
     source: e.from_node_id,
     target: e.to_node_id,
+    deletable: allowDelete,
     label: e.label || undefined,
     labelStyle: { fontSize: 11, fill: 'hsl(var(--foreground))' },
     labelBgStyle: { fill: 'hsl(var(--background))' },
@@ -99,18 +103,22 @@ function CanvasInner({
   height = 500,
 }: WorkflowCanvasProps) {
   const isEdit = mode === 'edit'
+  // Layout mutability is independent from structural edit. View mode + a
+  // positions handler = founder rearranging in their preview without being
+  // able to add/delete nodes or edges.
+  const allowLayout = isEdit || !!onPositionsChange
 
   const dirtyPositionsRef = useRef<Map<string, { x: number; y: number }>>(new Map())
   const flushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const [rfNodes, setRfNodes] = useState<Node[]>(() => toRfNodes(nodes, currentNodeId ?? null))
-  const [rfEdges, setRfEdges] = useState<Edge[]>(() => toRfEdges(edges))
+  const [rfNodes, setRfNodes] = useState<Node[]>(() => toRfNodes(nodes, currentNodeId ?? null, isEdit))
+  const [rfEdges, setRfEdges] = useState<Edge[]>(() => toRfEdges(edges, isEdit))
 
   // Re-sync from props when source data changes. Preserve any pending local
   // positions for nodes still queued for server flush, otherwise an in-flight
   // drag would snap back when the parent re-renders for an unrelated reason.
   useEffect(() => {
-    const next = toRfNodes(nodes, currentNodeId ?? null)
+    const next = toRfNodes(nodes, currentNodeId ?? null, isEdit)
     if (dirtyPositionsRef.current.size === 0) {
       setRfNodes(next)
       return
@@ -121,11 +129,11 @@ function CanvasInner({
         return localPos ? { ...n, position: localPos } : n
       }),
     )
-  }, [nodes, currentNodeId])
+  }, [nodes, currentNodeId, isEdit])
 
   useEffect(() => {
-    setRfEdges(toRfEdges(edges))
-  }, [edges])
+    setRfEdges(toRfEdges(edges, isEdit))
+  }, [edges, isEdit])
 
   const flushPositions = useCallback(() => {
     if (!onPositionsChange) return
@@ -148,14 +156,13 @@ function CanvasInner({
       // node tracks the cursor in real time. Without this, ReactFlow re-renders
       // with the original prop positions and the drag appears stuck.
       setRfNodes((prev) => applyNodeChanges(changes, prev))
-      if (!isEdit) return
       let positionEnded = false
       for (const ch of changes) {
-        if (ch.type === 'position' && ch.position && ch.dragging === false) {
+        if (allowLayout && ch.type === 'position' && ch.position && ch.dragging === false) {
           dirtyPositionsRef.current.set(ch.id, ch.position)
           positionEnded = true
         }
-        if (ch.type === 'remove') {
+        if (isEdit && ch.type === 'remove') {
           onNodeDelete?.(ch.id)
         }
         if (ch.type === 'select') {
@@ -167,7 +174,7 @@ function CanvasInner({
         flushTimerRef.current = setTimeout(flushPositions, 400)
       }
     },
-    [isEdit, onNodeDelete, onNodeSelect, flushPositions],
+    [allowLayout, isEdit, onNodeDelete, onNodeSelect, flushPositions],
   )
 
   const handleEdgesChange = useCallback(
@@ -216,7 +223,7 @@ function CanvasInner({
         onNodesChange={handleNodesChange}
         onEdgesChange={handleEdgesChange}
         onConnect={handleConnect}
-        nodesDraggable={isEdit}
+        nodesDraggable={allowLayout}
         nodesConnectable={isEdit}
         elementsSelectable={true}
         connectionMode={ConnectionMode.Strict}
@@ -224,8 +231,8 @@ function CanvasInner({
         // Pan moves to right or middle mouse so the two gestures don't fight.
         // Hold Shift to add to an existing selection. Dragging any selected
         // node moves the whole group; edges follow by source/target id.
-        selectionOnDrag={isEdit}
-        panOnDrag={isEdit ? [1, 2] : true}
+        selectionOnDrag={allowLayout}
+        panOnDrag={allowLayout ? [1, 2] : true}
         selectionMode={SelectionMode.Partial}
         multiSelectionKeyCode="Shift"
         selectNodesOnDrag={false}
