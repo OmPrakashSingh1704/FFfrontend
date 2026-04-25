@@ -96,7 +96,6 @@ export function DealRoomDetailPage() {
     return workflow.edges.filter((e) => e.from_node_id === currentNode.id)
   }, [workflow, currentNode])
 
-<<<<<<< HEAD
   const handlePositionsChange = useCallback(
     async (positions: Array<{ node_id: string; x: number; y: number }>) => {
       if (!id || positions.length === 0) return
@@ -125,8 +124,6 @@ export function DealRoomDetailPage() {
     [id, pushToast],
   )
 
-=======
->>>>>>> c7bc02dc1b24313d62acc4260080ae6840bd6cbd
   const handleApprove = async (payload: ApprovalSubmit) => {
     if (!id) return
     setApproveError(null)
@@ -242,10 +239,7 @@ export function DealRoomDetailPage() {
               currentNodeId={currentNode?.id ?? null}
               selectedNodeId={selectedNodeId}
               onNodeSelect={setSelectedNodeId}
-<<<<<<< HEAD
               onPositionsChange={isClosed ? undefined : handlePositionsChange}
-=======
->>>>>>> c7bc02dc1b24313d62acc4260080ae6840bd6cbd
               height={460}
             />
             <WorkflowApprovalPanel

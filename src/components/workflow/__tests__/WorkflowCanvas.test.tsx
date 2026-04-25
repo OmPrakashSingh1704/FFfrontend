@@ -208,7 +208,6 @@ describe('WorkflowCanvas', () => {
     }
   })
 
-<<<<<<< HEAD
   it('does not emit connect/delete callbacks in view mode but flushes positions when handler provided', async () => {
     vi.useFakeTimers()
     try {
@@ -236,7 +235,6 @@ describe('WorkflowCanvas', () => {
 
       vi.advanceTimersByTime(500)
 
-      // Layout flushes (founder preview can drag), but structural edits stay locked.
       expect(onPositionsChange).toHaveBeenCalledTimes(1)
       expect(onPositionsChange.mock.calls[0][0]).toEqual([{ node_id: 'n1', x: 99, y: 99 }])
       expect(onConnect).not.toHaveBeenCalled()
@@ -251,9 +249,6 @@ describe('WorkflowCanvas', () => {
 
     render(<WorkflowCanvas mode="view" nodes={nodes} edges={[]} />)
 
-    // ReactFlow gets nodesDraggable=false and selectionOnDrag=false; pan reverts
-    // to default left-mouse drag (panOnDrag === true). nodesConnectable is also
-    // false (only edit mode can create new edges).
     const props = lastReactFlowProps.current as unknown as Record<string, unknown>
     expect(props.nodesDraggable).toBe(false)
     expect(props.nodesConnectable).toBe(false)
@@ -264,13 +259,6 @@ describe('WorkflowCanvas', () => {
   it('view mode WITH onPositionsChange enables drag/select but not connect or delete', () => {
     const onPositionsChange = vi.fn()
     const nodes = [makeNode({ id: 'n1' })]
-=======
-  it('does not emit position/connect/delete callbacks in view mode', () => {
-    const onPositionsChange = vi.fn()
-    const onConnect = vi.fn()
-    const onNodeDelete = vi.fn()
-    const nodes = [makeNode({ id: 'n1' }), makeNode({ id: 'n2' })]
->>>>>>> c7bc02dc1b24313d62acc4260080ae6840bd6cbd
 
     render(
       <WorkflowCanvas
@@ -278,7 +266,6 @@ describe('WorkflowCanvas', () => {
         nodes={nodes}
         edges={[]}
         onPositionsChange={onPositionsChange}
-<<<<<<< HEAD
       />,
     )
 
@@ -286,27 +273,9 @@ describe('WorkflowCanvas', () => {
     expect(props.nodesDraggable).toBe(true)
     expect(props.selectionOnDrag).toBe(true)
     expect(props.panOnDrag).toEqual([1, 2])
-    // Structural mutations stay locked even with layout enabled.
     expect(props.nodesConnectable).toBe(false)
-    // Nodes are not deletable in view mode (so Delete key can't strip them).
     const rfNode = (props.nodes as Array<{ deletable: boolean }>)[0]
     expect(rfNode.deletable).toBe(false)
-=======
-        onConnect={onConnect}
-        onNodeDelete={onNodeDelete}
-      />,
-    )
-
-    lastReactFlowProps.current?.onNodesChange?.([
-      { type: 'position', id: 'n1', position: { x: 99, y: 99 }, dragging: false },
-    ])
-    lastReactFlowProps.current?.onNodesChange?.([{ type: 'remove', id: 'n1' }])
-    lastReactFlowProps.current?.onConnect?.({ source: 'n1', target: 'n2' })
-
-    expect(onPositionsChange).not.toHaveBeenCalled()
-    expect(onConnect).not.toHaveBeenCalled()
-    expect(onNodeDelete).not.toHaveBeenCalled()
->>>>>>> c7bc02dc1b24313d62acc4260080ae6840bd6cbd
   })
 })
 
