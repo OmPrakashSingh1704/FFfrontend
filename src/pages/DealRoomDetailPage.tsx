@@ -96,6 +96,34 @@ export function DealRoomDetailPage() {
     return workflow.edges.filter((e) => e.from_node_id === currentNode.id)
   }, [workflow, currentNode])
 
+  const handlePositionsChange = useCallback(
+    async (positions: Array<{ node_id: string; x: number; y: number }>) => {
+      if (!id || positions.length === 0) return
+      // Optimistically merge into local workflow so the canvas keeps the new
+      // layout even if a parent re-render fires before the server responds.
+      setWorkflow((prev) => {
+        if (!prev) return prev
+        const byId = new Map(positions.map((p) => [p.node_id, p]))
+        return {
+          ...prev,
+          nodes: prev.nodes.map((n) => {
+            const pos = byId.get(n.id)
+            return pos ? { ...n, position_x: pos.x, position_y: pos.y } : n
+          }),
+        }
+      })
+      try {
+        await apiRequest(`/deals/rooms/${id}/workflow/positions/`, {
+          method: 'PATCH',
+          body: { positions },
+        })
+      } catch {
+        pushToast('Failed to save layout', 'error')
+      }
+    },
+    [id, pushToast],
+  )
+
   const handleApprove = async (payload: ApprovalSubmit) => {
     if (!id) return
     setApproveError(null)
@@ -211,6 +239,7 @@ export function DealRoomDetailPage() {
               currentNodeId={currentNode?.id ?? null}
               selectedNodeId={selectedNodeId}
               onNodeSelect={setSelectedNodeId}
+              onPositionsChange={isClosed ? undefined : handlePositionsChange}
               height={460}
             />
             <WorkflowApprovalPanel
