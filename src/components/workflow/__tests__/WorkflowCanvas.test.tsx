@@ -208,6 +208,7 @@ describe('WorkflowCanvas', () => {
     }
   })
 
+<<<<<<< HEAD
   it('does not emit connect/delete callbacks in view mode but flushes positions when handler provided', async () => {
     vi.useFakeTimers()
     try {
@@ -263,6 +264,13 @@ describe('WorkflowCanvas', () => {
   it('view mode WITH onPositionsChange enables drag/select but not connect or delete', () => {
     const onPositionsChange = vi.fn()
     const nodes = [makeNode({ id: 'n1' })]
+=======
+  it('does not emit position/connect/delete callbacks in view mode', () => {
+    const onPositionsChange = vi.fn()
+    const onConnect = vi.fn()
+    const onNodeDelete = vi.fn()
+    const nodes = [makeNode({ id: 'n1' }), makeNode({ id: 'n2' })]
+>>>>>>> c7bc02dc1b24313d62acc4260080ae6840bd6cbd
 
     render(
       <WorkflowCanvas
@@ -270,6 +278,7 @@ describe('WorkflowCanvas', () => {
         nodes={nodes}
         edges={[]}
         onPositionsChange={onPositionsChange}
+<<<<<<< HEAD
       />,
     )
 
@@ -282,6 +291,22 @@ describe('WorkflowCanvas', () => {
     // Nodes are not deletable in view mode (so Delete key can't strip them).
     const rfNode = (props.nodes as Array<{ deletable: boolean }>)[0]
     expect(rfNode.deletable).toBe(false)
+=======
+        onConnect={onConnect}
+        onNodeDelete={onNodeDelete}
+      />,
+    )
+
+    lastReactFlowProps.current?.onNodesChange?.([
+      { type: 'position', id: 'n1', position: { x: 99, y: 99 }, dragging: false },
+    ])
+    lastReactFlowProps.current?.onNodesChange?.([{ type: 'remove', id: 'n1' }])
+    lastReactFlowProps.current?.onConnect?.({ source: 'n1', target: 'n2' })
+
+    expect(onPositionsChange).not.toHaveBeenCalled()
+    expect(onConnect).not.toHaveBeenCalled()
+    expect(onNodeDelete).not.toHaveBeenCalled()
+>>>>>>> c7bc02dc1b24313d62acc4260080ae6840bd6cbd
   })
 })
 
