@@ -180,8 +180,8 @@ export function ProfilePage() {
 
   // Founder / Investor profile section
   const role = user?.role
-  const showFounder = role === 'founder' || role === 'both'
-  const showInvestor = role === 'investor' || role === 'both'
+  const showFounder = role === 'founder'
+  const showInvestor = role === 'investor'
   const [profileTab, setProfileTab] = useState<'founder' | 'investor'>(showFounder ? 'founder' : 'investor')
   const [founderForm, setFounderForm] = useState<FounderForm>(defaultFounderForm())
   const [founderIsNew, setFounderIsNew] = useState(false)
@@ -295,7 +295,7 @@ export function ProfilePage() {
 
   const handleSaveFounderProfile = async (e: React.FormEvent) => {
     e.preventDefault()
-    const errs = validateRequired(founderForm, ['headline'])
+    const errs = validateRequired({ headline: founderForm.headline })
     if (hasErrors(errs)) { setFounderErrors(errs); return }
     setFounderErrors({})
     setFounderSaving(true)
@@ -317,7 +317,7 @@ export function ProfilePage() {
       )
       if (res.id) setFounderProfileId(res.id)
       setFounderIsNew(false)
-      pushToast({ message: founderIsNew ? 'Founder profile created' : 'Founder profile updated', type: 'success' })
+      pushToast(founderIsNew ? 'Founder profile created' : 'Founder profile updated', 'success')
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Failed to save'
       setFounderErrors({ form: msg })
@@ -328,7 +328,7 @@ export function ProfilePage() {
 
   const handleSaveInvestorProfile = async (e: React.FormEvent) => {
     e.preventDefault()
-    const errs = validateRequired(investorForm, ['display_name'])
+    const errs = validateRequired({ display_name: investorForm.display_name })
     if (hasErrors(errs)) { setInvestorErrors(errs); return }
     setInvestorErrors({})
     setInvestorSaving(true)
@@ -362,7 +362,7 @@ export function ProfilePage() {
       )
       if (res.id) setInvestorProfileId(res.id)
       setInvestorIsNew(false)
-      pushToast({ message: investorIsNew ? 'Investor profile created' : 'Investor profile updated', type: 'success' })
+      pushToast(investorIsNew ? 'Investor profile created' : 'Investor profile updated', 'success')
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Failed to save'
       setInvestorErrors({ form: msg })

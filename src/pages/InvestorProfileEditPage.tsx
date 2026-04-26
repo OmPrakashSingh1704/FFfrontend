@@ -150,7 +150,7 @@ export function InvestorProfileEditPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    const errs: FormErrors = validateRequired(form, ['display_name'])
+    const errs: FormErrors = validateRequired({ display_name: form.display_name })
     if (hasErrors(errs)) { setErrors(errs); return }
     setErrors({})
     setSaving(true)
@@ -187,12 +187,12 @@ export function InvestorProfileEditPage() {
           co_invest_open: form.co_invest_open,
         }),
       })
-      pushToast({ message: isNew ? 'Investor profile created' : 'Investor profile updated', type: 'success' })
+      pushToast(isNew ? 'Investor profile created' : 'Investor profile updated', 'success')
       navigate('/app/profile')
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Failed to save'
       setErrors({ form: msg })
-      pushToast({ message: msg, type: 'error' })
+      pushToast(msg, 'error')
     } finally {
       setSaving(false)
     }

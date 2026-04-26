@@ -109,8 +109,8 @@ function ScoreBar({ label, value }: { label: string; value: number }) {
 export function MatchingPage() {
   const { user } = useAuth()
   const { pushToast } = useToast()
-  const isInvestor = user?.role === 'investor' || user?.role === 'both'
-  const isFounder = user?.role === 'founder' || user?.role === 'both'
+  const isInvestor = user?.role === 'investor'
+  const isFounder = user?.role === 'founder'
 
   const [investorMatches, setInvestorMatches] = useState<InvestorMatch[]>([])
   const [startupMatches, setStartupMatches] = useState<StartupMatch[]>([])

@@ -83,7 +83,7 @@ export function FounderProfileEditPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     const errs: FormErrors = {
-      ...validateRequired(form, ['headline']),
+      ...validateRequired({ headline: form.headline }),
     }
     if (hasErrors(errs)) { setErrors(errs); return }
     setErrors({})
@@ -104,12 +104,12 @@ export function FounderProfileEditPage() {
           is_public: form.is_public,
         }),
       })
-      pushToast({ message: isNew ? 'Founder profile created' : 'Founder profile updated', type: 'success' })
+      pushToast(isNew ? 'Founder profile created' : 'Founder profile updated', 'success')
       navigate('/app/profile')
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Failed to save'
       setErrors({ form: msg })
-      pushToast({ message: msg, type: 'error' })
+      pushToast(msg, 'error')
     } finally {
       setSaving(false)
     }
