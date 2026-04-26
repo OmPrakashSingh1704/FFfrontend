@@ -37,7 +37,7 @@ export function InvestorDetailPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const isFounder = user?.role === 'founder' || user?.role === 'both'
+  const isFounder = user?.role === 'founder'
   const [myStartups, setMyStartups] = useState<StartupListItem[]>([])
   const [showInterestForm, setShowInterestForm] = useState(false)
   const [selectedStartupId, setSelectedStartupId] = useState('')

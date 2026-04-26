@@ -53,7 +53,7 @@ export function Dashboard() {
   const [portfolio, setPortfolio] = useState<StartupListItem[]>([])
   const [needsOnboarding, setNeedsOnboarding] = useState(false)
 
-  const isInvestor = user?.role === 'investor' || user?.role === 'both'
+  const isInvestor = user?.role === 'investor'
 
   useEffect(() => {
     let cancelled = false

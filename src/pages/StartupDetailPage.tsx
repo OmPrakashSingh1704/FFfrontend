@@ -91,7 +91,7 @@ export function StartupDetailPage() {
   const [investorProfileIds, setInvestorProfileIds] = useState<Record<string, string>>({})
   const checkedUserIds = useRef<Set<string>>(new Set())
 
-  const isInvestor = user?.role === 'investor' || user?.role === 'both'
+  const isInvestor = user?.role === 'investor'
   const isMember = startup?.members?.some((m) => m.user === user?.id) ?? false
   const isStartupFounder = startup?.members?.some((m) => m.user === user?.id && (m.role === 'founder' || m.role === 'co_founder')) ?? false
   const [togglingVisibility, setTogglingVisibility] = useState(false)
