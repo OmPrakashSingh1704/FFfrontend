@@ -73,9 +73,9 @@ export function Dashboard() {
         if (isInvestor) {
           try {
             const [investorStats, dealFlowRaw, portfolioRaw] = await Promise.all([
-              apiRequest<InvestorStats>('/investors/stats/'),
-              apiRequest<IntroRequest[] | { results: IntroRequest[] }>('/investors/deal-flow/?status=pending&limit=5'),
-              apiRequest<StartupListItem[] | { results: StartupListItem[] }>('/investors/portfolio/'),
+              apiRequest<InvestorStats>('/investors/dashboard/stats/'),
+              apiRequest<IntroRequest[] | { results: IntroRequest[] }>('/investors/dashboard/deal-flow/?status=pending&limit=5'),
+              apiRequest<StartupListItem[] | { results: StartupListItem[] }>('/investors/dashboard/portfolio/'),
             ])
             if (cancelled) return
             setStats([
