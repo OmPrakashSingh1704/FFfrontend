@@ -240,7 +240,7 @@ function CommentSection({ eventId, onCountChange }: CommentSectionProps) {
                 >
                   <div className="avatar" style={{ width: '1.5rem', height: '1.5rem', fontSize: '0.625rem', flexShrink: 0, marginTop: '0.125rem' }}>
                     {comment.user.profile_picture ? (
-                      <img src={comment.user.profile_picture} alt="" />
+                      <img src={comment.user.profile_picture} alt="" loading="lazy" decoding="async" />
                     ) : (
                       authorInitials(comment.user.full_name)
                     )}
@@ -807,7 +807,7 @@ export function FeedPage() {
                       <>
                         <div className="avatar">
                           {item.author?.avatar_url ? (
-                            <img src={item.author.avatar_url} alt="" />
+                            <img src={item.author.avatar_url} alt="" loading="lazy" decoding="async" />
                           ) : (
                             authorInitials(item.author?.full_name ?? item.startup_name ?? undefined)
                           )}

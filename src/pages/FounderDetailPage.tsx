@@ -117,7 +117,7 @@ export function FounderDetailPage() {
               <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                 <div className="avatar xl">
                   {resolveMediaUrl(founder.profile_photo ?? founder.user?.picture ?? founder.user?.avatar_url) ? (
-                    <img src={resolveMediaUrl(founder.profile_photo ?? founder.user?.picture ?? founder.user?.avatar_url)!} alt={founder.user?.full_name ?? 'Founder'} />
+                    <img src={resolveMediaUrl(founder.profile_photo ?? founder.user?.picture ?? founder.user?.avatar_url)!} alt={founder.user?.full_name ?? 'Founder'} loading="lazy" decoding="async" />
                   ) : (
                     getInitials(founder.user?.full_name ?? 'F')
                   )}

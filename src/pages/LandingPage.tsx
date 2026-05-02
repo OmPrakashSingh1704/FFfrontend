@@ -131,7 +131,7 @@ export function LandingPage() {
       <header className="nav" data-testid="landing-nav">
         <div className="logo">
           <span className="logo-mark">
-            <img src={logo} alt="FoundersLib logo" />
+            <img src={logo} alt="FoundersLib logo" decoding="async" />
           </span>
           FoundersLib
         </div>

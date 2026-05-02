@@ -109,7 +109,7 @@ export function AppShell() {
         <div className="sidebar-header">
           <Link to={homePath} className="sidebar-logo">
             <span className="logo-mark">
-              <img src={logo} alt="FoundersLib logo" />
+              <img src={logo} alt="FoundersLib logo" decoding="async" />
             </span>
             <span className="logo-name">FoundersLib</span>
           </Link>

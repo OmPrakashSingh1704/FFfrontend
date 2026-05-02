@@ -44,6 +44,25 @@ export default defineConfig({
         ]
       : [])
   ],
+  build: {
+    rollupOptions: {
+      output: {
+        // Split heavy third-party deps into named chunks. Browser caches them
+        // separately from app code, so a route deploy doesn't bust the React/
+        // xyflow/sentry caches. Keeps the entry chunk small.
+        manualChunks: {
+          'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+          'vendor-query': ['@tanstack/react-query'],
+          'vendor-sentry': ['@sentry/react'],
+          'vendor-flow': ['@xyflow/react'],
+          'vendor-motion': ['framer-motion'],
+          'vendor-markdown': ['react-markdown', 'remark-gfm'],
+        },
+      },
+    },
+    // Warn (not fail) at 500 KB raw — actual budget enforcement is in scripts/check-bundle-size.mjs.
+    chunkSizeWarningLimit: 500,
+  },
   server: {
     port: 3000,
     strictPort: true,

@@ -9,7 +9,7 @@ export function AuthLayout() {
       <header className="nav" data-testid="auth-nav">
         <Link to="/" className="logo">
           <span className="logo-mark">
-            <img src={logo} alt="FoundersLib logo" />
+            <img src={logo} alt="FoundersLib logo" decoding="async" />
           </span>
           <span className="logo-name">FoundersLib</span>
         </Link>

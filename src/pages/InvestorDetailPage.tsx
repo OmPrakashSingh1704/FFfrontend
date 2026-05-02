@@ -167,7 +167,7 @@ export function InvestorDetailPage() {
               <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                 <div className="avatar xl">
                   {resolveMediaUrl(investor.profile_photo ?? investor.user?.picture ?? investor.user?.avatar_url) ? (
-                    <img src={resolveMediaUrl(investor.profile_photo ?? investor.user?.picture ?? investor.user?.avatar_url)!} alt={investor.display_name} />
+                    <img src={resolveMediaUrl(investor.profile_photo ?? investor.user?.picture ?? investor.user?.avatar_url)!} alt={investor.display_name} loading="lazy" decoding="async" />
                   ) : (
                     getInitials(investor.display_name || 'I')
                   )}

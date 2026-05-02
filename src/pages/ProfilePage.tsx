@@ -691,7 +691,7 @@ export function ProfilePage() {
             <div style={{ position: 'relative', marginTop: -(headerOverlapOffset + avatarLift) }}>
               <div className="avatar xl" style={{ border: '3px solid hsl(var(--card))' }}>
                 {avatarUrl ? (
-                  <img src={avatarUrl} alt={user?.full_name ?? 'Avatar'} />
+                  <img src={avatarUrl} alt={user?.full_name ?? 'Avatar'} loading="lazy" decoding="async" />
                 ) : (
                   <span>{initials}</span>
                 )}

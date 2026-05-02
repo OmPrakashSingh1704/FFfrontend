@@ -208,7 +208,7 @@ export function MatchingPage() {
                         >
                           <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'hsl(var(--muted))', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, overflow: 'hidden' }}>
                             {m.investor.profile_photo ? (
-                              <img src={resolveMediaUrl(m.investor.profile_photo) ?? ''} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                              <img src={resolveMediaUrl(m.investor.profile_photo) ?? ''} alt="" loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                             ) : (
                               <TrendingUp size={16} strokeWidth={1.5} style={{ color: 'hsl(var(--muted-foreground))' }} />
                             )}
@@ -282,7 +282,7 @@ export function MatchingPage() {
                         >
                           <div style={{ width: 36, height: 36, borderRadius: 8, background: 'hsl(var(--muted))', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, overflow: 'hidden' }}>
                             {logoSrc ? (
-                              <img src={logoSrc} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                              <img src={logoSrc} alt="" loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                             ) : (
                               <Briefcase size={16} strokeWidth={1.5} style={{ color: 'hsl(var(--muted-foreground))' }} />
                             )}
@@ -318,7 +318,7 @@ export function MatchingPage() {
                                     <div key={f.user_id} style={{ display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
                                       <div style={{ width: 30, height: 30, borderRadius: '50%', background: 'hsl(var(--muted))', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, overflow: 'hidden', fontSize: '0.65rem', fontWeight: 600 }}>
                                         {f.avatar ? (
-                                          <img src={resolveMediaUrl(f.avatar) ?? ''} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                          <img src={resolveMediaUrl(f.avatar) ?? ''} alt="" loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                                         ) : (
                                           f.full_name.slice(0, 2).toUpperCase()
                                         )}

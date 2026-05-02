@@ -39,7 +39,7 @@ export function ProfileDropdown() {
         data-testid="profile-dropdown-btn"
       >
         {avatarSrc ? (
-          <img className="profile-avatar" src={avatarSrc} alt={user?.full_name ?? 'Profile'} />
+          <img className="profile-avatar" src={avatarSrc} alt={user?.full_name ?? 'Profile'} loading="lazy" decoding="async" />
         ) : (
           <span className="profile-avatar">{initials}</span>
         )}
@@ -51,7 +51,7 @@ export function ProfileDropdown() {
           {/* User Info */}
           <div className="profile-info">
             {avatarSrc ? (
-              <img className="profile-avatar-lg" src={avatarSrc} alt={user?.full_name ?? 'Profile'} />
+              <img className="profile-avatar-lg" src={avatarSrc} alt={user?.full_name ?? 'Profile'} loading="lazy" decoding="async" />
             ) : (
               <span className="profile-avatar-lg">{initials}</span>
             )}
