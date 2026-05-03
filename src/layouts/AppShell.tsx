@@ -2,7 +2,7 @@ import { Link, Outlet, useLocation } from 'react-router-dom'
 import {
   Home, Users, Briefcase, TrendingUp, MessageSquare, Bell,
   BarChart3, Settings, Search, FileText,
-  Activity, Wallet, Menu, X, Zap, Handshake, ClipboardList, UserCheck
+  Activity, Wallet, Menu, X, Zap, Handshake, ClipboardList, UserCheck, Send
 } from 'lucide-react'
 import { useState, useEffect, useCallback } from 'react'
 import logo from '../assets/logo.svg'
@@ -43,6 +43,7 @@ const navSections = [
       { path: '/app/matching', label: 'Matching', icon: Zap },
       { path: '/app/deals', label: 'Deals', icon: Handshake },
       { path: '/app/applications', label: 'Applications', icon: FileText },
+      { path: '/app/intros', label: 'Intros', icon: Send },
       { path: '/app/chat', label: 'Chat', icon: MessageSquare },
       { path: '/app/notifications', label: 'Alerts', icon: Bell },
     ],
