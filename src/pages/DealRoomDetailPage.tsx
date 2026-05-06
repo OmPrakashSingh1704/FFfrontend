@@ -11,6 +11,7 @@ import { useToast } from '../context/ToastContext'
 import {
   WorkflowApprovalPanel,
   WorkflowCanvas,
+  WorkflowHistory,
   type ApprovalRole,
   type ApprovalSubmit,
 } from '../components/workflow'
@@ -95,6 +96,12 @@ export function DealRoomDetailPage() {
     if (!workflow || !currentNode) return []
     return workflow.edges.filter((e) => e.from_node_id === currentNode.id)
   }, [workflow, currentNode])
+
+  const uploadedDocumentTypes = useMemo<Set<string>>(() => {
+    const set = new Set<string>()
+    room?.documents.forEach((d) => { if (d.document_type) set.add(d.document_type) })
+    return set
+  }, [room?.documents])
 
   const handlePositionsChange = useCallback(
     async (positions: Array<{ node_id: string; x: number; y: number }>) => {
@@ -251,9 +258,11 @@ export function DealRoomDetailPage() {
               isClosed={isClosed}
               submitting={approving}
               errorMessage={approveError}
+              uploadedDocumentTypes={uploadedDocumentTypes}
               onApprove={(payload) => void handleApprove(payload)}
             />
           </div>
+          <WorkflowHistory nodes={workflow.nodes} />
         </section>
       ) : null}
 

@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url'
 import { defineConfig, type ServerOptions } from 'vite'
 import react from '@vitejs/plugin-react'
 import { visualizer } from 'rollup-plugin-visualizer'
+import { VitePWA } from 'vite-plugin-pwa'
 
 const HTTPS_KEY_ENV = 'DEV_SSL_KEY'
 const HTTPS_CERT_ENV = 'DEV_SSL_CERT'
@@ -33,6 +34,75 @@ const httpsConfig = getHttpsConfig()
 export default defineConfig({
   plugins: [
     react(),
+    VitePWA({
+      registerType: 'prompt',
+      injectRegister: false,
+      includeAssets: ['favicon.svg', 'favicon.ico', 'apple-touch-icon-180x180.png', 'logo-mark.svg'],
+      manifest: {
+        name: 'FoundersLib',
+        short_name: 'FoundersLib',
+        description: 'Fundraising OS for founders and investor partners.',
+        theme_color: '#0F766E',
+        background_color: '#F8F5EF',
+        display: 'standalone',
+        orientation: 'portrait',
+        start_url: '/app',
+        scope: '/',
+        lang: 'en',
+        categories: ['business', 'finance', 'productivity'],
+        icons: [
+          { src: 'pwa-64x64.png', sizes: '64x64', type: 'image/png' },
+          { src: 'pwa-192x192.png', sizes: '192x192', type: 'image/png' },
+          { src: 'pwa-512x512.png', sizes: '512x512', type: 'image/png' },
+          { src: 'maskable-icon-512x512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+        ],
+      },
+      workbox: {
+        globPatterns: ['**/*.{js,css,html,svg,png,ico,webp,woff2}'],
+        navigateFallback: '/index.html',
+        navigateFallbackDenylist: [
+          /^\/api\//,
+          /^\/ws\//,
+          /^\/admin/,
+          /^\/health/,
+          /^\/metrics/,
+          /^\/static\//,
+          /^\/media\//,
+        ],
+        cleanupOutdatedCaches: true,
+        runtimeCaching: [
+          {
+            urlPattern: ({ url }) => url.pathname.startsWith('/api/'),
+            handler: 'NetworkOnly',
+          },
+          {
+            urlPattern: ({ url }) => url.pathname.startsWith('/ws/'),
+            handler: 'NetworkOnly',
+          },
+          {
+            urlPattern: ({ request, sameOrigin }) =>
+              sameOrigin && request.destination === 'image',
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'images',
+              expiration: { maxEntries: 80, maxAgeSeconds: 30 * 24 * 60 * 60 },
+            },
+          },
+          {
+            urlPattern: /^https:\/\/fonts\.(?:googleapis|gstatic)\.com\/.*/i,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'google-fonts',
+              expiration: { maxEntries: 30, maxAgeSeconds: 60 * 60 * 24 * 365 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+        ],
+      },
+      devOptions: {
+        enabled: false,
+      },
+    }),
     ...(process.env.ANALYZE === 'true'
       ? [
           visualizer({

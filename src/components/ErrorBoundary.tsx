@@ -1,6 +1,7 @@
 import type { ErrorInfo, ReactNode } from 'react'
 import { Component } from 'react'
 import * as Sentry from '@sentry/react'
+import { StatusLink } from './StatusLink'
 
 type Props = {
   children: ReactNode
@@ -29,6 +30,9 @@ export class ErrorBoundary extends Component<Props, State> {
           <div>
             <h2>Something went wrong.</h2>
             <p>Please refresh the page.</p>
+            <div style={{ marginTop: '1rem' }}>
+              <StatusLink />
+            </div>
           </div>
         </div>
       )

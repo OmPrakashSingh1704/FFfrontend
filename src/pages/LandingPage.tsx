@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { ArrowRight, TrendingUp, Users, MessageSquare, Zap, BarChart3, Lock } from 'lucide-react'
 import logo from '../assets/logo.svg'
 import { Page } from '../components/Page'
+import { StatusLink } from '../components/StatusLink'
 import { ThemeToggle } from '../components/ThemeToggle'
 import { BackgroundPaths } from '../components/ui/background-paths'
 import { Waves } from '../components/ui/wave-background'
@@ -400,7 +401,10 @@ export function LandingPage() {
           </div>
         </section>
 
-        <p className="footer-note">© 2026 FoundersLib</p>
+        <div className="footer-note" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem' }}>
+          <span>© 2026 FoundersLib</span>
+          <StatusLink variant="badge" />
+        </div>
       </main>
 
     </Page>

@@ -208,6 +208,35 @@ export function StartupDetailPage() {
     }
   }
 
+  const [transferringId, setTransferringId] = useState<string | null>(null)
+
+  const handleMakePrimary = async (m: NonNullable<StartupDetail['members']>[number]) => {
+    if (!startup) return
+    if (!window.confirm(
+      `Transfer primary contact to ${m.user_name ?? 'this member'}? You will no longer be the primary contact for ${startup.name}.`,
+    )) return
+    setTransferringId(m.id)
+    try {
+      const updated = await apiRequest<NonNullable<StartupDetail['members']>[number]>(
+        `/founders/startups/${startup.id}/members/${m.id}/`,
+        { method: 'PATCH', body: { is_primary_contact: true } },
+      )
+      setStartup((prev) => prev ? {
+        ...prev,
+        members: prev.members?.map((x) => {
+          if (x.id === updated.id) return { ...x, ...updated }
+          return { ...x, is_primary_contact: false }
+        }),
+      } : prev)
+      pushToast('Primary contact transferred', 'success')
+    } catch (err: unknown) {
+      const msg = (err as { detail?: string })?.detail
+      pushToast(msg || 'Failed to transfer primary contact', 'error')
+    } finally {
+      setTransferringId(null)
+    }
+  }
+
   const handleLeaveStartup = async (m: NonNullable<StartupDetail['members']>[number]) => {
     if (!startup) return
     if (!window.confirm(`Leave ${startup.name}? You will lose access.`)) return
@@ -861,6 +890,18 @@ export function StartupDetailPage() {
                             >
                               Edit
                             </button>
+                            {!m.is_primary_contact && (m.role === 'founder' || m.role === 'co_founder') && (
+                              <button
+                                className="btn-sm ghost"
+                                style={{ flexShrink: 0 }}
+                                onClick={() => void handleMakePrimary(m)}
+                                disabled={transferringId === m.id}
+                                data-testid="make-primary-btn"
+                              >
+                                {transferringId === m.id ? <Loader2 size={12} className="animate-spin" /> : null}
+                                Make primary
+                              </button>
+                            )}
                             {m.user !== user?.id && (
                               <button
                                 className="btn-sm ghost"

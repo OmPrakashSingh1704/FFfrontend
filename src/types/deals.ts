@@ -40,6 +40,28 @@ export type WorkflowNodeType = 'system_start' | 'system_end' | 'custom'
 
 export type TerminalOutcome = 'won' | 'lost' | 'abandoned' | 'other' | ''
 
+export type DocumentType =
+  | ''
+  | 'pitch_deck'
+  | 'term_sheet'
+  | 'nda'
+  | 'financial_model'
+  | 'cap_table'
+  | 'due_diligence'
+  | 'contract'
+  | 'other'
+
+export const DOCUMENT_TYPE_LABELS: Record<Exclude<DocumentType, ''>, string> = {
+  pitch_deck: 'Pitch Deck',
+  term_sheet: 'Term Sheet',
+  nda: 'NDA Document',
+  financial_model: 'Financial Model',
+  cap_table: 'Cap Table',
+  due_diligence: 'Due Diligence',
+  contract: 'Contract',
+  other: 'Other',
+}
+
 export type WorkflowTemplateNode = {
   id: string
   name: string
@@ -48,6 +70,7 @@ export type WorkflowTemplateNode = {
   position_x: number
   position_y: number
   terminal_outcome: TerminalOutcome
+  required_document_type: DocumentType
 }
 
 export type WorkflowTemplateEdge = {
@@ -77,6 +100,7 @@ export type DealRoomWorkflowNode = {
   position_x: number
   position_y: number
   terminal_outcome: TerminalOutcome
+  required_document_type: DocumentType
   investor_approved: boolean
   founder_approved: boolean
   investor_approved_at: string | null

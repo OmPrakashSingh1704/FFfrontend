@@ -9,3 +9,5 @@ export type {
   WorkflowApprovalPanelProps,
 } from './WorkflowApprovalPanel'
 export { WorkflowValidationBanner } from './WorkflowValidationBanner'
+export { WorkflowHistory } from './WorkflowHistory'
+export type { WorkflowHistoryProps } from './WorkflowHistory'

@@ -69,7 +69,7 @@ export function InvestorsListPage() {
   }
 
   const handleConnectDirect = async (investor: InvestorProfile) => {
-    const userId = investor.user?.id
+    const userId = investor.user?.id ?? investor.user_id
     if (!userId) return
     setConnecting(userId)
     try {
@@ -93,7 +93,14 @@ export function InvestorsListPage() {
   const handleStartChat = (e: React.MouseEvent, investor: InvestorProfile) => {
     e.preventDefault()
     e.stopPropagation()
-    const userId = investor.user?.id || investor.id
+    // List endpoint returns user_id flat; detail returns user.id nested.
+    // NEVER fall back to investor.id — that's the InvestorProfile row UUID,
+    // not a User PK. Chat / DM creation expects the user UUID.
+    const userId = investor.user?.id ?? investor.user_id
+    if (!userId) {
+      pushToast('This investor has no associated user account.', 'error')
+      return
+    }
     navigate(`/app/chat?newChat=${userId}&name=${encodeURIComponent(investor.display_name || 'Investor')}`)
   }
 
@@ -281,19 +288,25 @@ export function InvestorsListPage() {
                         <MessageCircle style={{ width: '0.875rem', height: '0.875rem' }} strokeWidth={1.5} />
                         Chat
                       </button>
-                      {investor.user?.id && investor.user.id !== currentUser?.id && (
-                        <button
-                          type="button"
-                          className="btn-sm ghost"
-                          style={{ flex: 1, justifyContent: 'center' }}
-                          disabled={connecting === investor.user.id || requested.has(investor.user.id)}
-                          onClick={(e) => handleConnectClick(e, investor)}
-                          data-testid={`connect-investor-${investor.id}`}
-                        >
-                          <UserPlus style={{ width: '0.875rem', height: '0.875rem' }} strokeWidth={1.5} />
-                          {connecting === investor.user.id ? '...' : requested.has(investor.user.id) ? 'Requested' : 'Connect'}
-                        </button>
-                      )}
+                      {(() => {
+                        // List endpoint returns user_id flat, detail returns nested user.id.
+                        // Resolve here so the button works on both shapes.
+                        const targetUserId = investor.user?.id ?? investor.user_id
+                        if (!targetUserId || targetUserId === currentUser?.id) return null
+                        return (
+                          <button
+                            type="button"
+                            className="btn-sm ghost"
+                            style={{ flex: 1, justifyContent: 'center' }}
+                            disabled={connecting === targetUserId || requested.has(targetUserId)}
+                            onClick={(e) => handleConnectClick(e, investor)}
+                            data-testid={`connect-investor-${investor.id}`}
+                          >
+                            <UserPlus style={{ width: '0.875rem', height: '0.875rem' }} strokeWidth={1.5} />
+                            {connecting === targetUserId ? '...' : requested.has(targetUserId) ? 'Requested' : 'Connect'}
+                          </button>
+                        )
+                      })()}
                     </div>
                   </div>
                 </Link>
@@ -319,7 +332,12 @@ export function InvestorsListPage() {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
               <button type="button" className="btn primary"
                 style={{ flexDirection: 'column', height: 'auto', padding: '1rem', gap: '0.5rem', textAlign: 'center' }}
-                onClick={() => { const inv = pendingConnect; setPendingConnect(null); navigate('/app/intros', { state: { openForm: true, target_user_id: inv?.user?.id ? String(inv.user.id) : undefined } }) }}>
+                onClick={() => {
+                  const inv = pendingConnect
+                  setPendingConnect(null)
+                  const targetUserId = inv?.user?.id ?? inv?.user_id
+                  navigate('/app/intros', { state: { openForm: true, target_user_id: targetUserId ? String(targetUserId) : undefined } })
+                }}>
                 <UserCheck size={20} strokeWidth={1.5} />
                 <span style={{ fontWeight: 600 }}>Warm Introduction</span>
                 <span style={{ fontSize: '0.75rem', fontWeight: 400, opacity: 0.85 }}>Include your pitch and why you're a fit</span>

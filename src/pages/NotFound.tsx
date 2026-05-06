@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import { Home, ArrowLeft } from 'lucide-react'
+import { StatusLink } from '../components/StatusLink'
 
 export function NotFound() {
   return (
@@ -26,6 +27,9 @@ export function NotFound() {
           <Home size={14} strokeWidth={1.5} />
           Home
         </Link>
+      </div>
+      <div style={{ marginTop: 16 }}>
+        <StatusLink />
       </div>
     </div>
   )
