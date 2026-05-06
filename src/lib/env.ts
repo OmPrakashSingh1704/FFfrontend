@@ -14,3 +14,15 @@ export function resolveMediaUrl(path: string | null | undefined): string | null 
 }
 
 export const USE_COOKIE_AUTH = (import.meta.env.VITE_API_USE_COOKIES as string | undefined) === 'true'
+
+/** Public status page URL (e.g. https://status.founderslib.in). Empty if not configured. */
+export const STATUS_PAGE_URL =
+  (import.meta.env.VITE_STATUS_PAGE_URL as string | undefined)?.replace(/\/$/, '') || ''
+
+/**
+ * Better Stack status page slug for fetching the public summary JSON.
+ * If set, frontend can poll `https://uptime.betterstack.com/api/v2/status_pages/<slug>/summary`
+ * to render a live status indicator. Optional.
+ */
+export const STATUS_PAGE_SUMMARY_URL =
+  (import.meta.env.VITE_STATUS_PAGE_SUMMARY_URL as string | undefined) || ''

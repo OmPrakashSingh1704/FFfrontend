@@ -9,6 +9,7 @@ import logo from '../assets/logo.svg'
 import { ThemeToggle } from '../components/ThemeToggle'
 import { NotificationDropdown } from '../components/NotificationDropdown'
 import { ProfileDropdown } from '../components/ProfileDropdown'
+import { StatusLink } from '../components/StatusLink'
 import { useAuth } from '../context/AuthContext'
 import { Page } from '../components/Page'
 import { RealtimeBridge } from '../components/RealtimeBridge'
@@ -139,6 +140,9 @@ export function AppShell() {
             )
           })}
         </nav>
+        <div style={{ padding: '0.75rem 1rem', marginTop: 'auto', borderTop: '1px solid hsl(var(--border))' }}>
+          <StatusLink variant="badge" />
+        </div>
       </aside>
 
       {/* Mobile overlay */}

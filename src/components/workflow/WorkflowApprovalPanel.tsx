@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
-import { CheckCircle, Clock, Loader2, AlertTriangle } from 'lucide-react'
-import type {
-  DealRoomWorkflowEdge,
-  DealRoomWorkflowNode,
+import { CheckCircle, Clock, Loader2, AlertTriangle, FileText } from 'lucide-react'
+import {
+  DOCUMENT_TYPE_LABELS,
+  type DealRoomWorkflowEdge,
+  type DealRoomWorkflowNode,
 } from '../../types/deals'
 
 export type ApprovalRole = 'investor' | 'founder' | null
@@ -21,6 +22,11 @@ export type WorkflowApprovalPanelProps = {
   isClosed: boolean
   submitting?: boolean
   errorMessage?: string | null
+  /**
+   * Set of document_type values currently uploaded to this deal room.
+   * Used to gate approval when the active node has a required_document_type.
+   */
+  uploadedDocumentTypes?: Set<string>
   onApprove: (payload: ApprovalSubmit) => void
 }
 
@@ -33,6 +39,7 @@ export function WorkflowApprovalPanel({
   isClosed,
   submitting,
   errorMessage,
+  uploadedDocumentTypes,
   onApprove,
 }: WorkflowApprovalPanelProps) {
   const [pickId, setPickId] = useState<string | null>(null)
@@ -83,8 +90,11 @@ export function WorkflowApprovalPanel({
     !!myPick && !!otherPick && myPick !== otherPick
 
   const requiresPick = sortedEdges.length > 1
+  const requiredDocType = currentNode.required_document_type || ''
+  const docGateUnsatisfied =
+    !!requiredDocType && !(uploadedDocumentTypes?.has(requiredDocType) ?? false)
   const canSubmit =
-    !isClosed && role !== null && !submitting && (!requiresPick || pickId !== null)
+    !isClosed && role !== null && !submitting && (!requiresPick || pickId !== null) && !docGateUnsatisfied
 
   const handleSubmit = () => {
     onApprove({
@@ -106,6 +116,26 @@ export function WorkflowApprovalPanel({
           </p>
         )}
       </div>
+
+      {docGateUnsatisfied && (
+        <div
+          data-testid="wf-doc-gate"
+          style={{
+            display: 'flex', alignItems: 'flex-start', gap: 8,
+            padding: '0.5rem 0.75rem', borderRadius: 6,
+            background: 'rgba(59, 130, 246, 0.10)',
+            border: '1px solid rgba(59, 130, 246, 0.35)',
+            color: '#3b82f6',
+            marginBottom: '0.75rem',
+            fontSize: '0.75rem',
+          }}
+        >
+          <FileText size={14} style={{ flexShrink: 0, marginTop: 1 }} />
+          <span>
+            This step requires a <strong>{DOCUMENT_TYPE_LABELS[requiredDocType as keyof typeof DOCUMENT_TYPE_LABELS] || requiredDocType}</strong> uploaded to the deal room before approval.
+          </span>
+        </div>
+      )}
 
       {disagreement && (
         <div

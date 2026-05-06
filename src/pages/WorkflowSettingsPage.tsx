@@ -9,13 +9,15 @@ import {
   WorkflowCanvas,
   WorkflowValidationBanner,
 } from '../components/workflow'
-import type {
-  BulkPositionItem,
-  TerminalOutcome,
-  WorkflowTemplate,
-  WorkflowTemplateEdge,
-  WorkflowTemplateNode,
-  WorkflowValidationResponse,
+import {
+  DOCUMENT_TYPE_LABELS,
+  type BulkPositionItem,
+  type DocumentType,
+  type TerminalOutcome,
+  type WorkflowTemplate,
+  type WorkflowTemplateEdge,
+  type WorkflowTemplateNode,
+  type WorkflowValidationResponse,
 } from '../types/deals'
 
 type NodeFormState = {
@@ -25,6 +27,7 @@ type NodeFormState = {
   name: string
   description: string
   terminal_outcome: TerminalOutcome
+  required_document_type: DocumentType
 }
 
 type EdgeFormState = {
@@ -41,6 +44,7 @@ const EMPTY_NODE_FORM: NodeFormState = {
   name: '',
   description: '',
   terminal_outcome: '',
+  required_document_type: '',
 }
 
 const EMPTY_EDGE_FORM: EdgeFormState = {
@@ -142,6 +146,7 @@ export function WorkflowSettingsPage() {
     setNodeForm({
       open: true, mode: 'create', nodeId: null,
       name: '', description: '', terminal_outcome: '',
+      required_document_type: '',
     })
   }
 
@@ -154,6 +159,7 @@ export function WorkflowSettingsPage() {
       open: true, mode: 'edit', nodeId: node.id,
       name: node.name, description: node.description,
       terminal_outcome: node.terminal_outcome,
+      required_document_type: node.required_document_type ?? '',
     })
   }
 
@@ -174,6 +180,7 @@ export function WorkflowSettingsPage() {
             name: nodeForm.name.trim(),
             description: nodeForm.description.trim(),
             terminal_outcome: nodeForm.terminal_outcome,
+            required_document_type: nodeForm.required_document_type,
           },
         })
         pushToast('Node updated', 'success')
@@ -186,6 +193,7 @@ export function WorkflowSettingsPage() {
             name: nodeForm.name.trim(),
             description: nodeForm.description.trim(),
             terminal_outcome: nodeForm.terminal_outcome,
+            required_document_type: nodeForm.required_document_type,
             position_x: maxX + 220,
             position_y: 0,
           },
@@ -537,6 +545,22 @@ export function WorkflowSettingsPage() {
                   <option value="lost">Lost</option>
                   <option value="abandoned">Abandoned</option>
                   <option value="other">Other</option>
+                </select>
+              </label>
+              <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: '0.8125rem' }}>
+                <span style={{ color: 'hsl(var(--muted-foreground))' }}>
+                  Required document (optional — gates approval until uploaded to the deal room)
+                </span>
+                <select
+                  data-testid="node-required-doc-input"
+                  className="input"
+                  value={nodeForm.required_document_type}
+                  onChange={(e) => setNodeForm((s) => ({ ...s, required_document_type: e.target.value as DocumentType }))}
+                >
+                  <option value="">No document required</option>
+                  {(Object.keys(DOCUMENT_TYPE_LABELS) as Array<keyof typeof DOCUMENT_TYPE_LABELS>).map((key) => (
+                    <option key={key} value={key}>{DOCUMENT_TYPE_LABELS[key]}</option>
+                  ))}
                 </select>
               </label>
               <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.25rem', justifyContent: 'flex-end' }}>

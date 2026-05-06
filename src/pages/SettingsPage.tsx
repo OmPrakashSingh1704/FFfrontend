@@ -18,6 +18,8 @@ import {
   Sparkles,
   Target,
   Radar,
+  AlertTriangle,
+  Trash2,
 } from 'lucide-react'
 
 type NotificationPreferences = {
@@ -158,6 +160,79 @@ export function SettingsPage() {
   const [privacy, setPrivacy] = useState({ profile_visible: true, search_indexed: true })
   const [loadingPrivacy, setLoadingPrivacy] = useState(true)
   const [savingPrivacy, setSavingPrivacy] = useState<string | null>(null)
+
+  // Danger zone — account lifecycle
+  type DangerAction = 'deactivate' | 'delete'
+  const [accountStatus, setAccountStatus] = useState<{
+    status?: string
+    deletion_requested_at?: string | null
+    deletion_grace_deadline?: string | null
+    deletion_grace_active?: boolean
+  }>({})
+  const [dangerModal, setDangerModal] = useState<DangerAction | null>(null)
+  const [dangerConfirmEmail, setDangerConfirmEmail] = useState('')
+  const [dangerBusy, setDangerBusy] = useState(false)
+  const [cancellingDeletion, setCancellingDeletion] = useState(false)
+
+  const refreshAccountStatus = useCallback(async () => {
+    try {
+      const data = await apiRequest<typeof accountStatus>('/users/me/account/status/')
+      setAccountStatus(data)
+    } catch {
+      // Non-blocking — danger zone just falls back to user.status
+    }
+  }, [])
+
+  useEffect(() => {
+    void refreshAccountStatus()
+  }, [refreshAccountStatus])
+
+  const handleDangerSubmit = async () => {
+    if (!dangerModal) return
+    if (dangerConfirmEmail.trim().toLowerCase() !== (user?.email ?? '').toLowerCase()) {
+      pushToast('Type your email exactly to confirm.', 'error')
+      return
+    }
+    setDangerBusy(true)
+    try {
+      const path = dangerModal === 'deactivate'
+        ? '/users/me/account/deactivate/'
+        : '/users/me/account/delete/'
+      await apiRequest(path, {
+        method: 'POST',
+        body: { confirm_email: dangerConfirmEmail.trim() },
+      })
+      pushToast(
+        dangerModal === 'deactivate'
+          ? 'Account deactivated. Sign in any time to reactivate.'
+          : 'Account scheduled for deletion. Sign in before the deadline to cancel.',
+        'success',
+      )
+      setDangerModal(null)
+      setDangerConfirmEmail('')
+      // Hard redirect: backend revoked our session; tokens are stale.
+      setTimeout(() => { window.location.href = '/' }, 1500)
+    } catch (err: unknown) {
+      const detail = (err as { detail?: string })?.detail ?? 'Failed to update account.'
+      pushToast(detail, 'error')
+    } finally {
+      setDangerBusy(false)
+    }
+  }
+
+  const handleCancelDeletion = async () => {
+    setCancellingDeletion(true)
+    try {
+      await apiRequest('/users/me/account/cancel-deletion/', { method: 'POST' })
+      pushToast('Deletion cancelled. Welcome back.', 'success')
+      await refreshAccountStatus()
+    } catch (err: unknown) {
+      const detail = (err as { detail?: string })?.detail ?? 'Could not cancel deletion.'
+      pushToast(detail, 'error')
+    } finally {
+      setCancellingDeletion(false)
+    }
+  }
 
   // Connected accounts
   const [accounts, setAccounts] = useState<ConnectedAccount[]>([])
@@ -554,34 +629,216 @@ export function SettingsPage() {
 
       {/* ===== Account Tab ===== */}
       {activeTab === 'account' && (
-        <div className="card">
-          <div className="card-header">
-            <span className="card-title">Account Information</span>
+        <>
+          <div className="card">
+            <div className="card-header">
+              <span className="card-title">Account Information</span>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              <div className="list-item" style={{ cursor: 'default' }}>
+                <span style={{ flex: 1, color: 'hsl(var(--muted-foreground))', fontSize: '0.875rem' }}>Email</span>
+                <span style={{ fontSize: '0.875rem' }}>{user?.email}</span>
+              </div>
+              <hr className="divider" style={{ margin: 0 }} />
+              <div className="list-item" style={{ cursor: 'default' }}>
+                <span style={{ flex: 1, color: 'hsl(var(--muted-foreground))', fontSize: '0.875rem' }}>Email verified</span>
+                <span className={`badge ${user?.email_verified ? 'success' : 'warning'}`}>
+                  {user?.email_verified ? 'Yes' : 'No'}
+                </span>
+              </div>
+              <hr className="divider" style={{ margin: 0 }} />
+              <div className="list-item" style={{ cursor: 'default' }}>
+                <span style={{ flex: 1, color: 'hsl(var(--muted-foreground))', fontSize: '0.875rem' }}>Status</span>
+                <span className="badge success" style={{ textTransform: 'capitalize' }}>{user?.status ?? 'Active'}</span>
+              </div>
+              <hr className="divider" style={{ margin: 0 }} />
+              <div className="list-item" style={{ cursor: 'default' }}>
+                <span style={{ flex: 1, color: 'hsl(var(--muted-foreground))', fontSize: '0.875rem' }}>Role</span>
+                <span className="badge info" style={{ textTransform: 'capitalize' }}>{user?.role ?? 'Member'}</span>
+              </div>
+            </div>
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column' }}>
-            <div className="list-item" style={{ cursor: 'default' }}>
-              <span style={{ flex: 1, color: 'hsl(var(--muted-foreground))', fontSize: '0.875rem' }}>Email</span>
-              <span style={{ fontSize: '0.875rem' }}>{user?.email}</span>
+
+          {/* Pending deletion banner — visible only when grace window is active */}
+          {accountStatus.deletion_grace_active && (
+            <div
+              className="card"
+              data-testid="pending-deletion-banner"
+              style={{
+                marginTop: '1rem',
+                border: '1px solid hsl(var(--destructive) / 0.5)',
+                background: 'hsl(var(--destructive) / 0.05)',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem' }}>
+                <AlertTriangle size={20} strokeWidth={1.5} style={{ color: 'hsl(var(--destructive))', flexShrink: 0, marginTop: 2 }} />
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 600, fontSize: '0.9375rem', color: 'hsl(var(--destructive))' }}>
+                    Account scheduled for deletion
+                  </div>
+                  <div style={{ fontSize: '0.8125rem', color: 'hsl(var(--muted-foreground))', marginTop: 4 }}>
+                    All data will be permanently anonymized on{' '}
+                    <strong>
+                      {accountStatus.deletion_grace_deadline
+                        ? new Date(accountStatus.deletion_grace_deadline).toLocaleDateString(undefined, {
+                            month: 'short', day: 'numeric', year: 'numeric',
+                          })
+                        : 'the deadline'}
+                    </strong>
+                    . Cancel below to keep your account.
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="btn-sm primary"
+                  onClick={() => void handleCancelDeletion()}
+                  disabled={cancellingDeletion}
+                  data-testid="cancel-deletion-btn"
+                  style={{ flexShrink: 0 }}
+                >
+                  {cancellingDeletion ? <Loader2 size={12} className="animate-spin" /> : null}
+                  Cancel deletion
+                </button>
+              </div>
             </div>
-            <hr className="divider" style={{ margin: 0 }} />
-            <div className="list-item" style={{ cursor: 'default' }}>
-              <span style={{ flex: 1, color: 'hsl(var(--muted-foreground))', fontSize: '0.875rem' }}>Email verified</span>
-              <span className={`badge ${user?.email_verified ? 'success' : 'warning'}`}>
-                {user?.email_verified ? 'Yes' : 'No'}
-              </span>
+          )}
+
+          {/* Danger Zone */}
+          <div
+            className="card"
+            data-testid="danger-zone"
+            style={{
+              marginTop: '1rem',
+              border: '1px solid hsl(var(--destructive) / 0.4)',
+            }}
+          >
+            <div className="card-header">
+              <span className="card-title" style={{ color: 'hsl(var(--destructive))' }}>Danger Zone</span>
             </div>
-            <hr className="divider" style={{ margin: 0 }} />
-            <div className="list-item" style={{ cursor: 'default' }}>
-              <span style={{ flex: 1, color: 'hsl(var(--muted-foreground))', fontSize: '0.875rem' }}>Status</span>
-              <span className="badge success" style={{ textTransform: 'capitalize' }}>{user?.status ?? 'Active'}</span>
-            </div>
-            <hr className="divider" style={{ margin: 0 }} />
-            <div className="list-item" style={{ cursor: 'default' }}>
-              <span style={{ flex: 1, color: 'hsl(var(--muted-foreground))', fontSize: '0.875rem' }}>Role</span>
-              <span className="badge info" style={{ textTransform: 'capitalize' }}>{user?.role ?? 'Member'}</span>
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              <div className="list-item" style={{ cursor: 'default', alignItems: 'flex-start', gap: '1rem' }}>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 500, fontSize: '0.875rem' }}>Deactivate account</div>
+                  <div style={{ fontSize: '0.8125rem', color: 'hsl(var(--muted-foreground))', marginTop: 2 }}>
+                    Hide your profile from search and disable login. Your data is preserved — sign in any time to come back.
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="btn-sm"
+                  style={{ border: '1px solid hsl(var(--border))', flexShrink: 0 }}
+                  onClick={() => { setDangerModal('deactivate'); setDangerConfirmEmail('') }}
+                  disabled={accountStatus.deletion_grace_active}
+                  data-testid="deactivate-btn"
+                >
+                  Deactivate
+                </button>
+              </div>
+              <hr className="divider" style={{ margin: 0 }} />
+              <div className="list-item" style={{ cursor: 'default', alignItems: 'flex-start', gap: '1rem' }}>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 500, fontSize: '0.875rem', color: 'hsl(var(--destructive))' }}>
+                    Delete account permanently
+                  </div>
+                  <div style={{ fontSize: '0.8125rem', color: 'hsl(var(--muted-foreground))', marginTop: 2 }}>
+                    Schedules permanent anonymization after a 30-day grace period. Sign in during the grace window to cancel.
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="btn-sm"
+                  style={{
+                    border: '1px solid hsl(var(--destructive))',
+                    color: 'hsl(var(--destructive))',
+                    background: 'transparent',
+                    flexShrink: 0,
+                  }}
+                  onClick={() => { setDangerModal('delete'); setDangerConfirmEmail('') }}
+                  disabled={accountStatus.deletion_grace_active}
+                  data-testid="delete-account-btn"
+                >
+                  <Trash2 size={12} strokeWidth={1.5} />
+                  Delete account
+                </button>
+              </div>
             </div>
           </div>
-        </div>
+
+          {/* Confirmation modal */}
+          {dangerModal && (
+            <div
+              style={{
+                position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000,
+              }}
+              onClick={(e) => { if (e.target === e.currentTarget) setDangerModal(null) }}
+              data-testid="danger-modal"
+            >
+              <div className="card" style={{ width: '100%', maxWidth: 480, padding: '1.5rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem' }}>
+                  <AlertTriangle size={18} strokeWidth={1.5} style={{ color: 'hsl(var(--destructive))' }} />
+                  <h2 style={{ fontSize: '1rem', fontWeight: 600, margin: 0 }}>
+                    {dangerModal === 'deactivate' ? 'Deactivate account?' : 'Delete account permanently?'}
+                  </h2>
+                </div>
+                <p style={{ fontSize: '0.875rem', color: 'hsl(var(--muted-foreground))', marginBottom: '0.75rem' }}>
+                  {dangerModal === 'deactivate' ? (
+                    <>
+                      Your profile will be hidden and you'll be signed out everywhere. Sign in any time
+                      with this email to reactivate — no data is lost.
+                    </>
+                  ) : (
+                    <>
+                      You'll be signed out and have a <strong>30-day grace period</strong> to change your
+                      mind by signing in again. After that, your profile, photos, sessions, and personal
+                      data are permanently anonymized. Messages and respects you've sent stay in place
+                      under "Deleted User" so other people's threads aren't broken.
+                    </>
+                  )}
+                </p>
+                <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: '0.8125rem', marginBottom: '1rem' }}>
+                  <span>Type <strong>{user?.email}</strong> to confirm:</span>
+                  <input
+                    className="input"
+                    autoFocus
+                    value={dangerConfirmEmail}
+                    onChange={(e) => setDangerConfirmEmail(e.target.value)}
+                    placeholder={user?.email ?? ''}
+                    data-testid="confirm-email-input"
+                  />
+                </label>
+                <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+                  <button
+                    type="button"
+                    className="btn-sm ghost"
+                    onClick={() => setDangerModal(null)}
+                    disabled={dangerBusy}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-sm"
+                    style={{
+                      background: 'hsl(var(--destructive))',
+                      color: 'hsl(var(--destructive-foreground))',
+                      border: 'none',
+                    }}
+                    onClick={() => void handleDangerSubmit()}
+                    disabled={
+                      dangerBusy ||
+                      dangerConfirmEmail.trim().toLowerCase() !== (user?.email ?? '').toLowerCase()
+                    }
+                    data-testid="confirm-danger-btn"
+                  >
+                    {dangerBusy ? <Loader2 size={12} className="animate-spin" /> : null}
+                    {dangerModal === 'deactivate' ? 'Deactivate' : 'Delete'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </>
       )}
 
       {/* ===== Notifications Tab ===== */}

@@ -2,6 +2,7 @@ import { type ComponentType, Suspense, lazy } from 'react'
 import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import './App.css'
 import { ProtectedRoute } from './components/ProtectedRoute'
+import { PWAPrompts } from './components/PWAPrompts'
 import { RouteLoader } from './components/RouteLoader'
 import { AuthLayout } from './layouts/AuthLayout'
 import { AppShell } from './layouts/AppShell'
@@ -64,6 +65,7 @@ const NotFound = lazyPage(() => import('./pages/NotFound'), 'NotFound')
 function App() {
   return (
     <BrowserRouter>
+      <PWAPrompts />
       <Suspense fallback={<RouteLoader />}>
         <Routes>
           <Route path="/" element={<LandingPage />} />

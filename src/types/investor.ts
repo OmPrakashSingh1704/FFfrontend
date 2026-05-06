@@ -11,6 +11,12 @@ export type InvestorStats = {
 
 export type InvestorProfile = {
   id: string
+  // List endpoints serialize the owning user's UUID as a flat `user_id` field
+  // (InvestorProfilePublicSerializer); detail endpoints nest it under `user`.
+  // Always prefer `user_id ?? user.id` for any cross-app lookup (chat, intros,
+  // connections) — `id` is the InvestorProfile row UUID and is NOT a valid
+  // User PK.
+  user_id?: string
   user?: { id: string; full_name?: string; avatar_url?: string | null; avatar?: string | null; picture?: string | null; background_image?: string | null; background_picture?: string | null }
   display_name: string
   fund_name?: string | null

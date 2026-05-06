@@ -93,7 +93,14 @@ export function FoundersListPage() {
   const handleStartChat = (e: React.MouseEvent, founder: FounderProfile) => {
     e.preventDefault()
     e.stopPropagation()
-    const userId = founder.user?.id || founder.id
+    // Use the User UUID, NOT the FounderProfile row UUID (`founder.id`).
+    // Chat / DM creation expects User PK; falling back to founder.id 404s
+    // with "User not found" because that ID isn't in the User table.
+    const userId = founder.user?.id
+    if (!userId) {
+      pushToast('This founder has no associated user account.', 'error')
+      return
+    }
     navigate(`/app/chat?newChat=${userId}&name=${encodeURIComponent(founder.user?.full_name || 'Founder')}`)
   }
 

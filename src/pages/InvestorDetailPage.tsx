@@ -16,7 +16,9 @@ import {
   X,
   UserPlus,
   UserCheck,
+  Pencil,
 } from 'lucide-react'
+import { EditInvestorProfileModal } from './EditInvestorProfileModal'
 import { apiRequest } from '../lib/api'
 import { fetchConnectedUserIds } from '../lib/connections'
 import { resolveMediaUrl } from '../lib/env'
@@ -46,18 +48,25 @@ export function InvestorDetailPage() {
   const [connecting, setConnecting] = useState(false)
   const [requested, setRequested] = useState(false)
   const [showConnectPrompt, setShowConnectPrompt] = useState(false)
+  const [showEditModal, setShowEditModal] = useState(false)
+
+  // The detail endpoint (InvestorProfilePublicSerializer) returns `user_id`
+  // flat, not a nested `user` object. The /investors/profile/me/ endpoint
+  // (InvestorProfileSerializer) DOES return nested user. Resolve once so
+  // both shapes work — never read `.user.id` directly without this fallback,
+  // or chat / connect / intro buttons silently no-op.
+  const targetUserId = investor?.user?.id ?? investor?.user_id
 
   // Pre-populate button state after investor loads
   useEffect(() => {
-    const targetId = investor?.user?.id
-    if (!targetId || !user?.id) return
+    if (!targetUserId || !user?.id) return
     fetchConnectedUserIds(user.id)
-      .then((ids) => { if (ids.has(targetId)) setRequested(true) })
+      .then((ids) => { if (ids.has(targetUserId)) setRequested(true) })
       .catch(() => {})
-  }, [investor?.user?.id, user?.id])
+  }, [targetUserId, user?.id])
 
   const handleConnectDirect = async () => {
-    const userId = investor?.user?.id
+    const userId = targetUserId
     if (!userId) return
     setConnecting(true)
     try {
@@ -185,7 +194,7 @@ export function InvestorDetailPage() {
               </div>
 
               {/* Actions — not your own profile */}
-              {investor.user?.id !== user?.id && (
+              {targetUserId !== user?.id && (
                 <div style={{ display: 'flex', gap: '0.5rem', flexShrink: 0 }}>
                   {isFounder && myStartups.length > 0 && (
                     <button
@@ -209,7 +218,33 @@ export function InvestorDetailPage() {
                   </button>
                 </div>
               )}
+
+              {/* Actions — own profile */}
+              {targetUserId === user?.id && (
+                <div style={{ display: 'flex', gap: '0.5rem', flexShrink: 0 }}>
+                  <button
+                    className="btn-sm primary"
+                    type="button"
+                    onClick={() => setShowEditModal(true)}
+                    data-testid="edit-investor-profile-btn"
+                  >
+                    <Pencil size={14} strokeWidth={1.5} />
+                    Edit profile
+                  </button>
+                </div>
+              )}
             </div>
+
+            {showEditModal && investor && (
+              <EditInvestorProfileModal
+                profile={investor}
+                onClose={() => setShowEditModal(false)}
+                onSave={(updated) => {
+                  setInvestor(updated)
+                  setShowEditModal(false)
+                }}
+              />
+            )}
 
             {/* Connect prompt */}
             {showConnectPrompt && (
@@ -226,7 +261,7 @@ export function InvestorDetailPage() {
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
                     <button type="button" className="btn primary"
                       style={{ flexDirection: 'column', height: 'auto', padding: '1rem', gap: '0.5rem', textAlign: 'center' }}
-                      onClick={() => { setShowConnectPrompt(false); navigate('/app/intros', { state: { openForm: true, target_user_id: investor?.user?.id ? String(investor.user.id) : undefined } }) }}>
+                      onClick={() => { setShowConnectPrompt(false); navigate('/app/intros', { state: { openForm: true, target_user_id: targetUserId ? String(targetUserId) : undefined } }) }}>
                       <UserCheck size={20} strokeWidth={1.5} />
                       <span style={{ fontWeight: 600 }}>Warm Introduction</span>
                       <span style={{ fontSize: '0.75rem', fontWeight: 400, opacity: 0.85 }}>Include your pitch and why you're a fit</span>
