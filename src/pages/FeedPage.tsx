@@ -7,8 +7,7 @@ import {
   ExternalLink,
   Pencil,
   Trash2,
-  X,
-  Check,
+  Reply,
   Loader2,
   ChevronDown,
   ChevronUp,
@@ -24,7 +23,8 @@ import { normalizeList } from '../lib/pagination'
 import { useToast } from '../context/ToastContext'
 import { useAuth } from '../context/AuthContext'
 import { Markdown } from '../components/Markdown'
-import { MarkdownTextarea } from '../components/MarkdownTextarea'
+import { MarkdownCanvas } from '../components/MarkdownCanvas'
+import { CommentComposer, ComposerHint, decodeMentions, type Mention } from '../components/CommentComposer'
 import type { FeedComment, FeedEvent } from '../types/feed'
 
 type FeedTab = 'ranked' | 'trending' | 'all'
@@ -86,6 +86,27 @@ function authorInitials(name?: string): string {
     .slice(0, 2)
 }
 
+/**
+ * Did this comment actually get edited, or is the timestamp delta just noise?
+ *
+ * Django sets `created_at` (auto_now_add) and `updated_at` (auto_now) via
+ * independent pre_save callbacks on INSERT. Each calls `timezone.now()`
+ * separately, so they differ at the microsecond level on every fresh row.
+ * A strict `updated_at !== created_at` check would flag every comment as
+ * "(edited)" the instant it was posted.
+ *
+ * 1.5 second tolerance covers the auto_now race + any clock skew between
+ * the two queries, while still flagging real edits (which can't happen in
+ * under 1.5s — the user has to click Edit, type, click Save).
+ */
+function wasEdited(c: FeedComment): boolean {
+  if (!c.updated_at || !c.created_at) return false
+  const created = new Date(c.created_at).getTime()
+  const updated = new Date(c.updated_at).getTime()
+  if (Number.isNaN(created) || Number.isNaN(updated)) return false
+  return updated - created > 1500
+}
+
 type CommentSectionProps = {
   eventId: string
   onCountChange: (delta: number) => void
@@ -100,8 +121,16 @@ function CommentSection({ eventId, onCountChange }: CommentSectionProps) {
   const [submitting, setSubmitting] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editContent, setEditContent] = useState('')
+  // Re-seeded from the comment's stored markdown when entering edit mode, so
+  // mention → user-id links survive an edit cycle. See decodeMentions.
+  const [editMentions, setEditMentions] = useState<Mention[]>([])
+  const [editSubmitting, setEditSubmitting] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
-  const inputRef = useRef<HTMLTextAreaElement>(null)
+  const [hintShow, setHintShow] = useState(false)
+  /** When set, the inline reply composer renders below the thread rooted at this id. */
+  const [replyingToRootId, setReplyingToRootId] = useState<string | null>(null)
+  const [replyContent, setReplyContent] = useState('')
+  const [replySubmitting, setReplySubmitting] = useState(false)
 
   const loadComments = useCallback(async () => {
     setLoading(true)
@@ -121,31 +150,60 @@ function CommentSection({ eventId, onCountChange }: CommentSectionProps) {
     void loadComments()
   }, [loadComments])
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    const content = newComment.trim()
-    if (!content || submitting) return
+  /**
+   * Optimistic post: the comment appears in the list instantly with a
+   * temporary id; if the API fails, roll it back and restore the draft so
+   * the user doesn't lose their typing.
+   */
+  const handleSubmit = async (encoded: string) => {
+    const content = encoded.trim()
+    if (!content || submitting || !user) return
 
+    // Snapshot the textarea's plain form before clearing, so a failed POST
+    // can restore the draft in display form (not the URL-encoded canonical).
+    const draftBackup = newComment
+
+    const tempId = `temp-${Date.now()}`
+    const optimistic: FeedComment = {
+      id: tempId,
+      content,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      user: {
+        id: user.id,
+        full_name: user.full_name,
+        profile_picture: user.avatar_url ?? null,
+      },
+    } as FeedComment
+
+    setComments((prev) => [...prev, optimistic])
+    setNewComment('')
+    onCountChange(1)
     setSubmitting(true)
+
     try {
       const created = await apiRequest<FeedComment>(`/feed/${eventId}/comments/`, {
         method: 'POST',
         body: { content },
       })
-      setComments((prev) => [...prev, created])
-      setNewComment('')
-      onCountChange(1)
+      setComments((prev) => prev.map((c) => (c.id === tempId ? created : c)))
     } catch {
-      pushToast('Unable to post comment.', 'error')
+      // Roll back: remove the optimistic comment, restore draft so the user
+      // can retry without retyping.
+      setComments((prev) => prev.filter((c) => c.id !== tempId))
+      onCountChange(-1)
+      setNewComment(draftBackup)
+      pushToast('Unable to post comment. Try again.', 'error')
     } finally {
       setSubmitting(false)
     }
   }
 
-  const handleEdit = async (commentId: string) => {
-    const content = editContent.trim()
+  const handleEdit = async (commentId: string, encoded: string) => {
+    const content = encoded.trim()
     if (!content) return
 
+    setEditSubmitting(true)
     try {
       const updated = await apiRequest<FeedComment>(
         `/feed/${eventId}/comments/${commentId}/`,
@@ -154,20 +212,30 @@ function CommentSection({ eventId, onCountChange }: CommentSectionProps) {
       setComments((prev) => prev.map((c) => (c.id === commentId ? updated : c)))
       setEditingId(null)
       setEditContent('')
+      setEditMentions([])
     } catch {
       pushToast('Unable to edit comment.', 'error')
+    } finally {
+      setEditSubmitting(false)
     }
   }
 
   const handleDelete = async (commentId: string) => {
+    if (!window.confirm('Delete this comment? This cannot be undone.')) return
+
+    // Optimistic remove — restore on failure.
+    const snapshot = comments
+    setComments((prev) => prev.filter((c) => c.id !== commentId))
+    onCountChange(-1)
     setDeletingId(commentId)
+
     try {
       await apiRequest(`/feed/${eventId}/comments/${commentId}/`, {
         method: 'DELETE',
       })
-      setComments((prev) => prev.filter((c) => c.id !== commentId))
-      onCountChange(-1)
     } catch {
+      setComments(snapshot)
+      onCountChange(1)
       pushToast('Unable to delete comment.', 'error')
     } finally {
       setDeletingId(null)
@@ -175,14 +243,298 @@ function CommentSection({ eventId, onCountChange }: CommentSectionProps) {
   }
 
   const startEdit = (comment: FeedComment) => {
+    // Convert stored canonical `[@Name](/app/users/<id>)` into clean `@Name`
+    // for the textarea, and seed the composer with the mention list so the
+    // user-id link survives a save without re-typing.
+    const { plain, mentions } = decodeMentions(comment.content)
     setEditingId(comment.id)
-    setEditContent(comment.content)
+    setEditContent(plain)
+    setEditMentions(mentions)
   }
 
   const cancelEdit = () => {
     setEditingId(null)
     setEditContent('')
+    setEditMentions([])
   }
+
+  /**
+   * Open the reply composer targeted at a SPECIFIC comment. Backend allows
+   * the reply chain to grow up to MAX_REPLY_DEPTH (5) before rejecting, so
+   * `parent_id` is the clicked comment's id, not the thread root.
+   */
+  const startReply = (comment: FeedComment) => {
+    setReplyingToRootId(comment.id)
+    setReplyContent('')
+  }
+
+  const cancelReply = () => {
+    setReplyingToRootId(null)
+    setReplyContent('')
+  }
+
+  const handleReply = async (parentId: string, encoded: string) => {
+    const content = encoded.trim()
+    if (!content || replySubmitting || !user) return
+
+    // Restore the plain draft (not the encoded form) if the post fails.
+    const draftBackup = replyContent
+
+    const tempId = `temp-${Date.now()}`
+    const now = new Date().toISOString()
+    const optimistic: FeedComment = {
+      id: tempId,
+      content,
+      parent_id: parentId,
+      created_at: now,
+      updated_at: now,
+      user: {
+        id: user.id,
+        full_name: user.full_name,
+        profile_picture: user.avatar_url ?? null,
+      },
+    } as FeedComment
+
+    setComments((prev) => [...prev, optimistic])
+    setReplyContent('')
+    setReplyingToRootId(null)
+    onCountChange(1)
+    setReplySubmitting(true)
+
+    try {
+      const created = await apiRequest<FeedComment>(`/feed/${eventId}/comments/`, {
+        method: 'POST',
+        body: { content, parent_id: parentId },
+      })
+      setComments((prev) => prev.map((c) => (c.id === tempId ? created : c)))
+    } catch (err: unknown) {
+      // Backend returns 400 with `error` field for depth-cap violations or
+      // missing parents. Surface the message verbatim so the user can act.
+      const errMsg = (err as { details?: { error?: string } })?.details?.error
+        ?? 'Unable to post reply. Try again.'
+      setComments((prev) => prev.filter((c) => c.id !== tempId))
+      onCountChange(-1)
+      setReplyContent(draftBackup)
+      setReplyingToRootId(parentId)
+      pushToast(errMsg, 'error')
+    } finally {
+      setReplySubmitting(false)
+    }
+  }
+
+  /**
+   * Render a single comment row. Shared between top-level and reply branches
+   * so the row UX stays consistent — same avatar size, same actions, same
+   * edit composer. The `isReply` flag only affects styling (no avatar size
+   * change yet, but kept for future hooks).
+   */
+  const renderCommentRow = (comment: FeedComment, isReply: boolean) => {
+    const isOwn = user?.id === comment.user.id
+    const isEditing = editingId === comment.id
+    const isDeleting = deletingId === comment.id
+    const isTemp = comment.id.startsWith('temp-')
+
+    return (
+      <div
+        key={comment.id}
+        data-testid={`comment-${comment.id}`}
+        style={{
+          display: 'flex',
+          gap: '0.625rem',
+          padding: '0.5rem 0',
+          opacity: isTemp ? 0.65 : 1, // visual hint while the post is in-flight
+        }}
+      >
+        <div
+          className="avatar"
+          style={{
+            width: isReply ? '1.25rem' : '1.5rem',
+            height: isReply ? '1.25rem' : '1.5rem',
+            fontSize: '0.625rem',
+            flexShrink: 0,
+            marginTop: '0.125rem',
+          }}
+        >
+          {comment.user.profile_picture ? (
+            <img src={comment.user.profile_picture} alt="" loading="lazy" decoding="async" />
+          ) : (
+            authorInitials(comment.user.full_name)
+          )}
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.125rem' }}>
+            <span style={{ fontSize: '0.8125rem', fontWeight: 500 }}>
+              {comment.user.full_name ?? 'User'}
+            </span>
+            <span style={{ fontSize: '0.6875rem', color: 'hsl(var(--muted-foreground))' }}>
+              {relativeTime(comment.created_at)}
+              {wasEdited(comment) && ' (edited)'}
+            </span>
+            {!isEditing && !isTemp && (
+              <div style={{ display: 'flex', gap: '0.25rem', marginLeft: 'auto' }}>
+                <button
+                  type="button"
+                  className="btn-sm ghost"
+                  style={{ padding: '0.125rem 0.25rem' }}
+                  onClick={() => startReply(comment)}
+                  title="Reply to this comment"
+                  aria-label="Reply"
+                  data-testid={`comment-reply-btn-${comment.id}`}
+                >
+                  <Reply className="w-3 h-3" strokeWidth={1.5} />
+                </button>
+                {isOwn && (
+                  <>
+                    <button
+                      type="button"
+                      className="btn-sm ghost"
+                      style={{ padding: '0.125rem 0.25rem' }}
+                      onClick={() => startEdit(comment)}
+                      data-testid={`comment-edit-btn-${comment.id}`}
+                    >
+                      <Pencil className="w-3 h-3" />
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-sm ghost"
+                      style={{ padding: '0.125rem 0.25rem', color: '#ef4444' }}
+                      onClick={() => handleDelete(comment.id)}
+                      disabled={isDeleting}
+                      data-testid={`comment-delete-btn-${comment.id}`}
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+          {isEditing ? (
+            <CommentComposer
+              value={editContent}
+              onChange={setEditContent}
+              onSubmit={(encoded) => void handleEdit(comment.id, encoded)}
+              onCancel={cancelEdit}
+              submitting={editSubmitting}
+              mode="save"
+              compact
+              enableMentions
+              initialMentions={editMentions}
+              placeholder="Edit your comment…"
+              data-testid={`comment-edit-input-${comment.id}`}
+            />
+          ) : (
+            <Markdown size="sm">{comment.content}</Markdown>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  /**
+   * Render a single thread rooted at `comment`, recursing into its children
+   * for each level. Each level shifts content right by ~1.5rem and draws a
+   * left rail so the tree shape is visible. Composer for replies sits at
+   * the bottom of the parent's child block (so visually, your reply lands
+   * directly under the comment you're replying to, before any sibling
+   * replies that come later).
+   *
+   * The recursion is bounded by the backend's MAX_REPLY_DEPTH=5 — past that,
+   * a comment can't be created so this never walks deeper than 5 levels in
+   * practice. We don't enforce the cap visually; the backend rejection on
+   * over-cap replies surfaces as a toast.
+   */
+  const renderThread = (comment: FeedComment, depth: number): React.ReactNode => {
+    const kids = childrenOf[comment.id] ?? []
+    const isReplying = replyingToRootId === comment.id
+    // Cap visual indentation at depth 5; deeper trees still render, just
+    // without additional rightward shift so mobile width stays usable.
+    const visualDepth = Math.min(depth, 5)
+    return (
+      <div
+        key={comment.id}
+        className="comment-thread"
+        data-testid={`comment-thread-${comment.id}`}
+        style={depth > 0 ? {
+          marginLeft: '2.125rem',
+          paddingLeft: '0.75rem',
+          borderLeft: '2px solid hsl(var(--border))',
+        } : undefined}
+      >
+        {renderCommentRow(comment, depth > 0)}
+        {kids.map((child) => renderThread(child, visualDepth + 1))}
+        {isReplying && (
+          <div
+            style={{
+              marginLeft: '2.125rem',
+              marginTop: '0.5rem',
+              paddingLeft: '0.75rem',
+              borderLeft: '2px solid hsl(var(--primary) / 0.3)',
+            }}
+            data-testid={`reply-composer-${comment.id}`}
+          >
+            <p
+              style={{
+                margin: '0 0 0.25rem',
+                fontSize: '0.6875rem',
+                color: 'hsl(var(--muted-foreground))',
+              }}
+            >
+              Replying to{' '}
+              <strong style={{ color: 'hsl(var(--foreground))' }}>
+                {comment.user.full_name ?? 'comment'}
+              </strong>
+            </p>
+            <CommentComposer
+              value={replyContent}
+              onChange={setReplyContent}
+              onSubmit={(encoded) => void handleReply(comment.id, encoded)}
+              onCancel={cancelReply}
+              submitting={replySubmitting}
+              compact
+              enableMentions
+              enableAttachments
+              placeholder={`Reply to ${comment.user.full_name ?? 'this comment'}…`}
+              data-testid={`reply-input-${comment.id}`}
+            />
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  /**
+   * Build a tree of comments from the flat array, keyed by parent_id.
+   * Top-level = comments with no parent_id (or with a parent_id that points
+   * at a comment we don't have — e.g. parent was deleted and SET_NULL kicked
+   * in, leaving the child as a logical top-level).
+   *
+   * `childrenOf[parentId]` is a sorted-by-created-at array of direct children.
+   * The render walks this map recursively, so the visual depth always matches
+   * the actual chain depth. Backend caps at MAX_REPLY_DEPTH=5.
+   */
+  const { roots, childrenOf } = useMemo(() => {
+    const known = new Set(comments.map((c) => c.id))
+    const top: FeedComment[] = []
+    const kids: Record<string, FeedComment[]> = {}
+    for (const c of comments) {
+      // Treat as top-level if parent_id is null OR points at a comment we
+      // don't have (deleted parent — SET_NULL leaves the FK pointing at a
+      // ghost; if optimistic order matters this also catches a parent that
+      // hasn't loaded yet).
+      const effectiveParent = c.parent_id && known.has(c.parent_id) ? c.parent_id : null
+      if (effectiveParent === null) {
+        top.push(c)
+      } else {
+        (kids[effectiveParent] ??= []).push(c)
+      }
+    }
+    for (const k of Object.keys(kids)) {
+      kids[k].sort((a, b) => a.created_at.localeCompare(b.created_at))
+    }
+    top.sort((a, b) => a.created_at.localeCompare(b.created_at))
+    return { roots: top, childrenOf: kids }
+  }, [comments])
 
   return (
     <div
@@ -223,136 +575,42 @@ function CommentSection({ eventId, onCountChange }: CommentSectionProps) {
             </p>
           )}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-            {comments.map((comment) => {
-              const isOwn = user?.id === comment.user.id
-              const isEditing = editingId === comment.id
-              const isDeleting = deletingId === comment.id
-
-              return (
-                <div
-                  key={comment.id}
-                  data-testid={`comment-${comment.id}`}
-                  style={{
-                    display: 'flex',
-                    gap: '0.625rem',
-                    padding: '0.5rem 0',
-                  }}
-                >
-                  <div className="avatar" style={{ width: '1.5rem', height: '1.5rem', fontSize: '0.625rem', flexShrink: 0, marginTop: '0.125rem' }}>
-                    {comment.user.profile_picture ? (
-                      <img src={comment.user.profile_picture} alt="" loading="lazy" decoding="async" />
-                    ) : (
-                      authorInitials(comment.user.full_name)
-                    )}
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.125rem' }}>
-                      <span style={{ fontSize: '0.8125rem', fontWeight: 500 }}>
-                        {comment.user.full_name ?? 'User'}
-                      </span>
-                      <span style={{ fontSize: '0.6875rem', color: 'hsl(var(--muted-foreground))' }}>
-                        {relativeTime(comment.created_at)}
-                        {comment.updated_at !== comment.created_at && ' (edited)'}
-                      </span>
-                      {isOwn && !isEditing && (
-                        <div style={{ display: 'flex', gap: '0.25rem', marginLeft: 'auto' }}>
-                          <button
-                            type="button"
-                            className="btn-sm ghost"
-                            style={{ padding: '0.125rem 0.25rem' }}
-                            onClick={() => startEdit(comment)}
-                            data-testid={`comment-edit-btn-${comment.id}`}
-                          >
-                            <Pencil className="w-3 h-3" />
-                          </button>
-                          <button
-                            type="button"
-                            className="btn-sm ghost"
-                            style={{ padding: '0.125rem 0.25rem', color: '#ef4444' }}
-                            onClick={() => handleDelete(comment.id)}
-                            disabled={isDeleting}
-                            data-testid={`comment-delete-btn-${comment.id}`}
-                          >
-                            <Trash2 className="w-3 h-3" />
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                    {isEditing ? (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
-                        <textarea
-                          className="textarea"
-                          value={editContent}
-                          onChange={(e) => setEditContent(e.target.value)}
-                          rows={2}
-                          maxLength={2000}
-                          style={{ minHeight: '3rem', fontSize: '0.8125rem' }}
-                          data-testid={`comment-edit-input-${comment.id}`}
-                        />
-                        <div style={{ display: 'flex', gap: '0.375rem' }}>
-                          <button
-                            type="button"
-                            className="btn-sm primary"
-                            onClick={() => handleEdit(comment.id)}
-                            disabled={!editContent.trim()}
-                            data-testid={`comment-save-${comment.id}`}
-                          >
-                            <Check className="w-3 h-3" /> Save
-                          </button>
-                          <button
-                            type="button"
-                            className="btn-sm ghost"
-                            onClick={cancelEdit}
-                            data-testid={`comment-cancel-${comment.id}`}
-                          >
-                            <X className="w-3 h-3" /> Cancel
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <Markdown size="sm">{comment.content}</Markdown>
-                    )}
-                  </div>
-                </div>
-              )
-            })}
+            {roots.map((root) => renderThread(root, 0))}
           </div>
         </>
       )}
 
-      <form
+      <div
         data-testid={`comment-form-${eventId}`}
-        onSubmit={handleSubmit}
-        style={{
-          display: 'flex',
-          gap: '0.5rem',
-          marginTop: '0.625rem',
-          alignItems: 'flex-end',
+        style={{ marginTop: '0.625rem' }}
+        onFocus={() => setHintShow(true)}
+        onBlur={(e) => {
+          // Hide the hint when focus leaves the composer entirely (not just
+          // the textarea — the buttons live inside the same wrapper).
+          if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+            setHintShow(false)
+          }
         }}
       >
-        <MarkdownTextarea
-          ref={inputRef}
-          wrapperClassName="flex-1"
-          className="textarea"
+        <CommentComposer
           value={newComment}
-          onChange={(e) => setNewComment(e.target.value)}
-          placeholder="Write a comment..."
-          rows={1}
-          maxLength={2000}
-          style={{ minHeight: '2.25rem', fontSize: '0.8125rem' }}
+          onChange={setNewComment}
+          onSubmit={(encoded) => void handleSubmit(encoded)}
+          submitting={submitting}
+          placeholder="Write a comment…  Type @ to mention, drop a screenshot to attach."
+          enableAttachments
+          enableMentions
+          avatar={
+            user?.avatar_url ? (
+              <img src={user.avatar_url} alt="" loading="lazy" decoding="async" />
+            ) : (
+              authorInitials(user?.full_name ?? 'You')
+            )
+          }
           data-testid={`comment-input-${eventId}`}
-          previewSize="sm"
         />
-        <button
-          type="submit"
-          className="btn-sm primary"
-          disabled={submitting || !newComment.trim()}
-          data-testid={`comment-submit-${eventId}`}
-        >
-          <Send className="w-3.5 h-3.5" />
-          {submitting ? 'Posting...' : 'Post'}
-        </button>
-      </form>
+        <ComposerHint show={hintShow} />
+      </div>
     </div>
   )
 }
@@ -708,6 +966,8 @@ export function FeedPage() {
                   value={form.title}
                   onChange={(e) => setForm((prev) => ({ ...prev, title: e.target.value }))}
                   placeholder="Announce your progress"
+                  // Matches FeedEvent.title's max_length=255 column cap.
+                  maxLength={255}
                   data-testid="post-title-input"
                 />
               </div>
@@ -715,12 +975,21 @@ export function FeedPage() {
 
             <div className="form-group" style={{ marginBottom: '0.75rem' }}>
               <label>Content</label>
-              <MarkdownTextarea
+              {/* Canvas-style editor: drag a screenshot, paste from clipboard,
+                  or hit Attach to inline images and docs into the post.
+                  Goes through /feed/attachments/upload/ which enforces the
+                  MIME allowlist and runs async virus scanning before the
+                  URL is exposed to readers. */}
+              <MarkdownCanvas
                 className="textarea"
                 value={form.content}
-                onChange={(e) => setForm((prev) => ({ ...prev, content: e.target.value }))}
-                rows={3}
-                placeholder="Write the details you want investors to see."
+                onChange={(next) => setForm((prev) => ({ ...prev, content: next }))}
+                rows={4}
+                // Match backend's MAX_POST_CONTENT_CHARS — the textarea
+                // browser-enforces the limit so the user can't get into a
+                // state where their post would fail server validation.
+                maxLength={10000}
+                placeholder="Write the details you want investors to see. Drag-and-drop images or files to attach inline."
                 data-testid="post-content-textarea"
               />
             </div>

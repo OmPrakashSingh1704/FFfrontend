@@ -68,6 +68,14 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
   const [isVideoOff, setIsVideoOff] = useState(false)
   const [isScreenSharing, setIsScreenSharing] = useState(false)
   const [mediaError, setMediaError] = useState<string | null>(null)
+  // True once the remote peer has joined this call (received via
+  // `participant_joined`/`participant_update` from the backend). The
+  // initiator MUST wait for this before sending the WebRTC offer — otherwise
+  // the offer arrives at the receiver's user channel while their activeCall
+  // is still null (they haven't tapped Accept yet) and the message handler
+  // silently drops it. Receiver's "Waiting for the other side…" forever was
+  // exactly this race.
+  const [peerJoined, setPeerJoined] = useState(false)
 
   const pcRef = useRef<RTCPeerConnection | null>(null)
   const screenStreamRef = useRef<MediaStream | null>(null)
@@ -214,17 +222,22 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
   }, [activeCall?.call_id, isScreenSharing, stopScreenShare, sendJson, pushToast])
 
   const endCall = useCallback(async () => {
-    if (!activeCall) return
-    try {
-      await apiRequest(`/chat/calls/${activeCall.call_id}/end/`, { method: 'POST' })
-      removeActiveCallId(activeCall.call_id)
-      pushToast('Call ended', 'info')
-    } catch {
-      pushToast('Unable to end call', 'error')
-    }
+    const call = activeCall
+    if (!call) return
+    // Optimistic local cleanup — fire BEFORE the network round-trip so the
+    // call frame disappears instantly even if the backend is slow or the WS
+    // is dead. If the API ends up failing the server-side row stays "active"
+    // a bit longer, but Celery's stale-call cleanup will expire it.
     setActiveCall(null)
     setInitiatorId(null)
+    removeActiveCallId(call.call_id)
     cleanupMedia()
+    try {
+      await apiRequest(`/chat/calls/${call.call_id}/end/`, { method: 'POST' })
+      pushToast('Call ended', 'info')
+    } catch {
+      pushToast('Call ended locally — server cleanup may lag.', 'warning')
+    }
   }, [activeCall, cleanupMedia, pushToast])
 
   // ── Incoming call ─────────────────────────────────────────────────
@@ -320,10 +333,17 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
     }
   }, [activeCall?.call_id, sendJson, wsStatus])
 
+  // Reset peerJoined whenever we switch calls so the next call starts fresh.
+  useEffect(() => {
+    setPeerJoined(false)
+  }, [activeCall?.call_id])
+
   // ── Initiator: create offer ───────────────────────────────────────
+  // Gated on `peerJoined` — see comment on the state declaration.
 
   useEffect(() => {
     if (!activeCall?.call_id || !remoteUserId || wsStatus !== 'open' || !isInitiator) return
+    if (!peerJoined) return
     let cancelled = false
     const setup = async () => {
       try {
@@ -346,14 +366,14 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
           offerInProgress.current = false
         }
       } catch {
-        /* ignore */
+        offerInProgress.current = false
       }
     }
     void setup()
     return () => {
       cancelled = true
     }
-  }, [activeCall?.call_id, ensureLocalStream, ensurePeerConnection, isInitiator, remoteUserId, sendJson, wsStatus])
+  }, [activeCall?.call_id, ensureLocalStream, ensurePeerConnection, isInitiator, peerJoined, remoteUserId, sendJson, wsStatus])
 
   // ── WebSocket message handler ─────────────────────────────────────
 
@@ -385,6 +405,20 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
       }
 
       if (!activeCall?.call_id || !eventCallId || String(activeCall.call_id) !== eventCallId) return
+
+      // Receiver clicked Accept → backend broadcasts participant_joined (via
+      // call.broadcast_call_event in answer_call). Initiator flips peerJoined
+      // and the create-offer effect fires. Also catch `participant_update`
+      // and `joined_call` defensively in case the backend emits one of those
+      // first (some flows do).
+      if (type === 'call_event' && event.event_type === 'participant_joined') {
+        if (event.data && (event.data as { user_id?: string }).user_id !== String(user?.id ?? '')) {
+          setPeerJoined(true)
+        }
+      }
+      if (type === 'participant_update' && event.user_id && String(event.user_id) !== String(user?.id ?? '')) {
+        if (event.status === 'connected') setPeerJoined(true)
+      }
 
       if (type === 'webrtc_offer' && event.sdp && event.from_user_id) {
         const pc = ensurePeerConnection(event.from_user_id as string)
@@ -423,7 +457,7 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
     } catch {
       /* ignore malformed */
     }
-  }, [activeCall, cleanupMedia, ensureLocalStream, ensurePeerConnection, lastMessage, sendJson])
+  }, [activeCall, cleanupMedia, ensureLocalStream, ensurePeerConnection, lastMessage, sendJson, user?.id])
 
   useEffect(() => {
     if (!activeCall) cleanupMedia()

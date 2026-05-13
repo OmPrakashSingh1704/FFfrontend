@@ -21,6 +21,7 @@ const SignupPage = lazyPage(() => import('./pages/SignupPage'), 'SignupPage')
 const Dashboard = lazyPage(() => import('./pages/Dashboard'), 'Dashboard')
 const FoundersListPage = lazyPage(() => import('./pages/FoundersListPage'), 'FoundersListPage')
 const FounderDetailPage = lazyPage(() => import('./pages/FounderDetailPage'), 'FounderDetailPage')
+const UserRedirectPage = lazyPage(() => import('./pages/UserRedirectPage'), 'UserRedirectPage')
 const StartupsListPage = lazyPage(() => import('./pages/StartupsListPage'), 'StartupsListPage')
 const StartupDetailPage = lazyPage(() => import('./pages/StartupDetailPage'), 'StartupDetailPage')
 const FeedPage = lazyPage(() => import('./pages/FeedPage'), 'FeedPage')
@@ -99,6 +100,14 @@ function App() {
               element={
                 <ProtectedRoute>
                   <FounderDetailPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/app/users/:id"
+              element={
+                <ProtectedRoute>
+                  <UserRedirectPage />
                 </ProtectedRoute>
               }
             />

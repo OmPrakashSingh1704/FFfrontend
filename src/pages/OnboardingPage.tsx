@@ -8,9 +8,8 @@ import { useToast } from '../context/ToastContext'
 import { apiRequest, uploadRequest } from '../lib/api'
 import { hasErrors, validateRequired } from '../lib/forms'
 
-type Role = 'founder' | 'investor' | 'both'
 
-type ProfileErrors = Partial<Record<'full_name' | 'form', string>>
+type ProfileErrors = Partial<Record<'full_name' | 'profiles' | 'form', string>>
 type FounderErrors = Partial<Record<'headline' | 'form', string>>
 type StartupErrors = Partial<Record<'name' | 'description' | 'industry' | 'form', string>>
 type InvestorErrors = Partial<
@@ -184,11 +183,22 @@ export function OnboardingPage() {
   const { user, refreshUser } = useAuth()
   const { pushToast } = useToast()
 
-  const [role, setRole] = useState<Role>((user?.role as Role) || 'founder')
   const [fullName, setFullName] = useState(user?.full_name ?? '')
   const [phone, setPhone] = useState(user?.phone ?? '')
   const avatarUploadInputRef = useRef<HTMLInputElement | null>(null)
   const [pendingAvatarFile, setPendingAvatarFile] = useState<File | null>(null)
+  // Which profile(s) the user wants to create — drives which subsequent
+  // wizard tabs are visible. Default to founder so the wizard works even if
+  // the user hits Save without touching the picker; they can always come
+  // back via the standalone profile pages.
+  type SelectableProfile = 'founder' | 'investor'
+  const [selectedProfiles, setSelectedProfiles] = useState<SelectableProfile[]>(() => {
+    if (user?.primary_mode === 'investor') return ['investor']
+    if (user?.primary_mode === 'founder') return ['founder']
+    return ['founder']
+  })
+  const [profilesDropdownOpen, setProfilesDropdownOpen] = useState(false)
+  const profilesDropdownRef = useRef<HTMLDivElement | null>(null)
   const stageDropdownRef = useRef<HTMLDivElement | null>(null)
   const primaryIndustryDropdownRef = useRef<HTMLDivElement | null>(null)
   const secondaryIndustryDropdownRef = useRef<HTMLDivElement | null>(null)
@@ -287,6 +297,16 @@ export function OnboardingPage() {
     [],
   )
 
+  const toggleProfileSelection = useCallback((profile: SelectableProfile) => {
+    setSelectedProfiles((prev) => {
+      if (prev.includes(profile)) {
+        return prev.filter((p) => p !== profile)
+      }
+      // Preserve a stable order so labels read "Founder, Investor" not "Investor, Founder".
+      return (['founder', 'investor'] as const).filter((p) => [...prev, profile].includes(p))
+    })
+  }, [])
+
   const toggleStageSelection = useCallback((stage: string) => {
     setStagesFocus((prev) => {
       if (prev.includes(stage)) {
@@ -343,8 +363,12 @@ export function OnboardingPage() {
 
   const [activeStep, setActiveStep] = useState(0)
 
-  const isFounder = role === 'founder' || role === 'both'
-  const isInvestor = role === 'investor' || role === 'both'
+  // Wizard sections shown beyond "Profile basics" follow the user's pick
+  // on the profile step. Backend still auto-derives the user's role from
+  // which profiles actually get created (see
+  // User.recompute_role_from_profiles), so this is a UI affordance only.
+  const isFounder = selectedProfiles.includes('founder')
+  const isInvestor = selectedProfiles.includes('investor')
 
   const loadOnboarding = useCallback(async () => {
     setLoadingSteps(true)
@@ -368,18 +392,6 @@ export function OnboardingPage() {
   }, [loadOnboarding])
 
   useEffect(() => {
-    if (user?.role) {
-      setRole(user.role as Role)
-    }
-  }, [user?.role])
-
-  useEffect(() => {
-    if (status?.role) {
-      setRole(status.role as Role)
-    }
-  }, [status?.role])
-
-  useEffect(() => {
     setFullName(user?.full_name ?? '')
     setPhone(user?.phone ?? '')
     setDisplayName(user?.full_name ?? '')
@@ -394,7 +406,7 @@ export function OnboardingPage() {
   }, [])
 
   useEffect(() => {
-    if (!stageDropdownOpen && !primaryIndustryDropdownOpen && !secondaryIndustryDropdownOpen) return
+    if (!stageDropdownOpen && !primaryIndustryDropdownOpen && !secondaryIndustryDropdownOpen && !profilesDropdownOpen) return
 
     const handleClick = (event: MouseEvent) => {
       const target = event.target as Node
@@ -407,13 +419,16 @@ export function OnboardingPage() {
       if (secondaryIndustryDropdownOpen && secondaryIndustryDropdownRef.current && !secondaryIndustryDropdownRef.current.contains(target)) {
         setSecondaryIndustryDropdownOpen(false)
       }
+      if (profilesDropdownOpen && profilesDropdownRef.current && !profilesDropdownRef.current.contains(target)) {
+        setProfilesDropdownOpen(false)
+      }
     }
 
     document.addEventListener('mousedown', handleClick)
     return () => {
       document.removeEventListener('mousedown', handleClick)
     }
-  }, [stageDropdownOpen, primaryIndustryDropdownOpen, secondaryIndustryDropdownOpen])
+  }, [stageDropdownOpen, primaryIndustryDropdownOpen, secondaryIndustryDropdownOpen, profilesDropdownOpen])
 
   // Build the visible steps list based on role
   const visibleSteps = useMemo(() => {
@@ -460,6 +475,20 @@ export function OnboardingPage() {
     },
     [visibleSteps, goToStep],
   )
+
+  /**
+   * Advance past the current section without saving anything. Used by the
+   * "Skip this section" button on the founder / startup / investor steps —
+   * because the wizard now always shows both founder AND investor paths,
+   * a user who only wants one needs to be able to opt out of the other
+   * without filling the form. They can always come back to it later by
+   * hitting the standalone profile-create endpoints.
+   */
+  const skipCurrentSection = useCallback(() => {
+    if (activeStep < visibleSteps.length - 1) {
+      goToStepByIndex(activeStep + 1)
+    }
+  }, [activeStep, visibleSteps, goToStepByIndex])
 
   const getVisibleStepIdFromName = useCallback(
     (stepName?: string | null) => {
@@ -536,7 +565,10 @@ export function OnboardingPage() {
 
   const handleProfileSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    const nextErrors = validateRequired({ full_name: fullName })
+    const nextErrors: ProfileErrors = validateRequired({ full_name: fullName })
+    if (selectedProfiles.length === 0) {
+      nextErrors.profiles = 'Pick at least one profile to create'
+    }
     if (hasErrors(nextErrors)) {
       setProfileErrors(nextErrors)
       return
@@ -545,11 +577,18 @@ export function OnboardingPage() {
     setSavingProfile(true)
     setProfileErrors({})
     try {
+      // If exactly one profile was picked, persist it as the user's
+      // primary_mode so the rest of the app (profile page default tab,
+      // matching feed) honors the same choice. If both are picked, leave
+      // primary_mode unset and let the user pick later on the profile page.
+      const primaryMode =
+        selectedProfiles.length === 1 ? selectedProfiles[0] : null
       await apiRequest('/users/me/profile/', {
         method: 'PUT',
         body: {
           full_name: fullName,
           phone: phone || undefined,
+          primary_mode: primaryMode,
         },
       })
       if (pendingAvatarFile) {
@@ -563,8 +602,11 @@ export function OnboardingPage() {
       await refreshUser()
       await loadOnboarding()
       pushToast('Profile updated', 'success')
-      if (visibleSteps.some((step) => step.id === 'founder')) {
+      // Jump to the first selected section.
+      if (isFounder) {
         goToStep('founder')
+      } else if (isInvestor) {
+        goToStep('investor')
       } else {
         goToStepByIndex(activeStep + 1)
       }
@@ -810,6 +852,77 @@ export function OnboardingPage() {
                 </FormField>
               </div>
               <div className="form-group">
+                <FormField
+                  label="Which profile would you like to create?"
+                  error={profileErrors.profiles}
+                >
+                  <div
+                    ref={profilesDropdownRef}
+                    className="relative"
+                    style={{ minWidth: '16rem', maxWidth: '100%' }}
+                    data-testid="onboarding-profiles-picker"
+                  >
+                    <button
+                      type="button"
+                      className="input flex items-center justify-between gap-2"
+                      onClick={() => setProfilesDropdownOpen((open) => !open)}
+                      aria-haspopup="listbox"
+                      aria-expanded={profilesDropdownOpen}
+                      data-testid="onboarding-profiles-select"
+                    >
+                      {selectedProfiles.length > 0 ? (
+                        <div
+                          className="flex gap-1 items-center"
+                          style={{ minHeight: '1.25rem', flexWrap: 'wrap' }}
+                        >
+                          {selectedProfiles.map((p) => (
+                            <span key={p} className="badge" style={{ whiteSpace: 'nowrap' }}>
+                              {p === 'founder' ? 'Founder' : 'Investor'}
+                            </span>
+                          ))}
+                        </div>
+                      ) : (
+                        <span style={{ color: 'hsl(var(--muted-foreground))' }}>
+                          Pick at least one
+                        </span>
+                      )}
+                      <ChevronDown
+                        size={16}
+                        className={`transition-transform ${profilesDropdownOpen ? 'rotate-180' : ''}`}
+                      />
+                    </button>
+                    {profilesDropdownOpen && (
+                      <div className="card" style={dropdownPanelStyle} role="listbox" aria-multiselectable="true">
+                        <div style={dropdownListStyle}>
+                          {(['founder', 'investor'] as const).map((p) => {
+                            const checked = selectedProfiles.includes(p)
+                            return (
+                              <label
+                                key={p}
+                                style={getOptionStyle(checked)}
+                                data-testid={`onboarding-profile-option-${p}`}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={checked}
+                                  onChange={() => toggleProfileSelection(p)}
+                                  style={{ accentColor: 'var(--gold)' }}
+                                />
+                                <span>
+                                  {p === 'founder'
+                                    ? 'Founder — adds Founder + Startup tabs'
+                                    : 'Investor — adds Investor tab'}
+                                </span>
+                              </label>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </FormField>
+              </div>
+              <div className="form-group">
                 <FormField label="Avatar (applies on save)">
                   <div className="flex gap-3 items-center">
                     <button
@@ -937,6 +1050,15 @@ export function OnboardingPage() {
               <button className="btn primary w-full" type="submit" disabled={savingFounder}>
                 {savingFounder ? 'Saving...' : 'Save founder profile'}
               </button>
+              <button
+                type="button"
+                className="btn ghost w-full"
+                onClick={skipCurrentSection}
+                disabled={savingFounder}
+                data-testid="onboarding-skip-founder"
+              >
+                Not a founder — skip this section
+              </button>
             </form>
           </div>
         )
@@ -1063,6 +1185,15 @@ export function OnboardingPage() {
               </div>
               <button className="btn primary w-full" type="submit" disabled={savingStartup}>
                 {savingStartup ? 'Saving...' : 'Save startup'}
+              </button>
+              <button
+                type="button"
+                className="btn ghost w-full"
+                onClick={skipCurrentSection}
+                disabled={savingStartup}
+                data-testid="onboarding-skip-startup"
+              >
+                No startup yet — skip
               </button>
             </form>
           </div>
@@ -1379,6 +1510,15 @@ export function OnboardingPage() {
               </div>
               <button className="btn primary w-full" type="submit" disabled={savingInvestor}>
                 {savingInvestor ? 'Saving...' : 'Save investor profile'}
+              </button>
+              <button
+                type="button"
+                className="btn ghost w-full"
+                onClick={skipCurrentSection}
+                disabled={savingInvestor}
+                data-testid="onboarding-skip-investor"
+              >
+                Not an investor — skip this section
               </button>
             </form>
           </div>

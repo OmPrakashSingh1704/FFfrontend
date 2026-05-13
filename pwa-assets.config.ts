@@ -6,12 +6,12 @@ export default defineConfig({
     maskable: {
       ...minimal2023Preset.maskable,
       padding: 0.3,
-      resizeOptions: { background: '#0F766E', fit: 'contain' },
+      resizeOptions: { background: '#171717', fit: 'contain' },
     },
     apple: {
       ...minimal2023Preset.apple,
       padding: 0.3,
-      resizeOptions: { background: '#0F766E', fit: 'contain' },
+      resizeOptions: { background: '#171717', fit: 'contain' },
     },
   },
   images: ['src/assets/logo-mark.svg'],

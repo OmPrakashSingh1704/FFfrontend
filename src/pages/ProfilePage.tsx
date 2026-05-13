@@ -173,16 +173,25 @@ export function ProfilePage() {
   const [editing, setEditing] = useState(false)
   const [fullName, setFullName] = useState(user?.full_name ?? '')
   const [phone, setPhone] = useState(user?.phone ?? '')
+  // User's preferred default mode (founder/investor). Drives the default tab
+  // below and the default match feed on /app/matching.
+  const [primaryMode, setPrimaryMode] = useState<'founder' | 'investor'>(
+    user?.primary_mode ?? (user?.role === 'investor' ? 'investor' : 'founder'),
+  )
   const [saving, setSaving] = useState(false)
   const [uploading, setUploading] = useState<'profile' | 'background' | null>(null)
   const [founderProfileId, setFounderProfileId] = useState<string | null>(null)
   const [investorProfileId, setInvestorProfileId] = useState<string | null>(null)
 
-  // Founder / Investor profile section
-  const role = user?.role
-  const showFounder = role === 'founder'
-  const showInvestor = role === 'investor'
-  const [profileTab, setProfileTab] = useState<'founder' | 'investor'>(showFounder ? 'founder' : 'investor')
+  // Founder / Investor profile section.
+  // Both tabs are always available. The user can create or update either
+  // (or both) profile from this page. The backend auto-derives `role` from
+  // which profiles exist (see User.recompute_role_from_profiles).
+  // Default tab follows the user's chosen primary_mode; if unset, fall back
+  // to current role so a returning investor doesn't land on an empty founder form.
+  const initialTab: 'founder' | 'investor' =
+    user?.primary_mode ?? (user?.role === 'investor' ? 'investor' : 'founder')
+  const [profileTab, setProfileTab] = useState<'founder' | 'investor'>(initialTab)
   const [founderForm, setFounderForm] = useState<FounderForm>(defaultFounderForm())
   const [founderIsNew, setFounderIsNew] = useState(false)
   const [founderLoading, setFounderLoading] = useState(true)
@@ -224,74 +233,68 @@ export function ProfilePage() {
   const backgroundUrl = resolveMediaUrl(user?.background_image ?? user?.background_picture)
   const hasBackground = Boolean(backgroundUrl)
 
-  // Load shareable profile IDs + full profile data for edit forms
+  // Load shareable profile IDs + full profile data for edit forms.
+  // Both profiles are fetched in parallel. A 404 means the profile doesn't
+  // exist yet, which flips the form into "create" mode.
   useEffect(() => {
-    if (showFounder) {
-      setFounderLoading(true)
-      apiRequest<{
-        id?: string; headline?: string; bio?: string; location?: string
-        linkedin_url?: string; twitter_url?: string; website_url?: string
-        fundraising_status?: string; current_stage?: string; skills?: string[]; is_public?: boolean
-      }>('/founders/profile/me/')
-        .then((d) => {
-          if (d.id) setFounderProfileId(d.id)
-          setFounderForm({
-            headline: d.headline ?? '', bio: d.bio ?? '', location: d.location ?? '',
-            linkedin_url: d.linkedin_url ?? '', twitter_url: d.twitter_url ?? '',
-            website_url: d.website_url ?? '', fundraising_status: d.fundraising_status ?? '',
-            current_stage: d.current_stage ?? '', skills: (d.skills ?? []).join(', '),
-            is_public: d.is_public ?? true,
-          })
-          setFounderIsNew(false)
+    setFounderLoading(true)
+    apiRequest<{
+      id?: string; headline?: string; bio?: string; location?: string
+      linkedin_url?: string; twitter_url?: string; website_url?: string
+      fundraising_status?: string; current_stage?: string; skills?: string[]; is_public?: boolean
+    }>('/founders/profile/me/')
+      .then((d) => {
+        if (d.id) setFounderProfileId(d.id)
+        setFounderForm({
+          headline: d.headline ?? '', bio: d.bio ?? '', location: d.location ?? '',
+          linkedin_url: d.linkedin_url ?? '', twitter_url: d.twitter_url ?? '',
+          website_url: d.website_url ?? '', fundraising_status: d.fundraising_status ?? '',
+          current_stage: d.current_stage ?? '', skills: (d.skills ?? []).join(', '),
+          is_public: d.is_public ?? true,
         })
-        .catch(() => setFounderIsNew(true))
-        .finally(() => setFounderLoading(false))
-    } else {
-      setFounderLoading(false)
-    }
+        setFounderIsNew(false)
+      })
+      .catch(() => setFounderIsNew(true))
+      .finally(() => setFounderLoading(false))
 
-    if (showInvestor) {
-      setInvestorLoading(true)
-      apiRequest<{
-        id?: string; display_name?: string; fund_name?: string; investor_type?: string
-        headline?: string; bio?: string; investment_thesis?: string; location?: string
-        check_size_min?: number | null; check_size_max?: number | null
-        stages_focus?: string[]; industries_focus?: string[]; geography_focus?: string[]
-        linkedin_url?: string; twitter_url?: string; website_url?: string
-        portfolio_companies?: string[]; discoverability_mode?: string
-        risk_appetite?: string; value_add?: string
-        board_seat_requirement?: boolean; lead_investor?: boolean
-        follow_on_participation?: boolean; co_invest_open?: boolean
-      }>('/investors/profile/me/')
-        .then((d) => {
-          if (d.id) setInvestorProfileId(d.id)
-          setInvestorForm({
-            display_name: d.display_name ?? '', fund_name: d.fund_name ?? '',
-            investor_type: d.investor_type ?? '', headline: d.headline ?? '',
-            bio: d.bio ?? '', investment_thesis: d.investment_thesis ?? '',
-            location: d.location ?? '',
-            check_size_min: d.check_size_min != null ? String(d.check_size_min) : '',
-            check_size_max: d.check_size_max != null ? String(d.check_size_max) : '',
-            stages_focus: d.stages_focus ?? [], industries_focus: d.industries_focus ?? [],
-            geography_focus: (d.geography_focus ?? []).join(', '),
-            linkedin_url: d.linkedin_url ?? '', twitter_url: d.twitter_url ?? '',
-            website_url: d.website_url ?? '',
-            portfolio_companies: (d.portfolio_companies ?? []).join(', '),
-            discoverability_mode: d.discoverability_mode ?? 'open',
-            risk_appetite: d.risk_appetite ?? '', value_add: d.value_add ?? '',
-            board_seat_requirement: d.board_seat_requirement ?? false,
-            lead_investor: d.lead_investor ?? false,
-            follow_on_participation: d.follow_on_participation ?? false,
-            co_invest_open: d.co_invest_open ?? false,
-          })
-          setInvestorIsNew(false)
+    setInvestorLoading(true)
+    apiRequest<{
+      id?: string; display_name?: string; fund_name?: string; investor_type?: string
+      headline?: string; bio?: string; investment_thesis?: string; location?: string
+      check_size_min?: number | null; check_size_max?: number | null
+      stages_focus?: string[]; industries_focus?: string[]; geography_focus?: string[]
+      linkedin_url?: string; twitter_url?: string; website_url?: string
+      portfolio_companies?: string[]; discoverability_mode?: string
+      risk_appetite?: string; value_add?: string
+      board_seat_requirement?: boolean; lead_investor?: boolean
+      follow_on_participation?: boolean; co_invest_open?: boolean
+    }>('/investors/profile/me/')
+      .then((d) => {
+        if (d.id) setInvestorProfileId(d.id)
+        setInvestorForm({
+          display_name: d.display_name ?? '', fund_name: d.fund_name ?? '',
+          investor_type: d.investor_type ?? '', headline: d.headline ?? '',
+          bio: d.bio ?? '', investment_thesis: d.investment_thesis ?? '',
+          location: d.location ?? '',
+          check_size_min: d.check_size_min != null ? String(d.check_size_min) : '',
+          check_size_max: d.check_size_max != null ? String(d.check_size_max) : '',
+          stages_focus: d.stages_focus ?? [], industries_focus: d.industries_focus ?? [],
+          geography_focus: (d.geography_focus ?? []).join(', '),
+          linkedin_url: d.linkedin_url ?? '', twitter_url: d.twitter_url ?? '',
+          website_url: d.website_url ?? '',
+          portfolio_companies: (d.portfolio_companies ?? []).join(', '),
+          discoverability_mode: d.discoverability_mode ?? 'open',
+          risk_appetite: d.risk_appetite ?? '', value_add: d.value_add ?? '',
+          board_seat_requirement: d.board_seat_requirement ?? false,
+          lead_investor: d.lead_investor ?? false,
+          follow_on_participation: d.follow_on_participation ?? false,
+          co_invest_open: d.co_invest_open ?? false,
         })
-        .catch(() => setInvestorIsNew(true))
-        .finally(() => setInvestorLoading(false))
-    } else {
-      setInvestorLoading(false)
-    }
-  }, [showFounder, showInvestor])
+        setInvestorIsNew(false)
+      })
+      .catch(() => setInvestorIsNew(true))
+      .finally(() => setInvestorLoading(false))
+  }, [])
 
   const handleSaveFounderProfile = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -316,8 +319,12 @@ export function ProfilePage() {
         },
       )
       if (res.id) setFounderProfileId(res.id)
+      const wasNew = founderIsNew
       setFounderIsNew(false)
-      pushToast(founderIsNew ? 'Founder profile created' : 'Founder profile updated', 'success')
+      pushToast(wasNew ? 'Founder profile created' : 'Founder profile updated', 'success')
+      // Backend recomputed role on create — pull fresh user so the UI
+      // (matching mode picker, header role badge) reflects it.
+      if (wasNew) void refreshUser()
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Failed to save'
       setFounderErrors({ form: msg })
@@ -361,8 +368,10 @@ export function ProfilePage() {
         },
       )
       if (res.id) setInvestorProfileId(res.id)
+      const wasNew = investorIsNew
       setInvestorIsNew(false)
-      pushToast(investorIsNew ? 'Investor profile created' : 'Investor profile updated', 'success')
+      pushToast(wasNew ? 'Investor profile created' : 'Investor profile updated', 'success')
+      if (wasNew) void refreshUser()
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Failed to save'
       setInvestorErrors({ form: msg })
@@ -575,9 +584,11 @@ export function ProfilePage() {
     try {
       await apiRequest('/users/me/profile/', {
         method: 'PATCH',
-        body: { full_name: fullName, phone: phone || null },
+        body: { full_name: fullName, phone: phone || null, primary_mode: primaryMode },
       })
       await refreshUser()
+      // Sync the visible profile tab with the new primary mode.
+      setProfileTab(primaryMode)
       pushToast('Profile updated', 'success')
       setEditing(false)
     } catch {
@@ -806,6 +817,7 @@ export function ProfilePage() {
               onClick={() => {
                 setFullName(user?.full_name ?? '')
                 setPhone(user?.phone ?? '')
+                setPrimaryMode(user?.primary_mode ?? (user?.role === 'investor' ? 'investor' : 'founder'))
                 setEditing(true)
               }}
             >
@@ -850,6 +862,41 @@ export function ProfilePage() {
                 data-testid="input-phone"
                 placeholder="Phone number"
               />
+            </div>
+
+            <div className="form-group" data-testid="primary-mode-picker">
+              <label>
+                <Shield size={14} strokeWidth={1.5} style={{ display: 'inline', verticalAlign: -2, marginRight: 6 }} />
+                Primary mode
+              </label>
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                {(['founder', 'investor'] as const).map((m) => (
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() => setPrimaryMode(m)}
+                    data-testid={`primary-mode-${m}`}
+                    style={{
+                      flex: 1,
+                      padding: '0.5rem 0.75rem',
+                      borderRadius: '0.5rem',
+                      fontSize: '0.875rem',
+                      fontWeight: 500,
+                      cursor: 'pointer',
+                      border: '1px solid',
+                      background: primaryMode === m ? 'hsl(var(--primary))' : 'transparent',
+                      color: primaryMode === m ? 'hsl(var(--primary-foreground))' : 'hsl(var(--muted-foreground))',
+                      borderColor: primaryMode === m ? 'hsl(var(--primary))' : 'hsl(var(--border))',
+                      transition: 'all 0.15s',
+                    }}
+                  >
+                    {m === 'founder' ? 'Founder' : 'Investor'}
+                  </button>
+                ))}
+              </div>
+              <p style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))', marginTop: '0.375rem', marginBottom: 0 }}>
+                Sets the default tab on this page and your default match feed.
+              </p>
             </div>
 
             <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end', marginTop: '1rem' }}>
@@ -900,43 +947,52 @@ export function ProfilePage() {
               <span style={{ flex: 1, color: 'hsl(var(--muted-foreground))', fontSize: '0.875rem' }}>Phone</span>
               <span style={{ fontSize: '0.875rem' }}>{user?.phone || '--'}</span>
             </div>
+            <hr className="divider" style={{ margin: 0 }} />
+            <div className="list-item" style={{ cursor: 'default' }} data-testid="primary-mode-display">
+              <Shield size={14} strokeWidth={1.5} style={{ color: 'hsl(var(--muted-foreground))' }} />
+              <span style={{ flex: 1, color: 'hsl(var(--muted-foreground))', fontSize: '0.875rem' }}>Primary mode</span>
+              <span style={{ fontSize: '0.875rem', textTransform: 'capitalize' }}>
+                {user?.primary_mode || (user?.role === 'investor' ? 'investor' : 'founder')}
+              </span>
+            </div>
           </div>
         )}
       </div>
 
-      {/* Founder / Investor Profile Section */}
-      {(showFounder || showInvestor) && (
-        <div className="card" style={{ marginBottom: '1.5rem' }}>
+      {/* Founder / Investor Profile Section — both tabs always available */}
+      <div className="card" style={{ marginBottom: '1.5rem' }}>
           <div className="card-header">
-            <span className="card-title">
-              {showFounder && showInvestor ? 'Founder & Investor Profile' : showFounder ? 'Founder Profile' : 'Investor Profile'}
-            </span>
-            {(showFounder && founderProfileId) && profileTab === 'founder' && (
+            <span className="card-title">Founder &amp; Investor Profile</span>
+            {founderProfileId && profileTab === 'founder' && (
               <CopyLinkButton url={`${window.location.origin}/app/founders/${founderProfileId}`} label="Share" />
             )}
-            {(showInvestor && investorProfileId) && profileTab === 'investor' && (
+            {investorProfileId && profileTab === 'investor' && (
               <CopyLinkButton url={`${window.location.origin}/app/investors/${investorProfileId}`} label="Share" />
             )}
           </div>
 
           {/* Tabs */}
-          {showFounder && showInvestor && (
-            <div style={{ display: 'flex', gap: '0', borderBottom: '1px solid hsl(var(--border))', marginBottom: '1.5rem' }}>
-              {(['founder', 'investor'] as const).map((tab) => (
-                <button key={tab} type="button" onClick={() => setProfileTab(tab)} style={{
+          <div style={{ display: 'flex', gap: '0', borderBottom: '1px solid hsl(var(--border))', marginBottom: '1.5rem' }} data-testid="profile-tabs">
+            {(['founder', 'investor'] as const).map((tab) => (
+              <button
+                key={tab}
+                type="button"
+                onClick={() => setProfileTab(tab)}
+                data-testid={`profile-tab-${tab}`}
+                style={{
                   padding: '0.5rem 1.25rem', fontSize: '0.875rem', fontWeight: 500, border: 'none',
                   cursor: 'pointer', background: 'transparent', borderBottom: `2px solid ${profileTab === tab ? 'hsl(var(--primary))' : 'transparent'}`,
                   color: profileTab === tab ? 'hsl(var(--primary))' : 'hsl(var(--muted-foreground))',
                   marginBottom: '-1px', transition: 'all 0.15s',
-                }}>
-                  {tab === 'founder' ? 'Founder Profile' : 'Investor Profile'}
-                </button>
-              ))}
-            </div>
-          )}
+                }}
+              >
+                {tab === 'founder' ? 'Founder Profile' : 'Investor Profile'}
+              </button>
+            ))}
+          </div>
 
           {/* ── Founder Profile Form ── */}
-          {profileTab === 'founder' && showFounder && (
+          {profileTab === 'founder' && (
             founderLoading ? (
               <div style={{ display: 'flex', justifyContent: 'center', padding: '2rem' }}>
                 <Loader2 className="w-5 h-5 animate-spin" />
@@ -1040,7 +1096,7 @@ export function ProfilePage() {
           )}
 
           {/* ── Investor Profile Form ── */}
-          {profileTab === 'investor' && showInvestor && (
+          {profileTab === 'investor' && (
             investorLoading ? (
               <div style={{ display: 'flex', justifyContent: 'center', padding: '2rem' }}>
                 <Loader2 className="w-5 h-5 animate-spin" />
@@ -1222,8 +1278,7 @@ export function ProfilePage() {
               </form>
             )
           )}
-        </div>
-      )}
+      </div>
 
       {/* My Startups & Documents */}
       <div className="card">

@@ -1,17 +1,26 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import {
   Phone, Video, Mic, MicOff, VideoOff, PhoneOff,
-  RefreshCw, ChevronDown, ChevronUp, Clock, ArrowLeft,
-  Monitor, MonitorX, Minimize2,
+  ArrowLeft, Monitor, MonitorX, Minimize2, PhoneIncoming, PhoneOutgoing,
+  PhoneMissed,
 } from 'lucide-react'
 import { apiRequest } from '../lib/api'
 import { addActiveCallId } from '../lib/callSession'
 import { useCall } from '../context/CallContext'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
-import type { CallEvent, CallSession } from '../types/call'
+import type { CallSession } from '../types/call'
 
+/**
+ * Calls page — destination view for an active call + a clean history list.
+ *
+ * Design intent: this page is reached by clicking the phone/video icon in a
+ * chat, or by accepting an incoming call. It is NOT a control panel for
+ * starting calls — that flow lives in the chat header. Anything that smells
+ * like a debug surface (UUID paste-in, raw signaling log, "refresh status"
+ * button) has been removed so this page focuses on the actual call.
+ */
 export function CallsPage() {
   const navigate = useNavigate()
   const { pushToast } = useToast()
@@ -25,18 +34,13 @@ export function CallsPage() {
     isMuted, isVideoOff, isScreenSharing,
     mediaError, wsStatus,
     toggleMute, toggleVideo, toggleScreenShare,
-    endCall, minimizeCall, sendJson, lastMessage,
+    endCall, minimizeCall,
   } = useCall()
 
   const [history, setHistory] = useState<CallSession[]>([])
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [conversationId, setConversationId] = useState('')
-  const [callType, setCallType] = useState<'voice' | 'video'>('video')
-  const [targetUserIds, setTargetUserIds] = useState('')
-  const [targetUserEmails, setTargetUserEmails] = useState('')
-  const [events, setEvents] = useState<CallEvent[]>([])
-  const [showSignalingLog, setShowSignalingLog] = useState(false)
+  const [historyError, setHistoryError] = useState<string | null>(null)
+  const [callDurationSec, setCallDurationSec] = useState(0)
 
   const localVideoRef = useCallback(
     (node: HTMLVideoElement | null) => {
@@ -52,55 +56,64 @@ export function CallsPage() {
     [remoteStream],
   )
 
-  // Collect signaling events for log
-  useEffect(() => {
-    if (!lastMessage?.data) return
-    try {
-      const event = JSON.parse(lastMessage.data as string) as CallEvent
-      setEvents((prev) => [event, ...prev].slice(0, 12))
-    } catch { /* ignore */ }
-  }, [lastMessage])
-
-  // Load call from URL param (incoming answer or direct link)
+  // Load call from URL param (deep-link or returning to a minimized call).
+  //
+  // Terminal-state guard: when the OTHER party hangs up, CallContext clears
+  // activeCall via the call_ended WS event — but the URL on this side still
+  // says ?callId=X. Without the status check below, this effect would
+  // happily re-fetch the now-ENDED call and re-mount the call frame as if
+  // we were still in it. Filter out terminal statuses; if we land on a
+  // terminal call, just strip the URL param and show the empty state.
   useEffect(() => {
     if (!callIdParam || activeCall?.call_id === callIdParam) return
     let cancelled = false
-    const loadCall = async () => {
+    void (async () => {
       try {
         const call = await apiRequest<CallSession>(`/chat/calls/${callIdParam}/`)
-        if (!cancelled) {
-          setActiveCall(call)
-          if (call.initiator_id) setInitiatorId(String(call.initiator_id))
-          addActiveCallId(call.call_id)
-          if (call.conversation_id) {
-            setConversationId((prev) => prev || call.conversation_id!)
-          }
+        if (cancelled) return
+        const terminal = new Set(['ended', 'missed', 'declined', 'failed'])
+        if (call.status && terminal.has(String(call.status).toLowerCase())) {
+          // Don't re-mount a finished call. Drop the URL param so the
+          // user sees the empty state cleanly.
+          navigate('/app/calls', { replace: true })
+          return
         }
+        setActiveCall(call)
+        if (call.initiator_id) setInitiatorId(String(call.initiator_id))
+        addActiveCallId(call.call_id)
       } catch {
         if (!cancelled) pushToast('Unable to load call details', 'error')
       }
-    }
-    void loadCall()
+    })()
     return () => { cancelled = true }
-  }, [callIdParam, activeCall?.call_id, setActiveCall, setInitiatorId, pushToast])
+  }, [callIdParam, activeCall?.call_id, setActiveCall, setInitiatorId, pushToast, navigate])
 
-  // Populate conversationId from query
+  // Tick a duration timer for the active call. Independent of the backend's
+  // duration_seconds (which only updates on call end) so the UI shows live
+  // mm:ss without re-fetching.
   useEffect(() => {
-    const fromQuery = searchParams.get('conversationId')
-    if (fromQuery) setConversationId((prev) => prev || fromQuery)
-  }, [searchParams])
+    if (!activeCall?.started_at) {
+      setCallDurationSec(0)
+      return
+    }
+    const startedAt = new Date(activeCall.started_at).getTime()
+    const tick = () => setCallDurationSec(Math.max(0, Math.floor((Date.now() - startedAt) / 1000)))
+    tick()
+    const id = window.setInterval(tick, 1000)
+    return () => window.clearInterval(id)
+  }, [activeCall?.started_at, activeCall?.call_id])
 
   // Load call history
   useEffect(() => {
     let cancelled = false
     const load = async () => {
       setLoading(true)
-      setError(null)
+      setHistoryError(null)
       try {
         const data = await apiRequest<{ calls: CallSession[] }>('/chat/calls/history/')
         if (!cancelled) setHistory(data.calls ?? [])
       } catch {
-        if (!cancelled) setError('Unable to load call history.')
+        if (!cancelled) setHistoryError('Unable to load call history.')
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -109,194 +122,208 @@ export function CallsPage() {
     return () => { cancelled = true }
   }, [])
 
-  const handleStartCall = async () => {
-    if (!conversationId.trim()) {
-      setError('Enter a conversation ID to start a call.')
-      return
-    }
-    setError(null)
-    try {
-      const ids = targetUserIds.split(',').map((v) => v.trim()).filter(Boolean)
-      const emails = targetUserEmails.split(',').map((v) => v.trim()).filter(Boolean)
-      const payload: Record<string, unknown> = {
-        conversation_id: conversationId.trim(),
-        call_type: callType,
-      }
-      if (ids.length) payload.target_user_ids = ids
-      if (emails.length) payload.target_user_emails = emails
-
-      const call = await apiRequest<CallSession>('/chat/calls/initiate/', {
-        method: 'POST',
-        body: payload,
-      })
-      setActiveCall(call)
-      if (user?.id) setInitiatorId(String(user.id))
-      addActiveCallId(call.call_id)
-      pushToast('Call created. Waiting for response...', 'success')
-      sendJson({ type: 'join_call', call_id: call.call_id })
-    } catch {
-      setError('Unable to start call.')
-    }
-  }
-
   const handleEndCall = async () => {
-    await endCall()
-    // Clear URL params so the load-from-URL effect doesn't re-fetch the now-ended call
+    // Strip the URL param FIRST so the load-from-URL effect can't re-fetch
+    // the call mid-end (which would re-mount the call frame for an instant
+    // before endCall finishes clearing state). endCall is optimistic — it
+    // clears local state synchronously — so navigating now is safe.
     navigate('/app/calls', { replace: true })
+    await endCall()
   }
 
-  const handleRefreshStatus = async () => {
-    if (!activeCall) return
-    try {
-      const updated = await apiRequest<CallSession>(`/chat/calls/${activeCall.call_id}/`)
-      setActiveCall(updated)
-      if (updated.initiator_id) setInitiatorId(String(updated.initiator_id))
-      pushToast('Call status updated', 'success')
-    } catch {
-      pushToast('Unable to refresh status', 'error')
+  // Name of the remote participant for an active call. Falls back to a
+  // friendly placeholder rather than leaking UUIDs.
+  const remotePartyName = useMemo(() => {
+    if (!activeCall) return ''
+    const others = (activeCall.participants ?? []).filter((p) => String(p.user_id) !== String(user?.id))
+    if (others.length === 0) {
+      return activeCall.initiator_name ?? 'Connecting…'
     }
+    if (others.length === 1) {
+      return others[0].user_name ?? 'Participant'
+    }
+    return `${others[0].user_name ?? 'Participant'} and ${others.length - 1} more`
+  }, [activeCall, user?.id])
+
+  const callTypeLabel = activeCall?.call_type === 'voice' ? 'Voice call' : 'Video call'
+
+  // Friendly name for a history row. Prefer the other participant's name; if
+  // the current user initiated, show callees; otherwise show the initiator.
+  const historyPartyName = (call: CallSession): string => {
+    const others = (call.participants ?? []).filter((p) => String(p.user_id) !== String(user?.id))
+    if (others.length === 1) return others[0].user_name ?? 'Unknown'
+    if (others.length > 1) return `${others[0].user_name ?? 'Group'} +${others.length - 1}`
+    return call.initiator_name ?? 'Unknown'
   }
 
-  const formatDuration = (startedAt?: string, endedAt?: string) => {
-    if (!startedAt) return '--'
-    const start = new Date(startedAt).getTime()
-    const end = endedAt ? new Date(endedAt).getTime() : Date.now()
-    const seconds = Math.floor((end - start) / 1000)
-    return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`
+  // Outgoing vs incoming vs missed icon for a history row.
+  const historyIcon = (call: CallSession) => {
+    if (call.status === 'missed' || call.status === 'declined') {
+      return <PhoneMissed style={{ width: 14, height: 14, color: '#ef4444' }} />
+    }
+    if (String(call.initiator_id) === String(user?.id)) {
+      return <PhoneOutgoing style={{ width: 14, height: 14, color: 'var(--gold)' }} />
+    }
+    return <PhoneIncoming style={{ width: 14, height: 14, color: 'var(--gold)' }} />
+  }
+
+  const formatDuration = (totalSec: number) => {
+    if (totalSec < 0) return '0:00'
+    const m = Math.floor(totalSec / 60)
+    const s = totalSec % 60
+    return `${m}:${String(s).padStart(2, '0')}`
+  }
+
+  const formatHistoryDuration = (call: CallSession): string => {
+    if (call.duration_seconds == null || call.duration_seconds <= 0) {
+      return call.status === 'missed' ? 'Missed' : 'No answer'
+    }
+    return formatDuration(call.duration_seconds)
+  }
+
+  const formatHistoryTime = (iso?: string | null) => {
+    if (!iso) return '--'
+    const date = new Date(iso)
+    const today = new Date()
+    const yesterday = new Date(today)
+    yesterday.setDate(yesterday.getDate() - 1)
+    if (date.toDateString() === today.toDateString()) {
+      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    }
+    if (date.toDateString() === yesterday.toDateString()) return 'Yesterday'
+    return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
   }
 
   return (
-    <div style={{ padding: '1.5rem' }}>
-      {/* Page Header */}
+    <div style={{ padding: '1.5rem', maxWidth: 1100, margin: '0 auto' }}>
       <div className="page-header">
         <div>
-          <h1 className="page-title">Calls & Rooms</h1>
-          <p className="page-description">Start a focused audio or video call when the thread is ready.</p>
+          <h1 className="page-title">Calls</h1>
+          <p className="page-description">
+            Start a call from any conversation. Recent calls appear here.
+          </p>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
           <button
             className="btn-sm ghost"
             type="button"
-            onClick={() => navigate(conversationId.trim() ? `/app/chat/${conversationId.trim()}` : '/app/chat')}
+            onClick={() => navigate('/app/chat')}
+            data-testid="calls-back-to-chat"
           >
             <ArrowLeft style={{ width: 14, height: 14 }} />
             Back to chat
           </button>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <div
+            style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+            title={wsStatus === 'open' ? 'Signaling connected' : 'Signaling disconnected — calls may fail'}
+          >
             <span className={`status-dot ${wsStatus === 'open' ? 'online' : 'offline'}`} />
             <span style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))' }}>
-              {wsStatus === 'open' ? 'Signaling live' : 'Signaling offline'}
+              {wsStatus === 'open' ? 'Live' : 'Offline'}
             </span>
           </div>
         </div>
       </div>
 
-      {/* Error */}
-      {error ? (
-        <div className="card" style={{ borderColor: '#ef4444', padding: '1rem', marginBottom: '1rem' }}>
-          <p style={{ color: '#ef4444', fontSize: '0.875rem' }}>{error}</p>
-        </div>
-      ) : null}
-
-      {/* Start Call Card */}
-      <div className="section">
-        <div className="card">
-          <div className="card-header">
-            <span className="card-title">Start a Call</span>
-            <Phone style={{ width: 16, height: 16, color: 'var(--gold)' }} />
-          </div>
-          <p style={{ fontSize: '0.8125rem', color: 'hsl(var(--muted-foreground))', marginBottom: '1rem' }}>
-            Send a real-time invite to a founder or investor.
-          </p>
-          <div className="grid-2" style={{ marginBottom: '1rem' }}>
-            <div className="form-group">
-              <label>Conversation ID</label>
-              <input
-                className="input"
-                value={conversationId}
-                onChange={(e) => setConversationId(e.target.value)}
-                placeholder="UUID"
-              />
-            </div>
-            <div className="form-group">
-              <label>Call Type</label>
-              <div className="tabs">
-                {(['video', 'voice'] as const).map((option) => (
-                  <button
-                    key={option}
-                    type="button"
-                    className={`tab ${callType === option ? 'active' : ''}`}
-                    onClick={() => setCallType(option)}
-                  >
-                    {option === 'video' ? (
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
-                        <Video style={{ width: 14, height: 14 }} /> Video
-                      </span>
-                    ) : (
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
-                        <Phone style={{ width: 14, height: 14 }} /> Audio
-                      </span>
-                    )}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-          <div className="grid-2" style={{ marginBottom: '1rem' }}>
-            <div className="form-group">
-              <label>Target User IDs (optional)</label>
-              <input
-                className="input"
-                value={targetUserIds}
-                onChange={(e) => setTargetUserIds(e.target.value)}
-                placeholder="uuid-1, uuid-2"
-              />
-            </div>
-            <div className="form-group">
-              <label>Target User Emails (optional)</label>
-              <input
-                className="input"
-                value={targetUserEmails}
-                onChange={(e) => setTargetUserEmails(e.target.value)}
-                placeholder="user@example.com"
-              />
-            </div>
-          </div>
-          <button className="btn-sm primary" type="button" onClick={() => void handleStartCall()}>
-            <Phone style={{ width: 14, height: 14 }} />
-            Send Invite
-          </button>
-        </div>
-      </div>
-
-      {/* Active Call Area */}
       {activeCall ? (
-        <div className="section">
-          <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-            {/* Video Stage */}
+        <div
+          className="card"
+          style={{ padding: 0, overflow: 'hidden', marginBottom: '1.5rem' }}
+          data-testid="active-call-stage"
+        >
+          {/* Video stage — remote video fills, local PiP corners. */}
+          <div
+            style={{
+              position: 'relative',
+              width: '100%',
+              aspectRatio: '16 / 9',
+              background: 'radial-gradient(circle at 50% 30%, #1a1a1a 0%, #050505 80%)',
+              overflow: 'hidden',
+            }}
+          >
+            {remoteStream ? (
+              <video
+                ref={remoteVideoRef}
+                autoPlay
+                playsInline
+                style={{
+                  position: 'absolute',
+                  inset: 0,
+                  width: '100%',
+                  height: '100%',
+                  objectFit: 'cover',
+                }}
+                data-testid="remote-video"
+              />
+            ) : (
+              <div
+                style={{
+                  position: 'absolute',
+                  inset: 0,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '0.75rem',
+                  color: 'rgba(255,255,255,0.7)',
+                }}
+              >
+                <div
+                  style={{
+                    width: '4.5rem',
+                    height: '4.5rem',
+                    borderRadius: '50%',
+                    background: 'rgba(255,255,255,0.08)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    animation: 'pulse 2s ease-in-out infinite',
+                  }}
+                >
+                  {activeCall.call_type === 'voice'
+                    ? <Phone style={{ width: 28, height: 28 }} />
+                    : <Video style={{ width: 28, height: 28 }} />}
+                </div>
+                <span style={{ fontSize: '0.875rem' }}>Waiting for the other side…</span>
+              </div>
+            )}
+
+            {/* Top overlay: caller name + duration */}
             <div
               style={{
-                position: 'relative',
-                width: '100%',
-                minHeight: '20rem',
-                background: '#0a0a0a',
+                position: 'absolute',
+                top: 0, left: 0, right: 0,
+                padding: '0.875rem 1.25rem',
+                background: 'linear-gradient(to bottom, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0) 100%)',
+                color: 'white',
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'center',
+                justifyContent: 'space-between',
+                pointerEvents: 'none',
               }}
             >
-              {remoteStream ? (
-                <video
-                  ref={remoteVideoRef}
-                  autoPlay
-                  playsInline
-                  style={{ width: '100%', height: '100%', objectFit: 'cover', maxHeight: '28rem' }}
-                />
-              ) : (
-                <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: '0.875rem' }}>
-                  Waiting for remote video...
+              <div>
+                <div style={{ fontSize: '1rem', fontWeight: 600 }} data-testid="active-call-name">
+                  {remotePartyName}
                 </div>
-              )}
+                <div style={{ fontSize: '0.75rem', opacity: 0.8 }}>{callTypeLabel}</div>
+              </div>
+              <div
+                style={{
+                  fontSize: '0.875rem',
+                  fontVariantNumeric: 'tabular-nums',
+                  background: 'rgba(0,0,0,0.4)',
+                  padding: '0.25rem 0.625rem',
+                  borderRadius: '999px',
+                }}
+                data-testid="active-call-duration"
+              >
+                {formatDuration(callDurationSec)}
+              </div>
+            </div>
+
+            {/* Local PiP — bottom-right */}
+            {localStream && activeCall.call_type !== 'voice' && (
               <video
                 ref={localVideoRef}
                 autoPlay
@@ -306,113 +333,139 @@ export function CallsPage() {
                   position: 'absolute',
                   bottom: '1rem',
                   right: '1rem',
-                  width: '10rem',
-                  height: '7.5rem',
+                  width: '9rem',
+                  height: '6.75rem',
                   objectFit: 'cover',
-                  borderRadius: '0.5rem',
-                  border: '2px solid hsl(var(--border))',
+                  borderRadius: '0.625rem',
+                  border: '2px solid rgba(255,255,255,0.18)',
                   background: '#111',
+                  boxShadow: '0 8px 20px rgba(0,0,0,0.35)',
                 }}
+                data-testid="local-video"
               />
-            </div>
+            )}
+          </div>
 
-            {/* Controls Bar */}
-            <div
+          {/* Floating control bar — pill-style, like FaceTime */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '0.625rem',
+              padding: '1rem 1.25rem',
+              borderTop: '1px solid hsl(var(--border))',
+              background: 'hsl(var(--card))',
+              flexWrap: 'wrap',
+            }}
+          >
+            <CallControlButton
+              testId="call-toggle-mute"
+              onClick={toggleMute}
+              disabled={!localStream}
+              active={isMuted}
+              label={isMuted ? 'Unmute' : 'Mute'}
+              activeColor="#ef4444"
+            >
+              {isMuted ? <MicOff style={{ width: 18, height: 18 }} /> : <Mic style={{ width: 18, height: 18 }} />}
+            </CallControlButton>
+
+            {activeCall.call_type !== 'voice' && (
+              <CallControlButton
+                testId="call-toggle-video"
+                onClick={toggleVideo}
+                disabled={!localStream}
+                active={isVideoOff}
+                label={isVideoOff ? 'Turn on video' : 'Turn off video'}
+                activeColor="#ef4444"
+              >
+                {isVideoOff ? <VideoOff style={{ width: 18, height: 18 }} /> : <Video style={{ width: 18, height: 18 }} />}
+              </CallControlButton>
+            )}
+
+            <CallControlButton
+              testId="call-toggle-screen"
+              onClick={() => void toggleScreenShare()}
+              active={isScreenSharing}
+              label={isScreenSharing ? 'Stop sharing' : 'Share screen'}
+              activeColor="var(--gold)"
+            >
+              {isScreenSharing
+                ? <MonitorX style={{ width: 18, height: 18 }} />
+                : <Monitor style={{ width: 18, height: 18 }} />}
+            </CallControlButton>
+
+            <CallControlButton
+              testId="call-minimize"
+              onClick={minimizeCall}
+              label="Minimize"
+            >
+              <Minimize2 style={{ width: 18, height: 18 }} />
+            </CallControlButton>
+
+            <button
+              type="button"
+              onClick={() => void handleEndCall()}
+              data-testid="call-end"
               style={{
-                display: 'flex',
+                display: 'inline-flex',
                 alignItems: 'center',
-                justifyContent: 'center',
-                gap: '0.75rem',
-                padding: '0.75rem 1.25rem',
-                borderTop: '1px solid hsl(var(--border))',
-                background: 'hsl(var(--card))',
+                gap: '0.5rem',
+                padding: '0.625rem 1.25rem',
+                borderRadius: '999px',
+                background: '#ef4444',
+                color: 'white',
+                border: 'none',
+                fontSize: '0.875rem',
+                fontWeight: 600,
+                cursor: 'pointer',
+                marginLeft: '0.5rem',
               }}
             >
-              <div style={{ flex: 1 }}>
-                <span style={{ fontWeight: 600, fontSize: '0.875rem' }}>
-                  {activeCall.call_type?.toUpperCase() || 'CALL'}
-                </span>
-                <span style={{ marginLeft: '0.5rem', fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))' }}>
-                  {activeCall.status || 'Connecting'}
-                </span>
-              </div>
+              <PhoneOff style={{ width: 16, height: 16 }} />
+              End
+            </button>
+          </div>
 
-              <button
-                className="btn-sm ghost"
-                type="button"
-                onClick={toggleMute}
-                disabled={!localStream}
-              >
-                {isMuted ? <MicOff style={{ width: 16, height: 16 }} /> : <Mic style={{ width: 16, height: 16 }} />}
-              </button>
-
-              <button
-                className="btn-sm ghost"
-                type="button"
-                onClick={toggleVideo}
-                disabled={!localStream || activeCall.call_type === 'voice'}
-              >
-                {isVideoOff ? <VideoOff style={{ width: 16, height: 16 }} /> : <Video style={{ width: 16, height: 16 }} />}
-              </button>
-
-              <button
-                className="btn-sm ghost"
-                type="button"
-                onClick={() => void toggleScreenShare()}
-                disabled={!activeCall}
-                title={isScreenSharing ? 'Stop sharing' : 'Share screen'}
-                style={isScreenSharing ? { color: 'var(--gold)' } : undefined}
-              >
-                {isScreenSharing
-                  ? <MonitorX style={{ width: 16, height: 16 }} />
-                  : <Monitor style={{ width: 16, height: 16 }} />}
-              </button>
-
-              <button
-                className="btn-sm ghost"
-                type="button"
-                onClick={() => void handleRefreshStatus()}
-                title="Refresh status"
-              >
-                <RefreshCw style={{ width: 14, height: 14 }} />
-              </button>
-
-              {/* Minimize — keeps call running while navigating */}
-              <button
-                className="btn-sm ghost"
-                type="button"
-                onClick={minimizeCall}
-                title="Minimize call"
-              >
-                <Minimize2 style={{ width: 14, height: 14 }} />
-              </button>
-
-              <button
-                className="btn-sm primary"
-                type="button"
-                onClick={() => void handleEndCall()}
-                style={{ background: '#ef4444' }}
-              >
-                <PhoneOff style={{ width: 14, height: 14 }} />
-                End
-              </button>
+          {mediaError ? (
+            <div style={{ padding: '0.75rem 1.25rem', borderTop: '1px solid hsl(var(--border))' }}>
+              <p style={{ color: '#ef4444', fontSize: '0.8125rem', margin: 0 }}>{mediaError}</p>
             </div>
-
-            {mediaError ? (
-              <div style={{ padding: '0.75rem 1.25rem', borderTop: '1px solid hsl(var(--border))' }}>
-                <p style={{ color: '#ef4444', fontSize: '0.8125rem' }}>{mediaError}</p>
-              </div>
-            ) : null}
+          ) : null}
+        </div>
+      ) : (
+        <div className="card" style={{ marginBottom: '1.5rem' }} data-testid="no-active-call">
+          <div className="empty-state" style={{ padding: '2.5rem 1rem', textAlign: 'center' }}>
+            <Phone className="empty-icon" />
+            <p className="empty-description" style={{ marginBottom: '0.25rem' }}>
+              No active call.
+            </p>
+            <p style={{ fontSize: '0.8125rem', color: 'hsl(var(--muted-foreground))', margin: 0 }}>
+              Open a conversation and tap the phone or video icon to start one.
+            </p>
+            <button
+              type="button"
+              className="btn-sm primary"
+              style={{ marginTop: '1rem' }}
+              onClick={() => navigate('/app/chat')}
+              data-testid="goto-chat-empty"
+            >
+              <ArrowLeft style={{ width: 14, height: 14 }} />
+              Open chat
+            </button>
           </div>
         </div>
-      ) : null}
+      )}
 
-      {/* Call History */}
-      <div className="section">
-        <span className="section-label">Call History</span>
+      <section className="section">
+        <span className="section-label">Recent calls</span>
         {loading ? (
           <div className="empty-state" style={{ padding: '2rem 0' }}>
-            <p className="empty-description">Loading call data...</p>
+            <p className="empty-description">Loading…</p>
+          </div>
+        ) : historyError ? (
+          <div className="card" style={{ borderColor: '#ef4444', padding: '1rem' }}>
+            <p style={{ color: '#ef4444', fontSize: '0.875rem', margin: 0 }}>{historyError}</p>
           </div>
         ) : history.length === 0 ? (
           <div className="card">
@@ -422,96 +475,123 @@ export function CallsPage() {
             </div>
           </div>
         ) : (
-          <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>Type</th>
-                  <th>Conversation</th>
-                  <th>Duration</th>
-                  <th>Time</th>
-                </tr>
-              </thead>
-              <tbody>
-                {history.map((call) => (
-                  <tr key={call.call_id}>
-                    <td>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        {call.call_type === 'video' ? (
-                          <Video style={{ width: 14, height: 14, color: 'var(--gold)' }} />
-                        ) : (
-                          <Phone style={{ width: 14, height: 14, color: 'var(--gold)' }} />
-                        )}
-                        <span style={{ textTransform: 'capitalize' }}>{call.call_type || 'Call'}</span>
-                      </div>
-                    </td>
-                    <td style={{ color: 'hsl(var(--muted-foreground))' }}>
-                      {call.conversation_id ? `${call.conversation_id.slice(0, 8)}...` : '--'}
-                    </td>
-                    <td>
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
-                        <Clock style={{ width: 12, height: 12, color: 'hsl(var(--muted-foreground))' }} />
-                        {formatDuration(call.started_at ?? undefined, undefined)}
-                      </span>
-                    </td>
-                    <td style={{ color: 'hsl(var(--muted-foreground))', fontSize: '0.8125rem' }}>
-                      {call.started_at ? new Date(call.started_at).toLocaleString() : '--'}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div
+            className="card"
+            style={{ padding: 0, overflow: 'hidden' }}
+            data-testid="call-history"
+          >
+            {history.map((call, idx) => (
+              <div
+                key={call.call_id}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.875rem',
+                  padding: '0.875rem 1rem',
+                  borderTop: idx === 0 ? 'none' : '1px solid hsl(var(--border))',
+                }}
+                data-testid={`call-history-row-${call.call_id}`}
+              >
+                <div
+                  style={{
+                    width: '2.25rem',
+                    height: '2.25rem',
+                    borderRadius: '50%',
+                    background: 'hsl(var(--muted))',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0,
+                  }}
+                >
+                  {call.call_type === 'video'
+                    ? <Video style={{ width: 16, height: 16, color: 'var(--gold)' }} />
+                    : <Phone style={{ width: 16, height: 16, color: 'var(--gold)' }} />}
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.375rem',
+                      fontSize: '0.9rem',
+                      fontWeight: 500,
+                    }}
+                  >
+                    {historyIcon(call)}
+                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {historyPartyName(call)}
+                    </span>
+                  </div>
+                  <div
+                    style={{
+                      fontSize: '0.75rem',
+                      color: 'hsl(var(--muted-foreground))',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.375rem',
+                      marginTop: '0.125rem',
+                    }}
+                  >
+                    <span>{call.call_type === 'video' ? 'Video' : 'Voice'}</span>
+                    <span>·</span>
+                    <span>{formatHistoryDuration(call)}</span>
+                  </div>
+                </div>
+                <div style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))', flexShrink: 0 }}>
+                  {formatHistoryTime(call.started_at)}
+                </div>
+              </div>
+            ))}
           </div>
         )}
-      </div>
-
-      {/* Signaling Log */}
-      <div className="section">
-        <div className="card">
-          <button
-            type="button"
-            onClick={() => setShowSignalingLog((prev) => !prev)}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              width: '100%',
-              background: 'none',
-              border: 'none',
-              padding: 0,
-              cursor: 'pointer',
-              color: 'inherit',
-            }}
-          >
-            <span className="card-title">Recent Signaling Events</span>
-            {showSignalingLog
-              ? <ChevronUp style={{ width: 16, height: 16, color: 'hsl(var(--muted-foreground))' }} />
-              : <ChevronDown style={{ width: 16, height: 16, color: 'hsl(var(--muted-foreground))' }} />}
-          </button>
-          {showSignalingLog && (
-            <div style={{ marginTop: '0.75rem' }}>
-              {events.length === 0 ? (
-                <p style={{ fontSize: '0.8125rem', color: 'hsl(var(--muted-foreground))' }}>No live events yet.</p>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                  {events.map((event, index) => (
-                    <div
-                      key={`${event.type}-${index}`}
-                      className="list-item"
-                      style={{ cursor: 'default', padding: '0.375rem 0.5rem' }}
-                    >
-                      <span className="badge info" style={{ fontSize: '0.6875rem' }}>{event.type}</span>
-                      <span style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))' }}>
-                        {event.call_id ? `Call ${String(event.call_id).slice(0, 8)}...` : ''}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      </div>
+      </section>
     </div>
+  )
+}
+
+type CallControlButtonProps = {
+  onClick: () => void
+  children: React.ReactNode
+  disabled?: boolean
+  active?: boolean
+  label: string
+  testId?: string
+  activeColor?: string
+}
+
+/**
+ * Pill-style call control button. `active` flips the background to highlight
+ * "currently doing this" state (muted, video off, sharing screen). Used for
+ * all the in-call toggles so they look identical.
+ */
+function CallControlButton({
+  onClick, children, disabled, active, label, testId, activeColor,
+}: CallControlButtonProps) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      title={label}
+      aria-label={label}
+      data-testid={testId}
+      style={{
+        width: '2.75rem',
+        height: '2.75rem',
+        borderRadius: '50%',
+        border: '1px solid hsl(var(--border))',
+        background: active ? (activeColor ?? 'hsl(var(--primary))') : 'hsl(var(--background))',
+        color: active ? 'white' : 'hsl(var(--foreground))',
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        cursor: disabled ? 'not-allowed' : 'pointer',
+        opacity: disabled ? 0.4 : 1,
+        transition: 'background 0.15s ease, color 0.15s ease',
+      }}
+    >
+      {children}
+    </button>
   )
 }

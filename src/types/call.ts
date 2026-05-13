@@ -5,6 +5,7 @@ export type CallSession = {
   status?: string
   is_group_call?: boolean
   initiator_id?: string | null
+  initiator_name?: string | null
   started_at?: string | null
   duration_seconds?: number | null
   participant_count?: number

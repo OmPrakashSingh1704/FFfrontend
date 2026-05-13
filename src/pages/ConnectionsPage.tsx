@@ -1,11 +1,20 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { UserCheck, UserPlus, Clock, X, Check, Trash2, Users, Calendar } from 'lucide-react'
+import { UserCheck, UserPlus, Clock, X, Check, Trash2, Users, Calendar, Search, Loader2 } from 'lucide-react'
 import { apiRequest } from '../lib/api'
 import { normalizeList } from '../lib/pagination'
 import { useToast } from '../context/ToastContext'
 import { useAuth } from '../context/AuthContext'
-import type { ConnectionRequest, SendConnectionRequest } from '../types/connection'
+import type { ConnectionRequest } from '../types/connection'
+
+type UserSearchResult = {
+  id: string
+  full_name: string
+  email?: string
+  avatar_url?: string
+  league?: string
+  is_online?: boolean
+}
 
 type Tab = 'connections' | 'pending'
 
@@ -26,10 +35,50 @@ export function ConnectionsPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  // Send form state
+  // Send form state — search+pick replaces the old UUID input.
   const [showForm, setShowForm] = useState(false)
-  const [sendForm, setSendForm] = useState<SendConnectionRequest>({ user_id: '', message: '' })
+  const [pickQuery, setPickQuery] = useState('')
+  const [pickResults, setPickResults] = useState<UserSearchResult[]>([])
+  const [pickSearching, setPickSearching] = useState(false)
+  const [picked, setPicked] = useState<UserSearchResult | null>(null)
+  const [pickMessage, setPickMessage] = useState('')
   const [sendLoading, setSendLoading] = useState(false)
+
+  // Debounced search against /chat/messageable-users/. Same endpoint used by
+  // the new-chat flow on ChatPage — keeps user-search behavior consistent
+  // across the app and means we never see UUIDs in this form again.
+  useEffect(() => {
+    if (!showForm || picked) {
+      setPickResults([])
+      return
+    }
+    const q = pickQuery.trim()
+    if (!q) {
+      setPickResults([])
+      return
+    }
+    setPickSearching(true)
+    const timer = window.setTimeout(async () => {
+      try {
+        const data = await apiRequest<UserSearchResult[]>(
+          `/chat/messageable-users/?search=${encodeURIComponent(q)}`,
+        )
+        setPickResults(Array.isArray(data) ? data : [])
+      } catch {
+        setPickResults([])
+      } finally {
+        setPickSearching(false)
+      }
+    }, 200)
+    return () => window.clearTimeout(timer)
+  }, [pickQuery, showForm, picked])
+
+  const resetSendForm = () => {
+    setPickQuery('')
+    setPickResults([])
+    setPicked(null)
+    setPickMessage('')
+  }
 
   // Action loading (per-item)
   const [actionLoading, setActionLoading] = useState<string | null>(null)
@@ -56,27 +105,29 @@ export function ConnectionsPage() {
 
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!sendForm.user_id.trim()) {
-      pushToast('Enter a user ID to connect with.', 'warning')
+    if (!picked) {
+      pushToast('Search for a person and pick them first.', 'warning')
       return
     }
     setSendLoading(true)
     try {
       await apiRequest<ConnectionRequest>('/connections/send/', {
         method: 'POST',
-        body: { user_id: sendForm.user_id, message: sendForm.message || undefined },
+        body: { user_id: picked.id, message: pickMessage || undefined },
       })
-      pushToast('Connection request sent!', 'success')
+      pushToast(`Connection request sent to ${picked.full_name}!`, 'success')
       setShowForm(false)
-      setSendForm({ user_id: '', message: '' })
+      resetSendForm()
       const cancelled = { current: false }
       void loadItems(cancelled)
     } catch (err: unknown) {
-      const msg =
-        err != null && typeof err === 'object' && 'message' in err
-          ? String((err as { message: unknown }).message)
-          : 'Failed to send request.'
-      pushToast(msg, 'error')
+      // Surface the backend's actual reason (409 already connected, 429
+      // rate-limited, 403 league-blocked) instead of a generic "failed".
+      const detail =
+        (err as { details?: { detail?: string } })?.details?.detail
+        ?? (err as { message?: string })?.message
+        ?? 'Failed to send request.'
+      pushToast(detail, 'error')
     } finally {
       setSendLoading(false)
     }
@@ -220,36 +271,196 @@ export function ConnectionsPage() {
           <div className="card" style={{ width: '100%', maxWidth: '28rem' }}>
             <div className="card-header">
               <h2 style={{ fontSize: '1.125rem', fontWeight: 600 }}>Send Connection Request</h2>
-              <button type="button" className="btn-sm ghost" onClick={() => setShowForm(false)}>
+              <button
+                type="button"
+                className="btn-sm ghost"
+                onClick={() => { setShowForm(false); resetSendForm() }}
+              >
                 <X style={{ width: 16, height: 16 }} />
               </button>
             </div>
             <form onSubmit={handleSend}>
               <div className="form-group">
-                <label>User ID *</label>
-                <input
-                  className="input"
-                  type="text"
-                  value={sendForm.user_id}
-                  onChange={(e) => setSendForm((f) => ({ ...f, user_id: e.target.value }))}
-                  placeholder="Paste the user's UUID..."
-                  data-testid="user-id-input"
-                />
+                <label>Search by name or email *</label>
+                {picked ? (
+                  // Selected user chip — clear to pick a different one.
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.625rem',
+                      padding: '0.625rem 0.75rem',
+                      border: '1px solid hsl(var(--border))',
+                      borderRadius: '0.5rem',
+                      background: 'hsl(var(--muted) / 0.4)',
+                    }}
+                    data-testid="picked-user"
+                  >
+                    <div
+                      className="avatar"
+                      style={{
+                        width: '2rem',
+                        height: '2rem',
+                        background: 'var(--gold)',
+                        color: '#000',
+                        fontWeight: 700,
+                        fontSize: '0.75rem',
+                      }}
+                    >
+                      {picked.full_name?.charAt(0) ?? '?'}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: '0.875rem', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {picked.full_name}
+                      </div>
+                      {picked.email ? (
+                        <div style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {picked.email}
+                        </div>
+                      ) : null}
+                    </div>
+                    <button
+                      type="button"
+                      className="btn-sm ghost"
+                      onClick={() => { setPicked(null); setPickQuery('') }}
+                      title="Pick a different person"
+                      data-testid="picked-user-clear"
+                    >
+                      <X style={{ width: 14, height: 14 }} />
+                    </button>
+                  </div>
+                ) : (
+                  <div style={{ position: 'relative' }}>
+                    <Search
+                      style={{
+                        position: 'absolute',
+                        left: '0.625rem',
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        width: 14,
+                        height: 14,
+                        color: 'hsl(var(--muted-foreground))',
+                      }}
+                    />
+                    <input
+                      className="input"
+                      type="text"
+                      value={pickQuery}
+                      onChange={(e) => setPickQuery(e.target.value)}
+                      placeholder="Type a name or email…"
+                      style={{ paddingLeft: '2rem' }}
+                      autoFocus
+                      data-testid="user-search-input"
+                    />
+                    {pickQuery.trim() && (
+                      <div
+                        style={{
+                          marginTop: '0.5rem',
+                          maxHeight: '14rem',
+                          overflowY: 'auto',
+                          border: '1px solid hsl(var(--border))',
+                          borderRadius: '0.5rem',
+                          background: 'hsl(var(--card))',
+                        }}
+                        data-testid="user-search-results"
+                      >
+                        {pickSearching && pickResults.length === 0 ? (
+                          <div style={{ padding: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'hsl(var(--muted-foreground))', fontSize: '0.8125rem' }}>
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            Searching…
+                          </div>
+                        ) : pickResults.length === 0 ? (
+                          <div style={{ padding: '0.75rem', color: 'hsl(var(--muted-foreground))', fontSize: '0.8125rem' }}>
+                            No matches.
+                          </div>
+                        ) : (
+                          pickResults.map((u) => (
+                            <button
+                              key={u.id}
+                              type="button"
+                              onClick={() => setPicked(u)}
+                              data-testid={`user-search-option-${u.id}`}
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '0.625rem',
+                                width: '100%',
+                                padding: '0.5rem 0.625rem',
+                                background: 'transparent',
+                                border: 'none',
+                                borderBottom: '1px solid hsl(var(--border))',
+                                cursor: 'pointer',
+                                textAlign: 'left',
+                              }}
+                            >
+                              <div
+                                className="avatar"
+                                style={{
+                                  width: '1.75rem',
+                                  height: '1.75rem',
+                                  background: 'var(--gold)',
+                                  color: '#000',
+                                  fontWeight: 700,
+                                  fontSize: '0.6875rem',
+                                }}
+                              >
+                                {u.full_name?.charAt(0) ?? '?'}
+                              </div>
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ fontSize: '0.8125rem', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                  {u.full_name}
+                                </div>
+                                {u.email ? (
+                                  <div style={{ fontSize: '0.6875rem', color: 'hsl(var(--muted-foreground))', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                    {u.email}
+                                  </div>
+                                ) : null}
+                              </div>
+                              {u.is_online ? (
+                                <span
+                                  title="Online"
+                                  style={{
+                                    width: '0.5rem',
+                                    height: '0.5rem',
+                                    borderRadius: '50%',
+                                    background: '#22c55e',
+                                    flexShrink: 0,
+                                  }}
+                                />
+                              ) : null}
+                            </button>
+                          ))
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
               <div className="form-group">
                 <label>Message (optional)</label>
                 <textarea
                   className="textarea"
                   rows={2}
-                  value={sendForm.message}
-                  onChange={(e) => setSendForm((f) => ({ ...f, message: e.target.value }))}
+                  value={pickMessage}
+                  onChange={(e) => setPickMessage(e.target.value)}
                   placeholder="Say why you'd like to connect..."
                   data-testid="message-input"
                 />
               </div>
               <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end', marginTop: '1rem' }}>
-                <button type="button" className="btn ghost" onClick={() => setShowForm(false)}>Cancel</button>
-                <button type="submit" className="btn primary" disabled={sendLoading} data-testid="submit-send-btn">
+                <button
+                  type="button"
+                  className="btn ghost"
+                  onClick={() => { setShowForm(false); resetSendForm() }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="btn primary"
+                  disabled={sendLoading || !picked}
+                  data-testid="submit-send-btn"
+                >
                   <UserPlus style={{ width: 14, height: 14, marginRight: 4 }} />
                   {sendLoading ? 'Sending...' : 'Send Request'}
                 </button>

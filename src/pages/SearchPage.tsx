@@ -74,6 +74,24 @@ function buildResultUrl(type: string, id: string, source: Record<string, unknown
   }
 }
 
+// Sanitize an Elasticsearch highlight string so it's safe to render as HTML.
+// ES wraps matched text in <mark> tags but does NOT escape HTML in the
+// surrounding indexed content. A user's bio containing a script tag would
+// otherwise produce stored XSS the moment someone searches for a matching
+// term. Strategy: escape everything, then re-allow ONLY the literal <mark>
+// and </mark> tokens we know ES emits.
+function sanitizeHighlight(raw: string): string {
+  const escaped = raw
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+  return escaped
+    .replace(/&lt;mark&gt;/g, '<mark>')
+    .replace(/&lt;\/mark&gt;/g, '</mark>')
+}
+
 function mapResult(raw: BackendSearchResult): SearchResult {
   const type = raw.index.replace(/^ff_/, '')
 
@@ -85,7 +103,7 @@ function mapResult(raw: BackendSearchResult): SearchResult {
   const snippet = firstHighlight
     ? firstHighlight.replace(/<\/?mark>/g, '')
     : fallbackSnippet
-  const highlightHtml = firstHighlight ?? null
+  const highlightHtml = firstHighlight ? sanitizeHighlight(firstHighlight) : null
 
   const url = buildResultUrl(type, raw.id, raw.source)
 

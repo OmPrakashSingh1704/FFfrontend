@@ -1,12 +1,12 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { User, Mail, Lock, ArrowRight, Briefcase } from 'lucide-react'
+import { User, Mail, Lock, ArrowRight } from 'lucide-react'
 import { FormField } from '../components/FormField'
 import { useToast } from '../context/ToastContext'
 import { apiRequest } from '../lib/api'
 import { hasErrors, isEmail, validateRequired } from '../lib/forms'
 
-type SignupFields = 'full_name' | 'email' | 'password' | 'confirm' | 'role' | 'form'
+type SignupFields = 'full_name' | 'email' | 'password' | 'confirm' | 'form'
 
 export function SignupPage() {
   const navigate = useNavigate()
@@ -15,13 +15,16 @@ export function SignupPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
-  const [role, setRole] = useState('founder')
   const [errors, setErrors] = useState<Partial<Record<SignupFields, string>>>({})
   const [submitting, setSubmitting] = useState(false)
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    const nextErrors = validateRequired({ full_name: fullName, email, password, confirm, role })
+    // Role used to be required here. It moved to onboarding, where the user
+    // can create either or both profiles independently. Backend silently
+    // defaults to FOUNDER on registration; their role auto-promotes the
+    // moment they create any profile (see User.recompute_role_from_profiles).
+    const nextErrors = validateRequired({ full_name: fullName, email, password, confirm })
 
     if (email && !isEmail(email)) {
       nextErrors.email = 'Enter a valid email address'
@@ -51,7 +54,6 @@ export function SignupPage() {
           full_name: fullName,
           password,
           password_confirm: confirm,
-          role,
         },
       })
       sessionStorage.setItem('pendingSignupEmail', email)
@@ -112,21 +114,6 @@ export function SignupPage() {
                 required
                 data-testid="signup-email-input"
               />
-            </FormField>
-          </div>
-
-          <div className="form-group">
-            <FormField label="Role" error={errors.role} icon={<Briefcase className="w-5 h-5" />}>
-              <select
-                className="select"
-                value={role}
-                onChange={(event) => setRole(event.target.value)}
-                data-testid="signup-role-select"
-              >
-                <option value="founder">Founder</option>
-                <option value="investor">Investor</option>
-                <option value="both">Both</option>
-              </select>
             </FormField>
           </div>
 

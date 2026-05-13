@@ -56,6 +56,8 @@ type StartupMatch = {
   score: ScoreBreakdown
 }
 
+type MatchMode = 'founder' | 'investor'
+
 const CLASSIFICATION_COLORS: Record<string, string> = {
   strong: '#22c55e',
   moderate: '#f59e0b',
@@ -109,48 +111,84 @@ function ScoreBar({ label, value }: { label: string; value: number }) {
 export function MatchingPage() {
   const { user } = useAuth()
   const { pushToast } = useToast()
-  const isInvestor = user?.role === 'investor'
-  const isFounder = user?.role === 'founder'
+
+  // Which profiles the user actually has. Determined by hitting the
+  // profile-me endpoints; 404 means the profile doesn't exist yet.
+  // Role alone is not enough — new users have a placeholder role of
+  // 'founder' before they create any profile.
+  const [hasFounderProfile, setHasFounderProfile] = useState<boolean | null>(null)
+  const [hasInvestorProfile, setHasInvestorProfile] = useState<boolean | null>(null)
+  const profilesLoading = hasFounderProfile === null || hasInvestorProfile === null
+
+  // Picked mode: which side of the marketplace are we viewing matches from?
+  // Founder mode shows matched investors. Investor mode shows matched startups.
+  const [mode, setMode] = useState<MatchMode | null>(null)
 
   const [investorMatches, setInvestorMatches] = useState<InvestorMatch[]>([])
   const [startupMatches, setStartupMatches] = useState<StartupMatch[]>([])
-  const [loading, setLoading] = useState(true)
+  const [matchesLoading, setMatchesLoading] = useState(false)
   const [expandedId, setExpandedId] = useState<string | null>(null)
-  const [needsInvestorOnboarding, setNeedsInvestorOnboarding] = useState(false)
-  const [needsFounderOnboarding, setNeedsFounderOnboarding] = useState(false)
-
-  const fetchMatches = async () => {
-    setLoading(true)
-    try {
-      if (isFounder) {
-        try {
-          const data = await apiRequest<{ results: InvestorMatch[] } | InvestorMatch[]>('/match/knn/investors/')
-          setInvestorMatches(normalizeList(data))
-        } catch (err: unknown) {
-          const e = err as { status?: number }
-          if (e?.status === 400) setNeedsFounderOnboarding(true)
-          else pushToast('Failed to load investor matches', 'error')
-        }
-      }
-      if (isInvestor) {
-        try {
-          const data = await apiRequest<{ results: StartupMatch[] } | StartupMatch[]>('/match/knn/startups/')
-          setStartupMatches(normalizeList(data))
-        } catch (err: unknown) {
-          const e = err as { status?: number }
-          if (e?.status === 400) setNeedsInvestorOnboarding(true)
-          else pushToast('Failed to load startup matches', 'error')
-        }
-      }
-    } finally {
-      setLoading(false)
-    }
-  }
 
   useEffect(() => {
-    void fetchMatches()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    let cancelled = false
+    void Promise.allSettled([
+      apiRequest('/founders/profile/me/'),
+      apiRequest('/investors/profile/me/'),
+    ]).then(([f, i]) => {
+      if (cancelled) return
+      setHasFounderProfile(f.status === 'fulfilled')
+      setHasInvestorProfile(i.status === 'fulfilled')
+    })
+    return () => { cancelled = true }
   }, [])
+
+  // Auto-pick the mode once we know what's available. When both profiles
+  // exist, honor user.primary_mode (set on the profile page); fall back to
+  // role for users who haven't picked one yet.
+  useEffect(() => {
+    if (profilesLoading || mode !== null) return
+    if (hasFounderProfile && hasInvestorProfile) {
+      const preferred = user?.primary_mode ?? (user?.role === 'investor' ? 'investor' : 'founder')
+      setMode(preferred)
+    } else if (hasFounderProfile) {
+      setMode('founder')
+    } else if (hasInvestorProfile) {
+      setMode('investor')
+    }
+    // neither: leave mode null and render the empty-state prompt
+  }, [profilesLoading, hasFounderProfile, hasInvestorProfile, mode, user?.role, user?.primary_mode])
+
+  useEffect(() => {
+    if (mode === null) return
+    let cancelled = false
+    setMatchesLoading(true)
+    setExpandedId(null)
+    const path = mode === 'founder' ? '/match/knn/investors/' : '/match/knn/startups/'
+    apiRequest<{ results: unknown[] } | unknown[]>(path)
+      .then((data) => {
+        if (cancelled) return
+        if (mode === 'founder') {
+          setInvestorMatches(normalizeList(data) as InvestorMatch[])
+        } else {
+          setStartupMatches(normalizeList(data) as StartupMatch[])
+        }
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return
+        const e = err as { status?: number }
+        // 400 here means the backend says the profile data is incomplete
+        // for matching even though the profile row exists. Treat as
+        // "needs onboarding" rather than a hard error.
+        if (e?.status !== 400) pushToast('Failed to load matches', 'error')
+        if (mode === 'founder') setInvestorMatches([])
+        else setStartupMatches([])
+      })
+      .finally(() => { if (!cancelled) setMatchesLoading(false) })
+    return () => { cancelled = true }
+  }, [mode, pushToast])
+
+  const bothProfiles = hasFounderProfile && hasInvestorProfile
+  const noProfiles = hasFounderProfile === false && hasInvestorProfile === false
 
   return (
     <div style={{ maxWidth: 900, margin: '0 auto' }}>
@@ -165,31 +203,62 @@ export function MatchingPage() {
         </span>
       </div>
 
-      {loading ? (
+      {profilesLoading ? (
         <div className="empty-state" style={{ paddingTop: '4rem' }}>
           <Loader2 size={24} className="animate-spin" style={{ color: 'hsl(var(--muted-foreground))' }} />
-          <span className="empty-description">Computing matches...</span>
+          <span className="empty-description">Loading your profiles...</span>
+        </div>
+      ) : noProfiles ? (
+        <div className="empty-state" data-testid="matching-no-profile">
+          <div className="empty-icon"><ClipboardList size={24} /></div>
+          <span className="empty-title">Create a profile to start matching</span>
+          <span className="empty-description">
+            Build a founder profile to discover investors, or an investor profile to discover startups.
+          </span>
+          <Link to="/app/profile" className="btn primary" style={{ marginTop: '0.75rem' }}>
+            Go to profile
+          </Link>
         </div>
       ) : (
         <>
-          {/* Investor matches (for founders) */}
-          {isFounder && (
+          {bothProfiles && mode !== null && (
+            <div
+              data-testid="matching-mode-picker"
+              style={{ display: 'flex', gap: 0, borderBottom: '1px solid hsl(var(--border))', marginBottom: '1.25rem' }}
+            >
+              {(['founder', 'investor'] as const).map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => setMode(m)}
+                  data-testid={`matching-mode-${m}`}
+                  style={{
+                    padding: '0.5rem 1.25rem', fontSize: '0.875rem', fontWeight: 500, border: 'none',
+                    cursor: 'pointer', background: 'transparent',
+                    borderBottom: `2px solid ${mode === m ? 'hsl(var(--primary))' : 'transparent'}`,
+                    color: mode === m ? 'hsl(var(--primary))' : 'hsl(var(--muted-foreground))',
+                    marginBottom: '-1px', transition: 'all 0.15s',
+                  }}
+                >
+                  {m === 'founder' ? 'Founder mode · matched investors' : 'Investor mode · matched startups'}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {matchesLoading ? (
+            <div className="empty-state" style={{ paddingTop: '4rem' }}>
+              <Loader2 size={24} className="animate-spin" style={{ color: 'hsl(var(--muted-foreground))' }} />
+              <span className="empty-description">Computing matches...</span>
+            </div>
+          ) : mode === 'founder' ? (
             <div style={{ marginBottom: '2rem' }}>
               <h2 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: 8 }}>
                 <TrendingUp size={16} strokeWidth={1.5} style={{ color: 'var(--gold)' }} />
                 Matched Investors
                 <span className="badge">{investorMatches.length}</span>
               </h2>
-              {needsFounderOnboarding ? (
-                <div className="empty-state">
-                  <div className="empty-icon"><ClipboardList size={24} /></div>
-                  <span className="empty-title">Complete your startup profile</span>
-                  <span className="empty-description">Create a startup to get matched with investors.</span>
-                  <Link to="/onboarding" className="btn primary" style={{ marginTop: '0.75rem' }}>
-                    Finish onboarding
-                  </Link>
-                </div>
-              ) : investorMatches.length === 0 ? (
+              {investorMatches.length === 0 ? (
                 <div className="empty-state">
                   <div className="empty-icon"><TrendingUp size={24} /></div>
                   <span className="empty-title">No matches yet</span>
@@ -242,26 +311,14 @@ export function MatchingPage() {
                 </div>
               )}
             </div>
-          )}
-
-          {/* Startup + Founder matches (for investors) */}
-          {isInvestor && (
+          ) : mode === 'investor' ? (
             <div>
               <h2 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: 8 }}>
                 <Briefcase size={16} strokeWidth={1.5} style={{ color: 'var(--gold)' }} />
                 Matched Startups &amp; Founders
                 <span className="badge">{startupMatches.length}</span>
               </h2>
-              {needsInvestorOnboarding ? (
-                <div className="empty-state">
-                  <div className="empty-icon"><ClipboardList size={24} /></div>
-                  <span className="empty-title">Complete your investor profile</span>
-                  <span className="empty-description">Set up your investor profile to start discovering matching startups.</span>
-                  <Link to="/onboarding" className="btn primary" style={{ marginTop: '0.75rem' }}>
-                    Finish onboarding
-                  </Link>
-                </div>
-              ) : startupMatches.length === 0 ? (
+              {startupMatches.length === 0 ? (
                 <div className="empty-state">
                   <div className="empty-icon"><Briefcase size={24} /></div>
                   <span className="empty-title">No matches yet</span>
@@ -298,7 +355,6 @@ export function MatchingPage() {
                         </button>
                         {expanded && (
                           <div style={{ padding: '1rem', borderTop: '1px solid hsl(var(--border))', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                            {/* Score breakdown */}
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                               <ScoreBar label="Industry fit" value={m.score.industry_score} />
                               <ScoreBar label="Stage fit" value={m.score.stage_score} />
@@ -307,7 +363,6 @@ export function MatchingPage() {
                               <ScoreBar label="Traction" value={m.score.traction_score} />
                             </div>
 
-                            {/* Founders */}
                             {founders.length > 0 && (
                               <div>
                                 <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'hsl(var(--muted-foreground))', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: 4 }}>
@@ -351,7 +406,7 @@ export function MatchingPage() {
                 </div>
               )}
             </div>
-          )}
+          ) : null}
         </>
       )}
     </div>

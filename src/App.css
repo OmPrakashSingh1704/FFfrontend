@@ -311,6 +311,19 @@
   }
 }
 
+/* Used by the calls page's "waiting for the other side" indicator. Subtle
+   breathing effect so the user knows the app is alive while ICE negotiates. */
+@keyframes pulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.85;
+  }
+  50% {
+    transform: scale(1.06);
+    opacity: 1;
+  }
+}
+
 /* Orbiting investor cards */
 .orbit {
   @apply absolute top-1/2 left-1/2;
@@ -5124,6 +5137,35 @@ img.profile-avatar-lg {
 .markdown-prose-sm {
   font-size: 0.8125rem;
   line-height: 1.6;
+}
+
+/* @mention chips inside markdown content. Rendered by Markdown.tsx when an
+   anchor href starts with /app/users|founders|investors/. */
+.markdown-mention {
+  display: inline;
+  padding: 0.05em 0.35em;
+  border-radius: 0.375rem;
+  background: hsl(var(--primary) / 0.12);
+  color: hsl(var(--primary));
+  font-weight: 600;
+  text-decoration: none;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.markdown-mention:hover,
+.markdown-mention:focus-visible {
+  background: hsl(var(--primary) / 0.2);
+  text-decoration: none;
+  outline: none;
+}
+
+[data-theme="dark"] .markdown-mention {
+  background: hsl(var(--primary) / 0.18);
+}
+
+[data-theme="dark"] .markdown-mention:hover,
+[data-theme="dark"] .markdown-mention:focus-visible {
+  background: hsl(var(--primary) / 0.28);
 }
 
 .markdown-prose h1,

@@ -8,6 +8,12 @@ export type FeedComment = {
     role?: string
   }
   content: string
+  /**
+   * One-level threading: when set, this comment is a reply to the comment
+   * with this id. The backend flattens reply-to-a-reply at create time so
+   * parent_id is always either null or a top-level comment id.
+   */
+  parent_id?: string | null
   created_at: string
   updated_at: string
 }

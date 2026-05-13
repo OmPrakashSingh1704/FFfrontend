@@ -1,16 +1,19 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { Plus, Search, Paperclip, ArrowUp, Phone, X, Bot, LogOut, Pencil, Trash2, Check } from 'lucide-react'
+import { Plus, Search, Paperclip, ArrowUp, Phone, Video, X, Bot, LogOut, Pencil, Trash2, Check, UserPlus } from 'lucide-react'
 import { apiRequest, uploadRequest } from '../lib/api'
 import { normalizeList } from '../lib/pagination'
 import { buildWsUrl } from '../lib/ws'
 import { useWebSocket } from '../hooks/useWebSocket'
 import { useAuth } from '../context/AuthContext'
+import { useCall } from '../context/CallContext'
 import { useToast } from '../context/ToastContext'
+import { addActiveCallId } from '../lib/callSession'
 import { Markdown } from '../components/Markdown'
 import { MarkdownTextarea } from '../components/MarkdownTextarea'
 import { cn } from '../lib/cn'
 import type { ChatAttachment, ChatConversation, ChatMessage, ChatParticipant } from '../types/chat'
+import type { CallSession } from '../types/call'
 
 type WsEvent = {
   type: string
@@ -33,6 +36,21 @@ type ChatCommand = {
   usage?: string
   bot_name?: string
 }
+
+// Installable bots ("Add Bot" button + picker modal) are hidden — flip to
+// true to bring them back. Slash commands stay on regardless, because they
+// route through the built-in System bot and the response is now attributed
+// to the user who ran the command (see chat/bots/handlers.py).
+const BOTS_ENABLED = false
+
+// Mirror of the backend MAX_MESSAGE_LENGTH (chat/constants.py). Used for
+// the live composer counter and client-side Send gating so users see the
+// limit while typing instead of getting rejected after hitting Send.
+// Keep in sync with the backend constant.
+const MAX_MESSAGE_LENGTH = 2000
+// Show the counter once you cross 75% of the cap. Most messages stay
+// well under that, so the counter doesn't add visual noise to short chats.
+const COUNTER_VISIBLE_THRESHOLD = Math.floor(MAX_MESSAGE_LENGTH * 0.75)
 
 const formatName = (participant?: ChatParticipant) =>
   participant?.full_name || participant?.title || `User ${participant?.id ?? ''}`.trim()
@@ -78,6 +96,7 @@ export function ChatPage() {
   const navigate = useNavigate()
   const { user, accessToken } = useAuth()
   const { pushToast } = useToast()
+  const { setActiveCall, setInitiatorId, sendJson: sendCallSignal } = useCall()
   const newChatRequestRef = useRef<string | null>(null)
 
   const [conversations, setConversations] = useState<ChatConversation[]>([])
@@ -626,6 +645,65 @@ export function ChatPage() {
     }
   }
 
+  /**
+   * Start an outbound call against the active conversation. The backend
+   * resolves participants from the conversation, so we don't need to pass
+   * target_user_ids. After the POST we wire the new call into CallContext
+   * (so the call frame mounts) and navigate to the calls page.
+   *
+   * This used to live in CallsPage as a debug form with UUID paste-ins;
+   * after the Phase 3 cleanup that form is gone and chat is the only
+   * legitimate entry point.
+   */
+  const [startingCall, setStartingCall] = useState(false)
+  const startCall = async (callType: 'voice' | 'video') => {
+    if (startingCall) return
+    if (!activeConversation?.id) {
+      pushToast('Open a conversation first.', 'warning')
+      return
+    }
+    // Defensive client-side mirror of the backend connection gate
+    // (chat/calls/service.py:91). If the button somehow gets clicked while
+    // disabled (stale render, keyboard activation), bail cleanly with a
+    // helpful pointer instead of letting the request 403.
+    if (
+      activeConversation.type === 'direct'
+      && activeConversation.other_participant?.is_connected === false
+    ) {
+      pushToast(
+        `Send a connection request to ${activeConversation.other_participant.full_name ?? 'this user'} first.`,
+        'warning',
+      )
+      return
+    }
+    setStartingCall(true)
+    try {
+      const call = await apiRequest<CallSession>('/chat/calls/initiate/', {
+        method: 'POST',
+        body: {
+          conversation_id: String(activeConversation.id),
+          call_type: callType,
+        },
+      })
+      setActiveCall(call)
+      if (user?.id) setInitiatorId(String(user.id))
+      addActiveCallId(call.call_id)
+      sendCallSignal({ type: 'join_call', call_id: call.call_id })
+      navigate(`/app/calls?callId=${encodeURIComponent(call.call_id)}`)
+    } catch (err: unknown) {
+      // Surface the actual server error instead of a generic "try again". The
+      // backend returns helpful details (e.g. "Not a participant", "Already
+      // has active call") that the user needs to see to know what to do.
+      const detail =
+        (err as { details?: { error?: string; detail?: string } })?.details?.error
+        ?? (err as { details?: { error?: string; detail?: string } })?.details?.detail
+        ?? (err as { message?: string })?.message
+      pushToast(detail ? `Call failed: ${detail}` : 'Unable to start call.', 'error')
+    } finally {
+      setStartingCall(false)
+    }
+  }
+
   const handleEditMessage = async () => {
     if (!editingId || !editingContent.trim()) return
     try {
@@ -760,7 +838,16 @@ export function ChatPage() {
   })
   const isEditingMessage = Boolean(editingId)
   const composerValue = isEditingMessage ? editingContent : messageDraft
-  const canSendOrSave = isEditingMessage ? Boolean(composerValue.trim()) : Boolean(composerValue.trim() || attachments.length)
+  // Length cap mirrors the backend serializer. Slash commands are exempt
+  // because the bot system processes them server-side and the resulting
+  // message it generates is the one that gets stored, not the raw `/foo`.
+  const composerLength = composerValue.length
+  const isCommandDraft = !isEditingMessage && composerValue.trim().startsWith('/')
+  const overLimit = !isCommandDraft && composerLength > MAX_MESSAGE_LENGTH
+  const hasContent = isEditingMessage
+    ? Boolean(composerValue.trim())
+    : Boolean(composerValue.trim() || attachments.length)
+  const canSendOrSave = hasContent && !overLimit
 
   const handleComposerChange = (value: string) => {
     if (isEditingMessage) {
@@ -885,27 +972,67 @@ export function ChatPage() {
               </span>
             </div>
             <div className="flex items-center gap-1">
-              <button className="btn-sm ghost" type="button" onClick={() => setShowBotModal(true)} title="Add bot">
-                <Bot className="w-3.5 h-3.5" />
-              </button>
+              {BOTS_ENABLED ? (
+                <button className="btn-sm ghost" type="button" onClick={() => setShowBotModal(true)} title="Add bot">
+                  <Bot className="w-3.5 h-3.5" />
+                </button>
+              ) : null}
               {activeConversation ? (
                 <button className="btn-sm ghost" type="button" onClick={() => void handleLeaveConversation()} title="Leave">
                   <LogOut className="w-3.5 h-3.5" />
                 </button>
               ) : null}
-              <button
-                className="btn-sm primary"
-                type="button"
-                onClick={() => {
-                  if (activeConversation?.id) {
-                    navigate(`/app/calls?conversationId=${encodeURIComponent(String(activeConversation.id))}`)
-                  } else {
-                    navigate('/app/calls')
-                  }
-                }}
-              >
-                <Phone className="w-3.5 h-3.5" /> Call
-              </button>
+              {activeConversation ? (() => {
+                // Backend blocks DM calls between non-connected users
+                // (chat/calls/service.py:91). Mirror the gate client-side so
+                // we never make a doomed request — instead disable the
+                // buttons and surface a one-tap path to /app/connections.
+                const otherParticipant = activeConversation.other_participant
+                const notConnected =
+                  activeConversation.type === 'direct'
+                  && otherParticipant?.is_connected === false
+                const otherName = otherParticipant?.full_name ?? 'this person'
+                const callTitle = notConnected
+                  ? `Connect with ${otherName} first to start a call`
+                  : startingCall ? 'Starting…' : undefined
+                return (
+                  <>
+                    {notConnected ? (
+                      <button
+                        type="button"
+                        className="btn-sm ghost"
+                        onClick={() => navigate('/app/connections')}
+                        title={`Send ${otherName} a connection request`}
+                        data-testid="chat-connect-prompt"
+                        style={{ color: 'var(--gold)' }}
+                      >
+                        <UserPlus className="w-3.5 h-3.5" />
+                        <span className="ml-1 text-xs">Connect</span>
+                      </button>
+                    ) : null}
+                    <button
+                      className="btn-sm ghost"
+                      type="button"
+                      onClick={() => void startCall('voice')}
+                      disabled={startingCall || notConnected}
+                      title={callTitle ?? 'Voice call'}
+                      data-testid="chat-start-voice-call"
+                    >
+                      <Phone className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      className="btn-sm ghost"
+                      type="button"
+                      onClick={() => void startCall('video')}
+                      disabled={startingCall || notConnected}
+                      title={callTitle ?? 'Video call'}
+                      data-testid="chat-start-video-call"
+                    >
+                      <Video className="w-3.5 h-3.5" />
+                    </button>
+                  </>
+                )
+              })() : null}
             </div>
           </header>
 
@@ -1131,7 +1258,9 @@ export function ChatPage() {
                         <span className="ml-2 text-xs" style={{ color: 'hsl(var(--muted-foreground))' }}>{cmd.description}</span>
                       ) : null}
                     </div>
-                    <span className="tag">{cmd.bot_name || 'Bot'}</span>
+                    {cmd.usage ? (
+                      <span className="tag" style={{ fontSize: '0.6875rem', opacity: 0.7 }}>{cmd.usage}</span>
+                    ) : null}
                   </button>
                 ))}
                 {commandsError ? <div className="px-3 py-2 text-xs" style={{ color: '#ef4444' }}>{commandsError}</div> : null}
@@ -1209,6 +1338,26 @@ export function ChatPage() {
                 {isEditingMessage ? <Check className="w-4 h-4" /> : <ArrowUp className="w-4 h-4" />}
               </button>
             </div>
+            {/* Live character counter — only renders past the threshold
+                so short messages stay visually clean. Color escalates as we
+                approach the cap; red + the "too long" hint makes it
+                obvious why Send is disabled when over. */}
+            {!isCommandDraft && composerLength >= COUNTER_VISIBLE_THRESHOLD ? (
+              <div
+                className="text-xs mt-1 text-right"
+                style={{
+                  color: overLimit
+                    ? '#ef4444'
+                    : composerLength >= MAX_MESSAGE_LENGTH * 0.95
+                      ? '#f59e0b'
+                      : 'hsl(var(--muted-foreground))',
+                }}
+                data-testid="chat-char-counter"
+              >
+                {composerLength.toLocaleString()} / {MAX_MESSAGE_LENGTH.toLocaleString()}
+                {overLimit ? ` · too long by ${(composerLength - MAX_MESSAGE_LENGTH).toLocaleString()}` : null}
+              </div>
+            ) : null}
           </div>
         </div>
       </div>
@@ -1323,8 +1472,8 @@ export function ChatPage() {
         </div>
       ) : null}
 
-      {/* Bot Modal */}
-      {showBotModal ? (
+      {/* Bot Modal — gated behind BOTS_ENABLED so it can't open even via stale state */}
+      {BOTS_ENABLED && showBotModal ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.5)' }} role="dialog" aria-modal="true">
           <div className="card w-full max-w-sm mx-4">
             <div className="flex items-center justify-between mb-4">
