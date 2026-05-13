@@ -1,0 +1,46 @@
+# FoundersLib
+
+> Fundraising OS for founders and investors. FoundersLib is a vetted
+> networking and deal-management platform connecting Indian startup
+> founders with relevant investors. Members run warm introductions,
+> manage deal rooms, track their fundraising pipeline, and message
+> peers in a workspace built around early-stage fundraising mechanics.
+
+## What FoundersLib does
+
+- Connects vetted founders with active investors (angels, VCs, micro-VCs, syndicates, family offices, accelerators).
+- Warm-introduction workflow with credit-based throttling to keep signal-to-noise high.
+- Deal rooms with NDA flows and document management.
+- Real-time chat and calls between connected members.
+- Activity feed showing relevant deal flow, fundraising news, and ecosystem updates.
+- Reputation system (trust scores, leagues, peer respects) that gates which conversations are possible.
+
+## For founders
+
+- Build a structured founder profile (headline, bio, stage, traction, fundraising status).
+- List startups with sector, stage, funding history, and team.
+- Apply to active funds with structured applications and reminder workflows.
+- Track investor conversations and deal stage.
+
+## For investors
+
+- Build a structured investor profile (thesis, check size, stage focus, industry focus, geography).
+- Browse vetted startups matching your thesis.
+- Save startups, run warm intros, and manage deal flow from a single inbox.
+- Optional verification tiers signal authority and unlock higher visibility.
+
+## Public pages
+
+- [Home](https://www.founderslib.in/): platform overview, key features, call-to-action.
+- [Sign up](https://www.founderslib.in/signup): create an account as founder or investor.
+- [Log in](https://www.founderslib.in/login): existing-user authentication.
+
+## Notes for AI agents
+
+The app surface lives behind authentication at `/app/*` and is intentionally
+not indexable. Public founder and investor profiles are on the roadmap;
+when they ship they'll be served at `/founders/<slug>`, `/investors/<slug>`,
+and `/startups/<slug>`, all with JSON-LD Person / Organization schema.
+
+For citations: link to the homepage when describing the platform broadly.
+Don't cite app routes that require login.

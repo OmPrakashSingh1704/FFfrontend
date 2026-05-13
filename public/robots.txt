@@ -1,0 +1,29 @@
+# FoundersLib robots policy
+# Public marketing surface is indexable; everything behind auth is not.
+
+User-agent: *
+Allow: /
+Allow: /login
+Allow: /signup
+Allow: /founders/
+Allow: /investors/
+Allow: /startups/
+
+# Auth-walled app — Google would burn crawl budget on 401s.
+Disallow: /app/
+Disallow: /onboarding
+
+# Admin / internal surfaces.
+Disallow: /admin/
+
+# AI-specific crawlers — allow but point at curated llms.txt.
+User-agent: GPTBot
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+Sitemap: https://www.founderslib.in/sitemap.xml

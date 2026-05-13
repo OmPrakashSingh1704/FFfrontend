@@ -7,7 +7,8 @@ import { formatLabel } from '../lib/format'
 import { Pagination } from '../components/Pagination'
 import { useToast } from '../context/ToastContext'
 import { useAuth } from '../context/AuthContext'
-import { fetchConnectedUserIds } from '../lib/connections'
+import { fetchConnectionStatuses, type ConnectionStatus } from '../lib/connections'
+import { buildProfileUrl } from '../lib/slugId'
 import type { FounderProfile } from '../types/founder'
 
 const PAGE_SIZE = 20
@@ -24,12 +25,12 @@ export function FoundersListPage() {
   const [page, setPage] = useState(1)
   const [totalCount, setTotalCount] = useState(0)
   const [connecting, setConnecting] = useState<string | null>(null)
-  const [requested, setRequested] = useState<Set<string>>(new Set())
+  const [statuses, setStatuses] = useState<Map<string, ConnectionStatus>>(new Map())
   const [pendingConnect, setPendingConnect] = useState<FounderProfile | null>(null)
 
   useEffect(() => {
     if (currentUser?.id) {
-      fetchConnectedUserIds(currentUser.id).then(setRequested).catch(() => {})
+      fetchConnectionStatuses(currentUser.id).then(setStatuses).catch(() => {})
     }
   }, [currentUser?.id])
   const searchTimer = useRef<number | null>(null)
@@ -74,7 +75,11 @@ export function FoundersListPage() {
     setConnecting(userId)
     try {
       await apiRequest('/connections/send/', { method: 'POST', body: { user_id: userId } })
-      setRequested((prev) => new Set(prev).add(userId))
+      setStatuses((prev) => {
+        const next = new Map(prev)
+        next.set(userId, 'pending')
+        return next
+      })
       pushToast('Connection request sent!', 'success')
     } catch (err: unknown) {
       const msg = (err as { detail?: string })?.detail ?? 'Failed to send request.'
@@ -183,9 +188,21 @@ export function FoundersListPage() {
               return (
                 <Link
                   key={founder.id}
-                  to={`/app/founders/${founder.id}`}
+                  to={buildProfileUrl('founders', founder.user?.full_name, founder.id)}
                   className="card"
-                  style={{ textDecoration: 'none', color: 'inherit', display: 'block', padding: 0, overflow: 'hidden' }}
+                  // Flex column with full height so the action row gets pushed
+                  // to the bottom via mt-auto. Without this, cards in the grid
+                  // have varying button-row positions depending on whether the
+                  // founder has a long headline + many tags.
+                  style={{
+                    textDecoration: 'none',
+                    color: 'inherit',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    height: '100%',
+                    padding: 0,
+                    overflow: 'hidden',
+                  }}
                   data-testid={`founder-card-${founder.id}`}
                 >
                   {/* Banner */}
@@ -232,8 +249,15 @@ export function FoundersListPage() {
                     </div>
                   </div>
 
-                  {/* Content */}
-                  <div style={{ padding: '0.5rem 1rem 1rem' }}>
+                  {/* Content — flex column so the action row at the bottom
+                      can use mt-auto to anchor to the card footer. */}
+                  <div style={{
+                    padding: '0.5rem 1rem 1rem',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    flex: 1,
+                    minHeight: 0,
+                  }}>
                     <div style={{ fontWeight: 600, fontSize: '0.9375rem', marginBottom: '0.125rem' }}>
                       {name}
                     </div>
@@ -271,7 +295,18 @@ export function FoundersListPage() {
                       )}
                     </div>
 
-                    <div style={{ display: 'flex', gap: '0.375rem' }}>
+                    <div
+                      // Card footer: pinned to the bottom regardless of how
+                      // much content is above. The thin top border + slight
+                      // padding visually separates actions from info.
+                      style={{
+                        display: 'flex',
+                        gap: '0.375rem',
+                        marginTop: 'auto',
+                        paddingTop: '0.625rem',
+                        borderTop: '1px solid hsl(var(--border))',
+                      }}
+                    >
                       <button
                         type="button"
                         className="btn-sm ghost"
@@ -282,19 +317,34 @@ export function FoundersListPage() {
                         <MessageCircle style={{ width: '0.875rem', height: '0.875rem' }} strokeWidth={1.5} />
                         Chat
                       </button>
-                      {founder.user?.id && founder.user.id !== currentUser?.id && (
-                        <button
-                          type="button"
-                          className="btn-sm ghost"
-                          style={{ flex: 1, justifyContent: 'center' }}
-                          disabled={connecting === founder.user.id || requested.has(founder.user.id)}
-                          onClick={(e) => handleConnectClick(e, founder)}
-                          data-testid={`connect-founder-${founder.id}`}
-                        >
-                          <UserPlus style={{ width: '0.875rem', height: '0.875rem' }} strokeWidth={1.5} />
-                          {connecting === founder.user.id ? '...' : requested.has(founder.user.id) ? 'Requested' : 'Connect'}
-                        </button>
-                      )}
+                      {founder.user?.id && founder.user.id !== currentUser?.id && (() => {
+                        const status = statuses.get(founder.user.id)
+                        if (status === 'accepted') {
+                          return (
+                            <span
+                              className="btn-sm ghost"
+                              style={{ flex: 1, justifyContent: 'center', cursor: 'default', color: 'var(--gold)' }}
+                              data-testid={`founder-connected-${founder.id}`}
+                            >
+                              <UserCheck style={{ width: '0.875rem', height: '0.875rem' }} strokeWidth={1.5} />
+                              Connected
+                            </span>
+                          )
+                        }
+                        return (
+                          <button
+                            type="button"
+                            className="btn-sm ghost"
+                            style={{ flex: 1, justifyContent: 'center' }}
+                            disabled={connecting === founder.user.id || status === 'pending'}
+                            onClick={(e) => handleConnectClick(e, founder)}
+                            data-testid={`connect-founder-${founder.id}`}
+                          >
+                            <UserPlus style={{ width: '0.875rem', height: '0.875rem' }} strokeWidth={1.5} />
+                            {connecting === founder.user.id ? '...' : status === 'pending' ? 'Requested' : 'Connect'}
+                          </button>
+                        )
+                      })()}
                     </div>
                   </div>
                 </Link>

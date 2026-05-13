@@ -3,9 +3,21 @@ import { Navigate, useParams } from 'react-router-dom'
 import { Loader2 } from 'lucide-react'
 import { apiRequest } from '../lib/api'
 import { normalizeList, type PaginatedResponse } from '../lib/pagination'
+import { buildProfileUrl } from '../lib/slugId'
 
-type FounderLite = { id?: string; user?: { id?: string } }
-type InvestorLite = { id?: string; user_id?: string; user?: { id?: string } }
+type FounderLite = {
+  id?: string
+  slug?: string
+  user?: { id?: string; full_name?: string }
+}
+type InvestorLite = {
+  id?: string
+  slug?: string
+  user_id?: string
+  display_name?: string
+  fund_name?: string | null
+  user?: { id?: string; full_name?: string }
+}
 
 /**
  * Resolve a user id (from an @mention link) to the profile they actually have
@@ -49,11 +61,17 @@ export function UserRedirectPage() {
           investorRes.status === 'fulfilled' ? normalizeList(investorRes.value)[0] : null
 
         if (founderProfile?.id) {
-          setResolved({ to: `/app/founders/${founderProfile.id}` })
+          const slugSource = founderProfile.slug || founderProfile.user?.full_name || ''
+          setResolved({ to: buildProfileUrl('founders', slugSource, founderProfile.id) })
           return
         }
         if (investorProfile?.id) {
-          setResolved({ to: `/app/investors/${investorProfile.id}` })
+          const slugSource =
+            investorProfile.slug
+            || [investorProfile.fund_name, investorProfile.display_name].filter(Boolean).join(' ')
+            || investorProfile.user?.full_name
+            || ''
+          setResolved({ to: buildProfileUrl('investors', slugSource, investorProfile.id) })
           return
         }
         setError('Profile not found')

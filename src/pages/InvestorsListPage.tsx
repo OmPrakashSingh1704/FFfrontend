@@ -7,7 +7,8 @@ import { formatLabel } from '../lib/format'
 import { Pagination } from '../components/Pagination'
 import { useToast } from '../context/ToastContext'
 import { useAuth } from '../context/AuthContext'
-import { fetchConnectedUserIds } from '../lib/connections'
+import { fetchConnectionStatuses, type ConnectionStatus } from '../lib/connections'
+import { buildProfileUrl } from '../lib/slugId'
 import type { InvestorProfile } from '../types/investor'
 
 const PAGE_SIZE = 20
@@ -24,12 +25,12 @@ export function InvestorsListPage() {
   const [page, setPage] = useState(1)
   const [totalCount, setTotalCount] = useState(0)
   const [connecting, setConnecting] = useState<string | null>(null)
-  const [requested, setRequested] = useState<Set<string>>(new Set())
+  const [statuses, setStatuses] = useState<Map<string, ConnectionStatus>>(new Map())
   const [pendingConnect, setPendingConnect] = useState<InvestorProfile | null>(null)
 
   useEffect(() => {
     if (currentUser?.id) {
-      fetchConnectedUserIds(currentUser.id).then(setRequested).catch(() => {})
+      fetchConnectionStatuses(currentUser.id).then(setStatuses).catch(() => {})
     }
   }, [currentUser?.id])
   const searchTimer = useRef<number | null>(null)
@@ -74,7 +75,11 @@ export function InvestorsListPage() {
     setConnecting(userId)
     try {
       await apiRequest('/connections/send/', { method: 'POST', body: { user_id: userId } })
-      setRequested((prev) => new Set(prev).add(userId))
+      setStatuses((prev) => {
+        const next = new Map(prev)
+        next.set(userId, 'pending')
+        return next
+      })
       pushToast('Connection request sent!', 'success')
     } catch (err: unknown) {
       const msg = (err as { detail?: string })?.detail ?? 'Failed to send request.'
@@ -183,9 +188,23 @@ export function InvestorsListPage() {
               return (
                 <Link
                   key={investor.id}
-                  to={`/app/investors/${investor.id}`}
+                  to={buildProfileUrl(
+                    'investors',
+                    [investor.fund_name, investor.display_name].filter(Boolean).join(' ') || investor.user?.full_name,
+                    investor.id,
+                  )}
                   className="card"
-                  style={{ textDecoration: 'none', color: 'inherit', display: 'block', padding: 0, overflow: 'hidden' }}
+                  // See FoundersListPage for the rationale — flex column +
+                  // full height so the action row anchors to the bottom.
+                  style={{
+                    textDecoration: 'none',
+                    color: 'inherit',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    height: '100%',
+                    padding: 0,
+                    overflow: 'hidden',
+                  }}
                   data-testid={`investor-card-${investor.id}`}
                 >
                   {/* Banner */}
@@ -232,8 +251,15 @@ export function InvestorsListPage() {
                     </div>
                   </div>
 
-                  {/* Content */}
-                  <div style={{ padding: '0.5rem 1rem 1rem' }}>
+                  {/* Content — flex column so the action row at the bottom
+                      can use mt-auto to anchor to the card footer. */}
+                  <div style={{
+                    padding: '0.5rem 1rem 1rem',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    flex: 1,
+                    minHeight: 0,
+                  }}>
                     <div style={{ fontWeight: 600, fontSize: '0.9375rem', marginBottom: '0.125rem' }}>
                       {name}
                       {investor.is_verified && (
@@ -277,7 +303,17 @@ export function InvestorsListPage() {
                       )}
                     </div>
 
-                    <div style={{ display: 'flex', gap: '0.375rem' }}>
+                    <div
+                      // Card footer: pinned to the bottom of the card via
+                      // mt-auto. See FoundersListPage for the rationale.
+                      style={{
+                        display: 'flex',
+                        gap: '0.375rem',
+                        marginTop: 'auto',
+                        paddingTop: '0.625rem',
+                        borderTop: '1px solid hsl(var(--border))',
+                      }}
+                    >
                       <button
                         type="button"
                         className="btn-sm ghost"
@@ -293,17 +329,30 @@ export function InvestorsListPage() {
                         // Resolve here so the button works on both shapes.
                         const targetUserId = investor.user?.id ?? investor.user_id
                         if (!targetUserId || targetUserId === currentUser?.id) return null
+                        const status = statuses.get(targetUserId)
+                        if (status === 'accepted') {
+                          return (
+                            <span
+                              className="btn-sm ghost"
+                              style={{ flex: 1, justifyContent: 'center', cursor: 'default', color: 'var(--gold)' }}
+                              data-testid={`investor-connected-${investor.id}`}
+                            >
+                              <UserCheck style={{ width: '0.875rem', height: '0.875rem' }} strokeWidth={1.5} />
+                              Connected
+                            </span>
+                          )
+                        }
                         return (
                           <button
                             type="button"
                             className="btn-sm ghost"
                             style={{ flex: 1, justifyContent: 'center' }}
-                            disabled={connecting === targetUserId || requested.has(targetUserId)}
+                            disabled={connecting === targetUserId || status === 'pending'}
                             onClick={(e) => handleConnectClick(e, investor)}
                             data-testid={`connect-investor-${investor.id}`}
                           >
                             <UserPlus style={{ width: '0.875rem', height: '0.875rem' }} strokeWidth={1.5} />
-                            {connecting === targetUserId ? '...' : requested.has(targetUserId) ? 'Requested' : 'Connect'}
+                            {connecting === targetUserId ? '...' : status === 'pending' ? 'Requested' : 'Connect'}
                           </button>
                         )
                       })()}

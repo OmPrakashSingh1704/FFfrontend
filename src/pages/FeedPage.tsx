@@ -20,6 +20,7 @@ import {
 } from 'lucide-react'
 import { apiRequest } from '../lib/api'
 import { normalizeList } from '../lib/pagination'
+import { buildProfileUrl } from '../lib/slugId'
 import { useToast } from '../context/ToastContext'
 import { useAuth } from '../context/AuthContext'
 import { Markdown } from '../components/Markdown'
@@ -1068,9 +1069,11 @@ export function FeedPage() {
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.875rem 1.25rem 0' }}>
                   {(() => {
                     const profilePath = item.author?.profile_id
-                      ? item.author.role === 'investor'
-                        ? `/app/investors/${item.author.profile_id}`
-                        : `/app/founders/${item.author.profile_id}`
+                      ? buildProfileUrl(
+                          item.author.role === 'investor' ? 'investors' : 'founders',
+                          item.author.full_name,
+                          item.author.profile_id,
+                        )
                       : null
                     const avatarAndName = (
                       <>

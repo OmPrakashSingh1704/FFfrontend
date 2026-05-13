@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { Search, ArrowRight, Users, Briefcase, TrendingUp, Wallet } from 'lucide-react'
 import { apiRequest } from '../lib/api'
 import { normalizeList } from '../lib/pagination'
+import { buildProfileUrl } from '../lib/slugId'
 
 type BackendSearchResult = {
   id: string
@@ -56,15 +57,20 @@ type DiscoverItem = {
 }
 
 function buildResultUrl(type: string, id: string, source: Record<string, unknown>): string {
+  const nameOrSlug =
+    (source.full_name as string | undefined)
+    ?? (source.name as string | undefined)
+    ?? (source.title as string | undefined)
+    ?? ''
   switch (type) {
     case 'users': {
       const role = source.role as string | undefined
-      if (role === 'founder') return `/app/founders/${id}`
-      if (role === 'investor') return `/app/investors/${id}`
-      return `/app/profile/${id}`
+      if (role === 'founder') return buildProfileUrl('founders', nameOrSlug, id)
+      if (role === 'investor') return buildProfileUrl('investors', nameOrSlug, id)
+      return `/app/me`
     }
     case 'startups':
-      return `/app/startups/${id}`
+      return buildProfileUrl('startups', nameOrSlug, id)
     case 'feed':
       return `/app/feed`
     case 'messages':
@@ -314,7 +320,7 @@ export function SearchPage() {
               </div>
               <div className="grid-4">
                 {discoverStartups.map((item) => (
-                  <Link key={item.id} to={`/app/startups/${item.id}`} className="card group">
+                  <Link key={item.id} to={buildProfileUrl('startups', item.name, String(item.id))} className="card group">
                     <h3 className="text-sm font-medium mb-1">{item.name || 'Startup'}</h3>
                     <p className="text-xs line-clamp-2 mb-2" style={{ color: 'hsl(var(--muted-foreground))' }}>{item.tagline || ''}</p>
                     <div className="flex gap-1.5 flex-wrap">
@@ -343,7 +349,7 @@ export function SearchPage() {
                   const name = item.user?.full_name || item.name || ''
                   const initials = name ? name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2) : '?'
                   return (
-                    <Link key={item.id} to={`/app/founders/${item.id}`} className="card group">
+                    <Link key={item.id} to={buildProfileUrl('founders', name, String(item.id))} className="card group">
                       <div className="flex items-center gap-3 mb-2">
                         <div className="avatar">{initials}</div>
                         <div className="min-w-0">
@@ -374,7 +380,7 @@ export function SearchPage() {
                   const name = item.display_name || item.user?.full_name || item.name || ''
                   const initials = name ? name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2) : '?'
                   return (
-                    <Link key={item.id} to={`/app/investors/${item.id}`} className="card group">
+                    <Link key={item.id} to={buildProfileUrl('investors', name, String(item.id))} className="card group">
                       <div className="flex items-center gap-3 mb-2">
                         <div className="avatar">{initials}</div>
                         <div className="min-w-0">

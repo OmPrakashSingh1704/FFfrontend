@@ -1,11 +1,12 @@
 import { type ComponentType, Suspense, lazy } from 'react'
-import { BrowserRouter, Route, Routes } from 'react-router-dom'
+import { BrowserRouter, Navigate, Outlet, Route, Routes, useParams } from 'react-router-dom'
 import './App.css'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { PWAPrompts } from './components/PWAPrompts'
 import { RouteLoader } from './components/RouteLoader'
 import { AuthLayout } from './layouts/AuthLayout'
 import { AppShell } from './layouts/AppShell'
+import { useAuth } from './context/AuthContext'
 
 type LazyComponent = ComponentType<Record<string, unknown>>
 
@@ -18,12 +19,17 @@ const lazyPage = <T extends Record<string, unknown>>(factory: () => Promise<T>, 
 const LandingPage = lazyPage(() => import('./pages/LandingPage'), 'LandingPage')
 const LoginPage = lazyPage(() => import('./pages/LoginPage'), 'LoginPage')
 const SignupPage = lazyPage(() => import('./pages/SignupPage'), 'SignupPage')
+// Public, SEO-indexable profile pages. Routed OUTSIDE the /app/* AppShell
+// so they don't inherit the noindex meta and so they don't require auth.
+const PublicFounderPage = lazyPage(() => import('./pages/PublicFounderPage'), 'PublicFounderPage')
+const PublicInvestorPage = lazyPage(() => import('./pages/PublicInvestorPage'), 'PublicInvestorPage')
+const PublicStartupPage = lazyPage(() => import('./pages/PublicStartupPage'), 'PublicStartupPage')
 const Dashboard = lazyPage(() => import('./pages/Dashboard'), 'Dashboard')
 const FoundersListPage = lazyPage(() => import('./pages/FoundersListPage'), 'FoundersListPage')
-const FounderDetailPage = lazyPage(() => import('./pages/FounderDetailPage'), 'FounderDetailPage')
+// FounderDetailPage retired — see /founders/:slugId via PublicFounderPage.
 const UserRedirectPage = lazyPage(() => import('./pages/UserRedirectPage'), 'UserRedirectPage')
 const StartupsListPage = lazyPage(() => import('./pages/StartupsListPage'), 'StartupsListPage')
-const StartupDetailPage = lazyPage(() => import('./pages/StartupDetailPage'), 'StartupDetailPage')
+// StartupDetailPage retired — see /startups/:slugId via PublicStartupPage.
 const FeedPage = lazyPage(() => import('./pages/FeedPage'), 'FeedPage')
 const IntrosPage = lazyPage(() => import('./pages/IntrosPage'), 'IntrosPage')
 const TrustPage = lazyPage(() => import('./pages/TrustPage'), 'TrustPage')
@@ -41,7 +47,7 @@ const ChatPage = lazyPage(() => import('./pages/ChatPage'), 'ChatPage')
 const CallsPage = lazyPage(() => import('./pages/CallsPage'), 'CallsPage')
 const SearchPage = lazyPage(() => import('./pages/SearchPage'), 'SearchPage')
 const InvestorsListPage = lazyPage(() => import('./pages/InvestorsListPage'), 'InvestorsListPage')
-const InvestorDetailPage = lazyPage(() => import('./pages/InvestorDetailPage'), 'InvestorDetailPage')
+// InvestorDetailPage retired — see /investors/:slugId via PublicInvestorPage.
 const FundsListPage = lazyPage(() => import('./pages/FundsListPage'), 'FundsListPage')
 const FundDetailPage = lazyPage(() => import('./pages/FundDetailPage'), 'FundDetailPage')
 const ApplicationsListPage = lazyPage(() => import('./pages/ApplicationsListPage'), 'ApplicationsListPage')
@@ -63,6 +69,43 @@ const OnboardingPage = lazyPage(() => import('./pages/OnboardingPage'), 'Onboard
 const ConnectionsPage = lazyPage(() => import('./pages/ConnectionsPage'), 'ConnectionsPage')
 const NotFound = lazyPage(() => import('./pages/NotFound'), 'NotFound')
 
+/**
+ * Layout wrapper for routes that should look like a public page when the
+ * visitor is logged out, and like an in-app page (with sidebar + header +
+ * call widgets) when they're logged in.
+ *
+ * Profile pages are the canonical case: anon visitors see the clean
+ * SEO-friendly view; authenticated users see the same content but inside
+ * the AppShell so they can still navigate the rest of the product without
+ * hitting the browser back button.
+ */
+function ConditionalAppShell() {
+  const { status } = useAuth()
+  return status === 'authenticated' ? <AppShell /> : <Outlet />
+}
+
+/**
+ * Redirect old UUID-keyed profile URLs to the new <slug>-<short-uuid> pattern.
+ *
+ * The new unified detail pages accept a bare UUID at the end of the URL
+ * just fine (parseSlugId handles it), so we just pass the id through as
+ * the new slugId param. The page itself canonicalizes to the slug-prefixed
+ * form once it has the data — which makes the final shareable URL pretty
+ * without forcing the redirect to do a slug lookup here.
+ */
+function FounderRouteRedirect() {
+  const { id } = useParams<{ id: string }>()
+  return <Navigate to={`/founders/${id ?? ''}`} replace />
+}
+function InvestorRouteRedirect() {
+  const { id } = useParams<{ id: string }>()
+  return <Navigate to={`/investors/${id ?? ''}`} replace />
+}
+function StartupRouteRedirect() {
+  const { id } = useParams<{ id: string }>()
+  return <Navigate to={`/startups/${id ?? ''}`} replace />
+}
+
 function App() {
   return (
     <BrowserRouter>
@@ -71,6 +114,20 @@ function App() {
         <Routes>
           <Route path="/" element={<LandingPage />} />
           <Route path="/design-guidelines" element={<DesignGuidelinesPage />} />
+
+          {/* Profile pages — one URL per resource, served to both anon and
+              signed-in viewers. URL pattern is <slug>-<short-uuid>. The
+              slug part drives the public slug-keyed fetch; the short-uuid
+              gives renaming permanence. Auth users see Connect/Chat
+              affordances inline. See lib/slugId.ts.
+
+              Wrapped in ConditionalAppShell so signed-in users keep the
+              sidebar + nav while anon visitors get the clean SEO layout. */}
+          <Route element={<ConditionalAppShell />}>
+            <Route path="/founders/:slugId" element={<PublicFounderPage />} />
+            <Route path="/investors/:slugId" element={<PublicInvestorPage />} />
+            <Route path="/startups/:slugId" element={<PublicStartupPage />} />
+          </Route>
 
           <Route element={<AuthLayout />}>
             <Route path="/login" element={<LoginPage />} />
@@ -95,14 +152,9 @@ function App() {
                 </ProtectedRoute>
               }
             />
-            <Route
-              path="/app/founders/:id"
-              element={
-                <ProtectedRoute>
-                  <FounderDetailPage />
-                </ProtectedRoute>
-              }
-            />
+            {/* Legacy: old /app/founders/<uuid> URLs. Bounce to the new
+                pattern; the canonical slug form lands after the page loads. */}
+            <Route path="/app/founders/:id" element={<FounderRouteRedirect />} />
             <Route
               path="/app/users/:id"
               element={
@@ -119,14 +171,7 @@ function App() {
                 </ProtectedRoute>
               }
             />
-            <Route
-              path="/app/startups/:id"
-              element={
-                <ProtectedRoute>
-                  <StartupDetailPage />
-                </ProtectedRoute>
-              }
-            />
+            <Route path="/app/startups/:id" element={<StartupRouteRedirect />} />
             <Route
               path="/app/feed"
               element={
@@ -271,14 +316,7 @@ function App() {
                 </ProtectedRoute>
               }
             />
-            <Route
-              path="/app/investors/:id"
-              element={
-                <ProtectedRoute>
-                  <InvestorDetailPage />
-                </ProtectedRoute>
-              }
-            />
+            <Route path="/app/investors/:id" element={<InvestorRouteRedirect />} />
             <Route
               path="/app/funds"
               element={
@@ -360,29 +398,33 @@ function App() {
               }
             />
             <Route
-              path="/app/profile"
+              path="/app/me"
               element={
                 <ProtectedRoute>
                   <ProfilePage />
                 </ProtectedRoute>
               }
             />
+            {/* Legacy: /app/profile → /app/me */}
+            <Route path="/app/profile" element={<Navigate to="/app/me" replace />} />
             <Route
-              path="/app/profile/founder/edit"
+              path="/app/me/founder/edit"
               element={
                 <ProtectedRoute>
                   <FounderProfileEditPage />
                 </ProtectedRoute>
               }
             />
+            <Route path="/app/profile/founder/edit" element={<Navigate to="/app/me/founder/edit" replace />} />
             <Route
-              path="/app/profile/investor/edit"
+              path="/app/me/investor/edit"
               element={
                 <ProtectedRoute>
                   <InvestorProfileEditPage />
                 </ProtectedRoute>
               }
             />
+            <Route path="/app/profile/investor/edit" element={<Navigate to="/app/me/investor/edit" replace />} />
             <Route
               path="/app/settings"
               element={

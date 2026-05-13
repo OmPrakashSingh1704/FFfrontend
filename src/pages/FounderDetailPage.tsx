@@ -7,7 +7,7 @@ import { formatLabel } from '../lib/format'
 import { CopyLinkButton } from '../components/CopyLinkButton'
 import { useToast } from '../context/ToastContext'
 import { useAuth } from '../context/AuthContext'
-import { fetchConnectedUserIds } from '../lib/connections'
+import { fetchConnectionStatuses, type ConnectionStatus } from '../lib/connections'
 import type { FounderProfile } from '../types/founder'
 
 export function FounderDetailPage() {
@@ -19,15 +19,18 @@ export function FounderDetailPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [connecting, setConnecting] = useState(false)
-  const [requested, setRequested] = useState(false)
+  const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus | null>(null)
   const [showConnectPrompt, setShowConnectPrompt] = useState(false)
 
-  // Pre-populate button state after founder loads
+  // Pre-populate button state after founder loads.
+  // null = no relationship → show "Connect"
+  // 'pending' = we sent a request, awaiting their accept → show "Requested"
+  // 'accepted' = they accepted → show "Connected" (no more action available)
   useEffect(() => {
     const targetId = founder?.user?.id
     if (!targetId || !currentUser?.id) return
-    fetchConnectedUserIds(currentUser.id)
-      .then((ids) => { if (ids.has(targetId)) setRequested(true) })
+    fetchConnectionStatuses(currentUser.id)
+      .then((statuses) => { setConnectionStatus(statuses.get(targetId) ?? null) })
       .catch(() => {})
   }, [founder?.user?.id, currentUser?.id])
 
@@ -37,7 +40,7 @@ export function FounderDetailPage() {
     setConnecting(true)
     try {
       await apiRequest('/connections/send/', { method: 'POST', body: { user_id: userId } })
-      setRequested(true)
+      setConnectionStatus('pending')
       pushToast('Connection request sent!', 'success')
     } catch (err: unknown) {
       const msg = (err as { detail?: string })?.detail ?? 'Failed to send request.'
@@ -139,10 +142,27 @@ export function FounderDetailPage() {
                     <MessageCircle size={14} strokeWidth={1.5} />
                     Chat
                   </button>
-                  <button type="button" className="btn-sm primary" disabled={connecting || requested} onClick={() => setShowConnectPrompt(true)} data-testid="connect-founder-btn">
-                    <UserPlus size={14} strokeWidth={1.5} />
-                    {connecting ? 'Sending...' : requested ? 'Requested' : 'Connect'}
-                  </button>
+                  {connectionStatus === 'accepted' ? (
+                    <span
+                      className="btn-sm ghost"
+                      style={{ cursor: 'default', color: 'var(--gold)' }}
+                      data-testid="founder-connected-badge"
+                    >
+                      <UserCheck size={14} strokeWidth={1.5} />
+                      Connected
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      className="btn-sm primary"
+                      disabled={connecting || connectionStatus === 'pending'}
+                      onClick={() => setShowConnectPrompt(true)}
+                      data-testid="connect-founder-btn"
+                    >
+                      <UserPlus size={14} strokeWidth={1.5} />
+                      {connecting ? 'Sending...' : connectionStatus === 'pending' ? 'Requested' : 'Connect'}
+                    </button>
+                  )}
                 </div>
               )}
             </div>
@@ -239,6 +259,50 @@ export function FounderDetailPage() {
               </div>
             </div>
           </div>
+
+          {/* Startups Section. Backend gates which startups are visible
+              (own + public for everyone else), so this is just a render. */}
+          {founder.startups && founder.startups.length > 0 && (
+            <div className="section" data-testid="founder-startups">
+              <div className="card">
+                <div className="section-label" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <Briefcase style={{ width: '0.875rem', height: '0.875rem' }} strokeWidth={1.5} />
+                  Startups
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  {founder.startups.map((startup) => (
+                    <Link
+                      key={startup.id}
+                      to={`/app/startups/${startup.id}`}
+                      className="list-item"
+                      style={{ textDecoration: 'none' }}
+                      data-testid={`founder-startup-${startup.slug}`}
+                    >
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>{startup.name}</div>
+                        {startup.tagline && (
+                          <div style={{ fontSize: '0.8125rem', color: 'hsl(var(--muted-foreground))', marginTop: '0.125rem' }}>
+                            {startup.tagline}
+                          </div>
+                        )}
+                        <div style={{ display: 'flex', gap: '0.375rem', marginTop: '0.375rem', flexWrap: 'wrap' }}>
+                          {startup.industry && <span className="tag">{startup.industry}</span>}
+                          {startup.stage && <span className="tag">{formatLabel(startup.stage)}</span>}
+                          {startup.headquarters_city && (
+                            <span className="tag" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
+                              <MapPin style={{ width: '0.75rem', height: '0.75rem' }} strokeWidth={1.5} />
+                              {startup.headquarters_city}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <ExternalLink style={{ width: '0.875rem', height: '0.875rem', color: 'hsl(var(--muted-foreground))', flexShrink: 0 }} strokeWidth={1.5} />
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Skills Section */}
           {founder.skills && founder.skills.length > 0 && (

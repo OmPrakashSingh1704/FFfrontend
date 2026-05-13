@@ -7,6 +7,7 @@ import { buildWsUrl } from '../lib/ws'
 import { useWebSocket } from '../hooks/useWebSocket'
 import { useAuth } from '../context/AuthContext'
 import { useCall } from '../context/CallContext'
+import { useChatUnread } from '../context/ChatUnreadContext'
 import { useToast } from '../context/ToastContext'
 import { addActiveCallId } from '../lib/callSession'
 import { Markdown } from '../components/Markdown'
@@ -97,6 +98,7 @@ export function ChatPage() {
   const { user, accessToken } = useAuth()
   const { pushToast } = useToast()
   const { setActiveCall, setInitiatorId, sendJson: sendCallSignal } = useCall()
+  const { refresh: refreshChatUnread } = useChatUnread()
   const newChatRequestRef = useRef<string | null>(null)
 
   const [conversations, setConversations] = useState<ChatConversation[]>([])
@@ -265,7 +267,9 @@ export function ChatPage() {
           const list = normalizeList(data)
           setMessages([...list].reverse())
         }
-        void apiRequest(`/chat/conversations/${activeId}/read/`, { method: 'POST' }).catch(() => null)
+        void apiRequest(`/chat/conversations/${activeId}/read/`, { method: 'POST' })
+          .then(() => refreshChatUnread())
+          .catch(() => null)
       } catch {
         if (!cancelled) {
           setError('Unable to load messages.')

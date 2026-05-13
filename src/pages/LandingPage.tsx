@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { ArrowRight, TrendingUp, Users, MessageSquare, Zap, BarChart3, Lock } from 'lucide-react'
 import logo from '../assets/logo.svg'
 import { Page } from '../components/Page'
+import { PageHead } from '../components/PageHead'
 import { StatusLink } from '../components/StatusLink'
 import { ThemeToggle } from '../components/ThemeToggle'
 import { BackgroundPaths } from '../components/ui/background-paths'
@@ -127,6 +128,11 @@ export function LandingPage() {
 
   return (
     <Page className="page-home">
+      <PageHead
+        title="FoundersLib — the fundraising OS for founders and investors"
+        description="FoundersLib connects vetted founders and investors. Track deals, run intros, and manage your fundraising pipeline in one workspace built for India's startup ecosystem."
+        path="/"
+      />
       <Waves className="fixed inset-0 z-0" />
       {/* Navigation */}
       <header className="nav" data-testid="landing-nav">

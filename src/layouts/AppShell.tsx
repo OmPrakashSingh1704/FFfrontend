@@ -5,12 +5,14 @@ import {
   Activity, Wallet, Menu, X, Zap, Handshake, ClipboardList, UserCheck, Send
 } from 'lucide-react'
 import { useState, useEffect, useCallback } from 'react'
+import { Helmet } from 'react-helmet-async'
 import logo from '../assets/logo.svg'
 import { ThemeToggle } from '../components/ThemeToggle'
 import { NotificationDropdown } from '../components/NotificationDropdown'
 import { ProfileDropdown } from '../components/ProfileDropdown'
 import { StatusLink } from '../components/StatusLink'
 import { useAuth } from '../context/AuthContext'
+import { useChatUnread } from '../context/ChatUnreadContext'
 import { Page } from '../components/Page'
 import { RealtimeBridge } from '../components/RealtimeBridge'
 import { IncomingCallBridge } from '../components/IncomingCallBridge'
@@ -61,6 +63,7 @@ const navSections = [
 export function AppShell() {
   const { status, user } = useAuth()
   const location = useLocation()
+  const { count: chatUnreadCount } = useChatUnread()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [showPreloader, setShowPreloader] = useState(() => !localStorage.getItem('ff_preloader_seen'))
 
@@ -97,6 +100,14 @@ export function AppShell() {
   return (
     <CallProvider>
     <Page>
+      {/* Everything under /app/* is auth-walled and has zero SEO value.
+          Emit a robots noindex at the shell so Google stops burning crawl
+          budget hitting these routes (it can't see them anyway without
+          login). `follow` is kept on so internal links from the app
+          surface still pass PageRank if any external page links here. */}
+      <Helmet>
+        <meta name="robots" content="noindex,follow" />
+      </Helmet>
       {showPreloader && <Preloader onComplete={handlePreloaderComplete} />}
       <RealtimeBridge />
       <IncomingCallBridge />
@@ -125,17 +136,32 @@ export function AppShell() {
             return (
               <div className="sidebar-section" key={section.label}>
                 <span className="sidebar-section-label">{section.label}</span>
-                {items.map((item) => (
-                  <Link
-                    key={item.path}
-                    to={item.path}
-                    className={`sidebar-link${isActive(item.path) ? ' active' : ''}`}
-                    data-testid={`nav-${item.label.toLowerCase()}`}
-                  >
-                    <item.icon className="w-[18px] h-[18px]" strokeWidth={1.5} />
-                    {item.label}
-                  </Link>
-                ))}
+                {items.map((item) => {
+                  // Surface an unread badge on the Chat tab so users see
+                  // new messages without opening it. Other items don't have
+                  // unread state (yet), so the badge only renders here.
+                  const showChatBadge = item.path === '/app/chat' && chatUnreadCount > 0
+                  return (
+                    <Link
+                      key={item.path}
+                      to={item.path}
+                      className={`sidebar-link${isActive(item.path) ? ' active' : ''}`}
+                      data-testid={`nav-${item.label.toLowerCase()}`}
+                    >
+                      <item.icon className="w-[18px] h-[18px]" strokeWidth={1.5} />
+                      <span>{item.label}</span>
+                      {showChatBadge ? (
+                        <span
+                          className="sidebar-badge"
+                          data-testid="nav-chat-unread"
+                          aria-label={`${chatUnreadCount} unread chat${chatUnreadCount === 1 ? '' : 's'}`}
+                        >
+                          {chatUnreadCount > 99 ? '99+' : chatUnreadCount}
+                        </span>
+                      ) : null}
+                    </Link>
+                  )
+                })}
               </div>
             )
           })}

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { User, Mail, Lock, ArrowRight } from 'lucide-react'
 import { FormField } from '../components/FormField'
+import { PageHead } from '../components/PageHead'
 import { useToast } from '../context/ToastContext'
 import { apiRequest } from '../lib/api'
 import { hasErrors, isEmail, validateRequired } from '../lib/forms'
@@ -69,6 +70,11 @@ export function SignupPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center" style={{ background: 'hsl(var(--background))' }}>
+      <PageHead
+        title="Sign up"
+        description="Join FoundersLib to connect with vetted founders and investors, run warm intros, and manage your fundraising pipeline."
+        path="/signup"
+      />
       <section className="card max-w-lg w-full mx-4 p-12" data-testid="signup-card">
         <div className="text-center mb-10">
           <h2 className="text-2xl font-semibold mb-1" style={{ color: 'var(--gold)' }}>

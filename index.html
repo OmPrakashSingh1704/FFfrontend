@@ -7,13 +7,78 @@
     <link rel="apple-touch-icon" href="/apple-touch-icon-180x180.png" />
     <link rel="mask-icon" href="/logo-mark.svg" color="#171717" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <meta name="description" content="FoundersLib - fundraising OS for founders and investor partners." />
     <meta name="theme-color" content="#171717" />
+
+    <!-- Primary SEO. The shell HTML is what every non-JS crawler sees
+         (Bingbot, LinkedInBot, Slackbot, Twitterbot, ChatGPT, Perplexity).
+         react-helmet-async overrides these per-route at runtime for users
+         who load JS, but these defaults still matter for link previews
+         and first-pass indexing. -->
+    <title>FoundersLib — the fundraising OS for founders and investors</title>
+    <meta
+      name="description"
+      content="FoundersLib connects vetted founders and investors. Track deals, run intros, and manage your fundraising pipeline in one workspace built for India's startup ecosystem."
+    />
+    <link rel="canonical" href="https://www.founderslib.in/" />
+
+    <!-- Open Graph (Facebook, LinkedIn, Slack, WhatsApp, iMessage) -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="FoundersLib" />
+    <meta property="og:title" content="FoundersLib — the fundraising OS for founders and investors" />
+    <meta
+      property="og:description"
+      content="Connect with vetted founders and investors, run warm intros, and manage your fundraising pipeline in one workspace."
+    />
+    <meta property="og:url" content="https://www.founderslib.in/" />
+    <meta property="og:image" content="https://www.founderslib.in/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="FoundersLib — fundraising OS for founders and investors" />
+    <meta property="og:locale" content="en_IN" />
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="FoundersLib — the fundraising OS for founders and investors" />
+    <meta
+      name="twitter:description"
+      content="Vetted founder + investor network. Warm intros, deal rooms, pipeline tracking."
+    />
+    <meta name="twitter:image" content="https://www.founderslib.in/og-image.png" />
+
+    <!-- PWA -->
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="FoundersLib" />
     <meta name="mobile-web-app-capable" content="yes" />
-    <title>FoundersLib</title>
+
+    <!-- Structured data. Two graphs: Organization (the company) +
+         WebSite. Keeps rich-result eligibility broad without going
+         overboard. Update the `sameAs` array when official social
+         accounts go live. -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "Organization",
+            "@id": "https://www.founderslib.in/#organization",
+            "name": "FoundersLib",
+            "url": "https://www.founderslib.in/",
+            "logo": "https://www.founderslib.in/logo-mark.svg",
+            "description": "Fundraising OS for founders and investors. Vetted network, warm intros, deal rooms, and pipeline tracking.",
+            "sameAs": []
+          },
+          {
+            "@type": "WebSite",
+            "@id": "https://www.founderslib.in/#website",
+            "url": "https://www.founderslib.in/",
+            "name": "FoundersLib",
+            "publisher": { "@id": "https://www.founderslib.in/#organization" },
+            "inLanguage": "en-IN"
+          }
+        ]
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>

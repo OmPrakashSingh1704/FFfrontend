@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { apiRequest, uploadRequest } from '../lib/api'
+import { buildProfileUrl } from '../lib/slugId'
 import { resolveMediaUrl } from '../lib/env'
 import { useAuth } from '../context/AuthContext'
 import { useFeatureFlags } from '../context/FeatureFlagsContext'
@@ -645,10 +646,16 @@ export function ProfilePage() {
         </div>
         <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
           {founderProfileId && (
-            <CopyLinkButton url={`${window.location.origin}/app/founders/${founderProfileId}`} label="Share founder profile" />
+            <CopyLinkButton
+              url={`${window.location.origin}${buildProfileUrl('founders', user?.full_name, founderProfileId)}`}
+              label="Share founder profile"
+            />
           )}
           {investorProfileId && (
-            <CopyLinkButton url={`${window.location.origin}/app/investors/${investorProfileId}`} label="Share investor profile" />
+            <CopyLinkButton
+              url={`${window.location.origin}${buildProfileUrl('investors', user?.full_name, investorProfileId)}`}
+              label="Share investor profile"
+            />
           )}
         </div>
       </div>
@@ -964,10 +971,16 @@ export function ProfilePage() {
           <div className="card-header">
             <span className="card-title">Founder &amp; Investor Profile</span>
             {founderProfileId && profileTab === 'founder' && (
-              <CopyLinkButton url={`${window.location.origin}/app/founders/${founderProfileId}`} label="Share" />
+              <CopyLinkButton
+                url={`${window.location.origin}${buildProfileUrl('founders', user?.full_name, founderProfileId)}`}
+                label="Share"
+              />
             )}
             {investorProfileId && profileTab === 'investor' && (
-              <CopyLinkButton url={`${window.location.origin}/app/investors/${investorProfileId}`} label="Share" />
+              <CopyLinkButton
+                url={`${window.location.origin}${buildProfileUrl('investors', user?.full_name, investorProfileId)}`}
+                label="Share"
+              />
             )}
           </div>
 
@@ -1503,7 +1516,7 @@ export function ProfilePage() {
                         style={{ display: 'contents' }}
                       >
                         <Link
-                          to={`/app/startups/${s.id}`}
+                          to={buildProfileUrl('startups', s.name, s.id)}
                           className="btn-sm ghost"
                           style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '0.25rem 0.5rem', fontSize: '0.75rem' }}
                           data-testid={`open-startup-${s.id}`}
@@ -1512,7 +1525,7 @@ export function ProfilePage() {
                           Open
                         </Link>
                         <CopyLinkButton
-                          url={`${window.location.origin}/app/startups/${s.id}`}
+                          url={`${window.location.origin}${buildProfileUrl('startups', s.name, s.id)}`}
                           label="Share"
                         />
                       </span>

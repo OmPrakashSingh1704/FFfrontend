@@ -20,7 +20,7 @@ import {
 } from 'lucide-react'
 import { EditInvestorProfileModal } from './EditInvestorProfileModal'
 import { apiRequest } from '../lib/api'
-import { fetchConnectedUserIds } from '../lib/connections'
+import { fetchConnectionStatuses, type ConnectionStatus } from '../lib/connections'
 import { resolveMediaUrl } from '../lib/env'
 import { formatLabel } from '../lib/format'
 import { CopyLinkButton } from '../components/CopyLinkButton'
@@ -46,7 +46,7 @@ export function InvestorDetailPage() {
   const [interestMessage, setInterestMessage] = useState('')
   const [expressing, setExpressing] = useState(false)
   const [connecting, setConnecting] = useState(false)
-  const [requested, setRequested] = useState(false)
+  const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus | null>(null)
   const [showConnectPrompt, setShowConnectPrompt] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
 
@@ -60,8 +60,8 @@ export function InvestorDetailPage() {
   // Pre-populate button state after investor loads
   useEffect(() => {
     if (!targetUserId || !user?.id) return
-    fetchConnectedUserIds(user.id)
-      .then((ids) => { if (ids.has(targetUserId)) setRequested(true) })
+    fetchConnectionStatuses(user.id)
+      .then((statuses) => { setConnectionStatus(statuses.get(targetUserId) ?? null) })
       .catch(() => {})
   }, [targetUserId, user?.id])
 
@@ -71,7 +71,7 @@ export function InvestorDetailPage() {
     setConnecting(true)
     try {
       await apiRequest('/connections/send/', { method: 'POST', body: { user_id: userId } })
-      setRequested(true)
+      setConnectionStatus('pending')
       pushToast('Connection request sent!', 'success')
     } catch (err: unknown) {
       const msg = (err as { detail?: string })?.detail ?? 'Failed to send request.'
@@ -206,16 +206,27 @@ export function InvestorDetailPage() {
                       Express Interest
                     </button>
                   )}
-                  <button
-                    className="btn-sm primary"
-                    type="button"
-                    disabled={connecting || requested}
-                    onClick={() => setShowConnectPrompt(true)}
-                    data-testid="connect-investor-btn"
-                  >
-                    <UserPlus size={14} strokeWidth={1.5} />
-                    {connecting ? 'Sending...' : requested ? 'Requested' : 'Connect'}
-                  </button>
+                  {connectionStatus === 'accepted' ? (
+                    <span
+                      className="btn-sm ghost"
+                      style={{ cursor: 'default', color: 'var(--gold)' }}
+                      data-testid="investor-connected-badge"
+                    >
+                      <UserCheck size={14} strokeWidth={1.5} />
+                      Connected
+                    </span>
+                  ) : (
+                    <button
+                      className="btn-sm primary"
+                      type="button"
+                      disabled={connecting || connectionStatus === 'pending'}
+                      onClick={() => setShowConnectPrompt(true)}
+                      data-testid="connect-investor-btn"
+                    >
+                      <UserPlus size={14} strokeWidth={1.5} />
+                      {connecting ? 'Sending...' : connectionStatus === 'pending' ? 'Requested' : 'Connect'}
+                    </button>
+                  )}
                 </div>
               )}
 

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { Briefcase, Building2, TrendingUp, Search, X } from 'lucide-react'
 import { apiRequest } from '../lib/api'
 import { formatLabel } from '../lib/format'
+import { buildProfileUrl } from '../lib/slugId'
 import { Pagination } from '../components/Pagination'
 import type { StartupListItem } from '../types/startup'
 
@@ -118,7 +119,7 @@ export function StartupsListPage() {
             {startups.map((startup) => (
               <Link
                 key={startup.id}
-                to={`/app/startups/${startup.id}`}
+                to={buildProfileUrl('startups', startup.slug || startup.name, startup.id)}
                 className="card"
                 style={{ textDecoration: 'none', color: 'inherit', display: 'block' }}
                 data-testid={`startup-card-${startup.id}`}

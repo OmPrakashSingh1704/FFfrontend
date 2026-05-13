@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Mail, Lock, ArrowRight } from 'lucide-react'
 import { FormField } from '../components/FormField'
+import { PageHead } from '../components/PageHead'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 import { hasErrors, isEmail, validateRequired } from '../lib/forms'
@@ -45,6 +46,11 @@ export function LoginPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center" style={{ background: 'hsl(var(--background))' }}>
+      <PageHead
+        title="Log in"
+        description="Log into FoundersLib to access your fundraising workspace, deal flow, and founder–investor network."
+        path="/login"
+      />
       <section className="card max-w-lg w-full mx-4 p-12" data-testid="login-card">
         <div className="text-center mb-10">
           <h2 className="text-2xl font-semibold mb-1" style={{ color: 'var(--gold)' }}>

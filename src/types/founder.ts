@@ -10,6 +10,16 @@ export type PublicUser = {
   league?: string
 }
 
+export type FounderStartupSummary = {
+  id: string
+  slug: string
+  name: string
+  tagline?: string
+  industry?: string
+  stage?: string | null
+  headquarters_city?: string
+}
+
 export type FounderProfile = {
   id: string
   user: PublicUser
@@ -24,6 +34,8 @@ export type FounderProfile = {
   skills?: string[]
   profile_photo?: string | null
   is_public?: boolean
+  /** Founder's visible startups — only included on detail endpoints, not lists. */
+  startups?: FounderStartupSummary[]
   created_at?: string
   updated_at?: string
 }
