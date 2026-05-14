@@ -3,6 +3,7 @@ import type { CSSProperties } from 'react'
 import { useLocation as useRouterLocation, useNavigate } from 'react-router-dom'
 import { Check, ChevronDown } from 'lucide-react'
 import { FormField } from '../components/FormField'
+import { LocationInput } from '../components/LocationInput'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 import { apiRequest, uploadRequest } from '../lib/api'
@@ -992,11 +993,9 @@ export function OnboardingPage() {
               </div>
               <div className="form-group">
                 <FormField label="Location">
-                  <input
-                    type="text"
-                    className="input"
+                  <LocationInput
                     value={founderLocation}
-                    onChange={(event) => setFounderLocation(event.target.value)}
+                    onChange={setFounderLocation}
                     placeholder="San Francisco, CA"
                   />
                 </FormField>

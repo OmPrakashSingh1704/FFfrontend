@@ -7,17 +7,18 @@ import {
 import { apiRequest } from '../lib/api'
 import { useToast } from '../context/ToastContext'
 import { FormField } from '../components/FormField'
+import { LocationInput } from '../components/LocationInput'
 import { hasErrors, validateRequired } from '../lib/forms'
 
-const INVESTOR_TYPE_OPTIONS = ['angel', 'vc', 'micro_vc', 'family_office', 'corporate_vc', 'accelerator', 'syndicate']
+const INVESTOR_TYPE_OPTIONS = ['angel', 'vc', 'micro_vc', 'fund', 'family_office', 'corporate_vc', 'accelerator', 'syndicate']
 const INVESTOR_TYPE_LABELS: Record<string, string> = {
-  angel: 'Angel', vc: 'VC', micro_vc: 'Micro VC', family_office: 'Family Office',
+  angel: 'Angel', vc: 'VC', micro_vc: 'Micro VC', fund: 'Fund', family_office: 'Family Office',
   corporate_vc: 'Corporate VC', accelerator: 'Accelerator', syndicate: 'Syndicate',
 }
-const DISCOVERABILITY_OPTIONS = ['open', 'selective', 'closed']
+const DISCOVERABILITY_OPTIONS = ['open', 'application_based', 'closed']
 const DISCOVERABILITY_LABELS: Record<string, string> = {
   open: 'Open – Anyone can reach out',
-  selective: 'Selective – Warm intros only',
+  application_based: 'Application-based – Warm intros only',
   closed: 'Closed – Not accepting intros',
 }
 const STAGE_OPTIONS = ['Pre-Seed', 'Seed', 'Angel', 'Series A', 'Series B', 'Series C', 'Growth', 'Late Stage']
@@ -157,7 +158,7 @@ export function InvestorProfileEditPage() {
     try {
       await apiRequest(isNew ? '/investors/profile/' : '/investors/profile/update/', {
         method: isNew ? 'POST' : 'PATCH',
-        body: JSON.stringify({
+        body: {
           display_name: form.display_name,
           fund_name: form.fund_name || null,
           investor_type: form.investor_type || null,
@@ -185,7 +186,7 @@ export function InvestorProfileEditPage() {
           lead_investor: form.lead_investor,
           follow_on_participation: form.follow_on_participation,
           co_invest_open: form.co_invest_open,
-        }),
+        },
       })
       pushToast(isNew ? 'Investor profile created' : 'Investor profile updated', 'success')
       navigate('/app/profile')
@@ -256,10 +257,9 @@ export function InvestorProfileEditPage() {
             </FormField>
 
             <FormField label="Location" icon={<MapPin className="w-4 h-4" />}>
-              <input
-                className="input"
+              <LocationInput
                 value={form.location}
-                onChange={set('location')}
+                onChange={(next) => setForm((prev) => ({ ...prev, location: next }))}
                 placeholder="e.g. Mumbai, India"
               />
             </FormField>
@@ -358,9 +358,9 @@ export function InvestorProfileEditPage() {
           <FormField label="Risk Appetite" icon={<TrendingUp className="w-4 h-4" />}>
             <select className="input" value={form.risk_appetite} onChange={set('risk_appetite')}>
               <option value="">Select</option>
-              <option value="conservative">Conservative</option>
-              <option value="moderate">Moderate</option>
-              <option value="aggressive">Aggressive</option>
+              <option value="high_growth">High Risk / High Growth</option>
+              <option value="profitable_only">Profitable Startups Only</option>
+              <option value="deep_tech">Deep Tech Tolerance</option>
             </select>
           </FormField>
 

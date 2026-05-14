@@ -84,26 +84,37 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
   })
 
   if (response.status === 401 && auth && tokens.refreshToken) {
+    let accessToken: string
     try {
-      const accessToken = await refreshAccessToken(tokens.refreshToken)
-      const retry = await fetch(`${API_BASE_URL}${path}`, {
-        method,
-        headers: { ...requestHeaders, Authorization: `Bearer ${accessToken}` },
-        body: body ? JSON.stringify(body) : undefined,
-        signal,
-        ...(USE_COOKIE_AUTH ? { credentials: 'include' } : {}),
-      })
-
-      if (!retry.ok) {
-        const retryData = await safeJson(retry)
-        throw { status: retry.status, message: 'Request failed', details: retryData } as ApiError
-      }
-
-      return (await safeJson(retry)) as T
+      accessToken = await refreshAccessToken(tokens.refreshToken)
     } catch (error) {
+      // Refresh itself failed — tokens really are invalid, log the user out.
       clearTokens()
       throw error
     }
+
+    const retry = await fetch(`${API_BASE_URL}${path}`, {
+      method,
+      headers: { ...requestHeaders, Authorization: `Bearer ${accessToken}` },
+      body: body ? JSON.stringify(body) : undefined,
+      signal,
+      ...(USE_COOKIE_AUTH ? { credentials: 'include' } : {}),
+    })
+
+    if (!retry.ok) {
+      // Only treat the retry as an auth failure if it's ALSO 401 — that means
+      // the freshly-minted token is somehow rejected (server-side revocation
+      // / clock skew / etc), and the user really should be logged out. For
+      // 404/403/500 the auth worked fine; the resource just doesn't exist or
+      // isn't accessible, and we must NOT nuke the session.
+      if (retry.status === 401) {
+        clearTokens()
+      }
+      const retryData = await safeJson(retry)
+      throw { status: retry.status, message: 'Request failed', details: retryData } as ApiError
+    }
+
+    return (await safeJson(retry)) as T
   }
 
   if (!response.ok) {

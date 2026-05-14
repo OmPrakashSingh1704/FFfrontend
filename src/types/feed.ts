@@ -18,6 +18,21 @@ export type FeedComment = {
   updated_at: string
 }
 
+/**
+ * Resolved attribution for a feed post — one row per profile the author chose
+ * to post as. Ordered by the backend: startups first (primary), then founder
+ * identity, then investor, then bare user. The frontend renders index 0 as
+ * the primary byline and stacks the rest.
+ */
+export type FeedAttribution = {
+  kind: 'startup' | 'founder' | 'investor' | 'user'
+  id: string
+  name: string
+  avatar_url: string | null
+  link: string | null
+  role_label: string | null
+}
+
 export type FeedEvent = {
   id: string
   event_type?: string
@@ -38,4 +53,5 @@ export type FeedEvent = {
   is_liked_by_me?: boolean
   is_pinned?: boolean
   created_at?: string
+  attributions?: FeedAttribution[]
 }

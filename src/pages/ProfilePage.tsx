@@ -8,6 +8,7 @@ import { useFeatureFlags } from '../context/FeatureFlagsContext'
 import { useToast } from '../context/ToastContext'
 import { normalizeList } from '../lib/pagination'
 import { FormField } from '../components/FormField'
+import { LocationInput } from '../components/LocationInput'
 import {
   User,
   Mail,
@@ -37,6 +38,8 @@ import {
   TrendingUp,
   Zap,
   DollarSign,
+  Sparkles,
+  Plus,
 } from 'lucide-react'
 import { CopyLinkButton } from '../components/CopyLinkButton'
 import type { StartupListItem } from '../types/startup'
@@ -81,24 +84,25 @@ type StartupFormErrors = Partial<Record<'name' | 'description' | 'industry' | 'f
 
 // ── Founder / Investor profile section ───────────────────────────────────────
 
-const FOUNDER_STAGE_OPTIONS = ['idea', 'mvp', 'pre_seed', 'seed', 'series_a', 'series_b', 'growth']
+const FOUNDER_STAGE_OPTIONS = ['idea', 'mvp', 'seed', 'series_a', 'series_b_plus']
 const FOUNDER_STAGE_LABELS: Record<string, string> = {
-  idea: 'Idea', mvp: 'MVP', pre_seed: 'Pre-Seed', seed: 'Seed',
-  series_a: 'Series A', series_b: 'Series B', growth: 'Growth',
+  idea: 'Idea', mvp: 'MVP', seed: 'Seed',
+  series_a: 'Series A', series_b_plus: 'Series B+',
 }
-const FUNDRAISING_STATUS_OPTIONS = ['not_fundraising', 'open_to_conversations', 'actively_fundraising', 'closed']
+const FUNDRAISING_STATUS_OPTIONS = ['not_raising', 'raising', 'closed']
 const FUNDRAISING_STATUS_LABELS: Record<string, string> = {
-  not_fundraising: 'Not Fundraising', open_to_conversations: 'Open to Conversations',
-  actively_fundraising: 'Actively Fundraising', closed: 'Round Closed',
+  not_raising: 'Not Raising', raising: 'Raising', closed: 'Round Closed',
 }
-const INVESTOR_TYPE_OPTIONS = ['angel', 'vc', 'micro_vc', 'family_office', 'corporate_vc', 'accelerator', 'syndicate']
+const INVESTOR_TYPE_OPTIONS = ['angel', 'vc', 'micro_vc', 'fund', 'family_office', 'corporate_vc', 'accelerator', 'syndicate']
 const INVESTOR_TYPE_LABELS: Record<string, string> = {
-  angel: 'Angel', vc: 'VC', micro_vc: 'Micro VC', family_office: 'Family Office',
+  angel: 'Angel', vc: 'VC', micro_vc: 'Micro VC', fund: 'Fund', family_office: 'Family Office',
   corporate_vc: 'Corporate VC', accelerator: 'Accelerator', syndicate: 'Syndicate',
 }
-const DISCOVERABILITY_OPTIONS = ['open', 'selective', 'closed']
+const DISCOVERABILITY_OPTIONS = ['open', 'application_based', 'closed']
 const DISCOVERABILITY_LABELS: Record<string, string> = {
-  open: 'Open – Anyone can reach out', selective: 'Selective – Warm intros only', closed: 'Closed – Not accepting intros',
+  open: 'Open – Anyone can reach out',
+  application_based: 'Application-based – Warm intros only',
+  closed: 'Closed – Not accepting intros',
 }
 const INVESTOR_STAGE_OPTIONS = ['Pre-Seed', 'Seed', 'Angel', 'Series A', 'Series B', 'Series C', 'Growth', 'Late Stage']
 const INDUSTRY_OPTIONS = [
@@ -195,11 +199,13 @@ export function ProfilePage() {
   const [profileTab, setProfileTab] = useState<'founder' | 'investor'>(initialTab)
   const [founderForm, setFounderForm] = useState<FounderForm>(defaultFounderForm())
   const [founderIsNew, setFounderIsNew] = useState(false)
+  const [showFounderForm, setShowFounderForm] = useState(false)
   const [founderLoading, setFounderLoading] = useState(true)
   const [founderSaving, setFounderSaving] = useState(false)
   const [founderErrors, setFounderErrors] = useState<Partial<Record<keyof FounderForm | 'form', string>>>({})
   const [investorForm, setInvestorForm] = useState<InvestorForm>(defaultInvestorForm())
   const [investorIsNew, setInvestorIsNew] = useState(false)
+  const [showInvestorForm, setShowInvestorForm] = useState(false)
   const [investorLoading, setInvestorLoading] = useState(true)
   const [investorSaving, setInvestorSaving] = useState(false)
   const [investorErrors, setInvestorErrors] = useState<Partial<Record<keyof InvestorForm | 'form', string>>>({})
@@ -308,7 +314,7 @@ export function ProfilePage() {
         founderIsNew ? '/founders/profile/' : '/founders/profile/update/',
         {
           method: founderIsNew ? 'POST' : 'PATCH',
-          body: JSON.stringify({
+          body: {
             headline: founderForm.headline, bio: founderForm.bio || null,
             location: founderForm.location || null, linkedin_url: founderForm.linkedin_url || null,
             twitter_url: founderForm.twitter_url || null, website_url: founderForm.website_url || null,
@@ -316,7 +322,7 @@ export function ProfilePage() {
             current_stage: founderForm.current_stage || null,
             skills: founderForm.skills ? founderForm.skills.split(',').map((s) => s.trim()).filter(Boolean) : [],
             is_public: founderForm.is_public,
-          }),
+          },
         },
       )
       if (res.id) setFounderProfileId(res.id)
@@ -345,7 +351,7 @@ export function ProfilePage() {
         investorIsNew ? '/investors/profile/' : '/investors/profile/update/',
         {
           method: investorIsNew ? 'POST' : 'PATCH',
-          body: JSON.stringify({
+          body: {
             display_name: investorForm.display_name, fund_name: investorForm.fund_name || null,
             investor_type: investorForm.investor_type || null, headline: investorForm.headline || null,
             bio: investorForm.bio || null, investment_thesis: investorForm.investment_thesis || null,
@@ -365,7 +371,7 @@ export function ProfilePage() {
             lead_investor: investorForm.lead_investor,
             follow_on_participation: investorForm.follow_on_participation,
             co_invest_open: investorForm.co_invest_open,
-          }),
+          },
         },
       )
       if (res.id) setInvestorProfileId(res.id)
@@ -1010,13 +1016,45 @@ export function ProfilePage() {
               <div style={{ display: 'flex', justifyContent: 'center', padding: '2rem' }}>
                 <Loader2 className="w-5 h-5 animate-spin" />
               </div>
+            ) : (founderIsNew && !showFounderForm) ? (
+              <div
+                data-testid="founder-profile-empty-state"
+                style={{
+                  display: 'flex', flexDirection: 'column', alignItems: 'center',
+                  textAlign: 'center', padding: '3rem 1.5rem',
+                  border: '1px dashed hsl(var(--border))', borderRadius: '0.75rem',
+                  background: 'hsl(var(--muted) / 0.3)',
+                }}
+              >
+                <div style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  width: '3rem', height: '3rem', borderRadius: '999px',
+                  background: 'hsl(var(--primary) / 0.1)', color: 'hsl(var(--primary))',
+                  marginBottom: '1rem',
+                }}>
+                  <Sparkles size={20} strokeWidth={1.5} />
+                </div>
+                <h3 style={{ fontSize: '1.0625rem', fontWeight: 600, margin: 0, marginBottom: '0.4rem' }}>
+                  No founder profile yet
+                </h3>
+                <p style={{
+                  fontSize: '0.875rem', color: 'hsl(var(--muted-foreground))',
+                  margin: 0, marginBottom: '1.25rem', maxWidth: '28rem', lineHeight: 1.5,
+                }}>
+                  Set up a founder profile so investors can discover you, learn about your startup, and reach out.
+                </p>
+                <button
+                  type="button"
+                  className="btn-sm primary"
+                  onClick={() => setShowFounderForm(true)}
+                  data-testid="create-founder-profile-button"
+                >
+                  <Plus size={13} strokeWidth={1.5} />
+                  Create founder profile
+                </button>
+              </div>
             ) : (
               <form onSubmit={(e) => { void handleSaveFounderProfile(e) }}>
-                {founderIsNew && (
-                  <p style={{ fontSize: '0.875rem', color: 'hsl(var(--muted-foreground))', marginBottom: '1.25rem', padding: '0.75rem', background: 'hsl(var(--muted))', borderRadius: '0.5rem' }}>
-                    You don't have a founder profile yet. Fill in the details below to create one.
-                  </p>
-                )}
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                   <div className="form-group" style={{ gridColumn: '1 / -1' }}>
@@ -1036,9 +1074,11 @@ export function ProfilePage() {
 
                   <div className="form-group">
                     <label><MapPin size={13} strokeWidth={1.5} style={{ display: 'inline', verticalAlign: -2, marginRight: 5 }} />Location</label>
-                    <input className="input" value={founderForm.location}
-                      onChange={(e) => setFounderForm((p) => ({ ...p, location: e.target.value }))}
-                      placeholder="e.g. Bangalore, India" />
+                    <LocationInput
+                      value={founderForm.location}
+                      onChange={(next) => setFounderForm((p) => ({ ...p, location: next }))}
+                      placeholder="e.g. Bangalore, India"
+                    />
                   </div>
 
                   <div className="form-group">
@@ -1114,13 +1154,45 @@ export function ProfilePage() {
               <div style={{ display: 'flex', justifyContent: 'center', padding: '2rem' }}>
                 <Loader2 className="w-5 h-5 animate-spin" />
               </div>
+            ) : (investorIsNew && !showInvestorForm) ? (
+              <div
+                data-testid="investor-profile-empty-state"
+                style={{
+                  display: 'flex', flexDirection: 'column', alignItems: 'center',
+                  textAlign: 'center', padding: '3rem 1.5rem',
+                  border: '1px dashed hsl(var(--border))', borderRadius: '0.75rem',
+                  background: 'hsl(var(--muted) / 0.3)',
+                }}
+              >
+                <div style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  width: '3rem', height: '3rem', borderRadius: '999px',
+                  background: 'hsl(var(--primary) / 0.1)', color: 'hsl(var(--primary))',
+                  marginBottom: '1rem',
+                }}>
+                  <Sparkles size={20} strokeWidth={1.5} />
+                </div>
+                <h3 style={{ fontSize: '1.0625rem', fontWeight: 600, margin: 0, marginBottom: '0.4rem' }}>
+                  No investor profile yet
+                </h3>
+                <p style={{
+                  fontSize: '0.875rem', color: 'hsl(var(--muted-foreground))',
+                  margin: 0, marginBottom: '1.25rem', maxWidth: '28rem', lineHeight: 1.5,
+                }}>
+                  Set up an investor profile to discover startups, get matched on thesis fit, and start deal rooms with founders.
+                </p>
+                <button
+                  type="button"
+                  className="btn-sm primary"
+                  onClick={() => setShowInvestorForm(true)}
+                  data-testid="create-investor-profile-button"
+                >
+                  <Plus size={13} strokeWidth={1.5} />
+                  Create investor profile
+                </button>
+              </div>
             ) : (
               <form onSubmit={(e) => { void handleSaveInvestorProfile(e) }}>
-                {investorIsNew && (
-                  <p style={{ fontSize: '0.875rem', color: 'hsl(var(--muted-foreground))', marginBottom: '1.25rem', padding: '0.75rem', background: 'hsl(var(--muted))', borderRadius: '0.5rem' }}>
-                    You don't have an investor profile yet. Fill in the details below to create one.
-                  </p>
-                )}
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                   <div className="form-group">
@@ -1149,9 +1221,11 @@ export function ProfilePage() {
 
                   <div className="form-group">
                     <label><MapPin size={13} strokeWidth={1.5} style={{ display: 'inline', verticalAlign: -2, marginRight: 5 }} />Location</label>
-                    <input className="input" value={investorForm.location}
-                      onChange={(e) => setInvestorForm((p) => ({ ...p, location: e.target.value }))}
-                      placeholder="e.g. Mumbai, India" />
+                    <LocationInput
+                      value={investorForm.location}
+                      onChange={(next) => setInvestorForm((p) => ({ ...p, location: next }))}
+                      placeholder="e.g. Mumbai, India"
+                    />
                   </div>
 
                   <div className="form-group" style={{ gridColumn: '1 / -1' }}>
@@ -1213,9 +1287,9 @@ export function ProfilePage() {
                     <select className="input" value={investorForm.risk_appetite}
                       onChange={(e) => setInvestorForm((p) => ({ ...p, risk_appetite: e.target.value }))}>
                       <option value="">Select</option>
-                      <option value="conservative">Conservative</option>
-                      <option value="moderate">Moderate</option>
-                      <option value="aggressive">Aggressive</option>
+                      <option value="high_growth">High Risk / High Growth</option>
+                      <option value="profitable_only">Profitable Startups Only</option>
+                      <option value="deep_tech">Deep Tech Tolerance</option>
                     </select>
                   </div>
 
@@ -1295,11 +1369,24 @@ export function ProfilePage() {
 
       {/* My Startups & Documents */}
       <div className="card">
-        <div className="card-header">
+        <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <span className="card-title">
             <Building2 size={14} strokeWidth={1.5} style={{ display: 'inline', verticalAlign: -2, marginRight: 6 }} />
             My Startups &amp; Documents
           </span>
+          {!loadingStartups && myStartups.length > 0 && (
+            <button
+              type="button"
+              className="btn-sm primary"
+              onClick={() => setShowStartupForm((prev) => !prev)}
+              disabled={founderLoading || founderIsNew}
+              title={founderIsNew ? 'Create a founder profile first to register a startup.' : undefined}
+              data-testid="add-another-startup-button"
+            >
+              <Plus size={12} strokeWidth={1.5} />
+              {showStartupForm ? 'Hide form' : 'Add startup'}
+            </button>
+          )}
         </div>
 
         {loadingStartups ? (
@@ -1323,148 +1410,38 @@ export function ProfilePage() {
                 type="button"
                 onClick={() => setShowStartupForm((prev) => !prev)}
                 style={{ marginTop: '1rem' }}
+                disabled={founderLoading || founderIsNew}
+                title={founderIsNew ? 'Create a founder profile first to register a startup.' : undefined}
+                data-testid="add-startup-button"
               >
                 {showStartupForm ? 'Hide form' : 'Add startup'}
               </button>
+              {founderIsNew && !founderLoading && (
+                <p
+                  data-testid="add-startup-gated-hint"
+                  style={{
+                    fontSize: '0.8125rem',
+                    color: 'hsl(var(--muted-foreground))',
+                    marginTop: '0.625rem',
+                    maxWidth: '28rem',
+                  }}
+                >
+                  You need a founder profile before registering a startup.{' '}
+                  <button
+                    type="button"
+                    onClick={() => { setProfileTab('founder'); setShowFounderForm(true) }}
+                    style={{
+                      background: 'none', border: 'none', padding: 0,
+                      color: 'var(--gold)', cursor: 'pointer', textDecoration: 'underline',
+                      font: 'inherit',
+                    }}
+                  >
+                    Create founder profile
+                  </button>
+                </p>
+              )}
             </div>
 
-            {showStartupForm ? (
-              <div
-                style={{
-                  border: '1px solid hsl(var(--border))',
-                  borderRadius: '0.75rem',
-                  padding: '1.5rem',
-                  background: 'hsl(var(--card))',
-                }}
-              >
-                <h3 className="text-lg font-semibold" style={{ marginBottom: '0.25rem' }}>
-                  Startup details
-                </h3>
-                <p style={{ color: 'hsl(var(--muted-foreground))', fontSize: '0.875rem', marginBottom: '1rem' }}>
-                  Add your startup information to complete onboarding.
-                </p>
-
-                <form onSubmit={handleCreateStartup} className="space-y-5">
-                  {startupErrors.form ? <div className="form-error">{startupErrors.form}</div> : null}
-                  <div className="form-group">
-                    <FormField label="Startup name" error={startupErrors.name}>
-                      <input
-                        type="text"
-                        className="input"
-                        value={startupName}
-                        onChange={(event) => setStartupName(event.target.value)}
-                        placeholder="FoundersLib"
-                        required
-                      />
-                    </FormField>
-                  </div>
-                  <div className="form-group">
-                    <FormField label="Description" error={startupErrors.description}>
-                      <textarea
-                        className="textarea"
-                        value={startupDescription}
-                        onChange={(event) => setStartupDescription(event.target.value)}
-                        placeholder="What does your company do?"
-                      />
-                    </FormField>
-                  </div>
-                  <div className="form-group">
-                    <FormField label="Industry" error={startupErrors.industry}>
-                      <input
-                        type="text"
-                        className="input"
-                        value={startupIndustry}
-                        onChange={(event) => setStartupIndustry(event.target.value)}
-                        placeholder="Fintech"
-                        required
-                      />
-                    </FormField>
-                  </div>
-                  <div className="grid-2">
-                    <div className="form-group">
-                      <FormField label="Stage">
-                        <select className="select" value={startupStage} onChange={(event) => setStartupStage(event.target.value)}>
-                          <option value="">Select stage</option>
-                          <option value="idea">Idea</option>
-                          <option value="mvp">MVP</option>
-                          <option value="seed">Seed</option>
-                          <option value="series_a">Series A</option>
-                          <option value="series_b_plus">Series B+</option>
-                        </select>
-                      </FormField>
-                    </div>
-                    <div className="form-group">
-                      <FormField label="Fundraising status">
-                        <select
-                          className="select"
-                          value={fundraisingStatus}
-                          onChange={(event) => setFundraisingStatus(event.target.value)}
-                        >
-                          <option value="">Select status</option>
-                          <option value="not_raising">Not raising</option>
-                          <option value="raising">Raising</option>
-                          <option value="closed">Closed</option>
-                        </select>
-                      </FormField>
-                    </div>
-                  </div>
-                  <div className="form-group">
-                    <FormField label="Website URL">
-                      <input
-                        type="url"
-                        className="input"
-                        value={startupWebsite}
-                        onChange={(event) => setStartupWebsite(event.target.value)}
-                        placeholder="https://yourstartup.com"
-                      />
-                    </FormField>
-                  </div>
-                  <div className="form-group">
-                    <FormField label="Problem Statement">
-                      <textarea
-                        className="textarea"
-                        value={problemStatement}
-                        onChange={(event) => setProblemStatement(event.target.value)}
-                        placeholder="What core problem are you solving?"
-                      />
-                    </FormField>
-                  </div>
-                  <div className="form-group">
-                    <FormField label="Solution / Product Description">
-                      <textarea
-                        className="textarea"
-                        value={solutionDescription}
-                        onChange={(event) => setSolutionDescription(event.target.value)}
-                        placeholder="Describe your solution or product."
-                      />
-                    </FormField>
-                  </div>
-                  <div className="form-group">
-                    <FormField label="Unique Value Proposition (UVP)">
-                      <textarea
-                        className="textarea"
-                        value={uniqueValueProp}
-                        onChange={(event) => setUniqueValueProp(event.target.value)}
-                        placeholder="What makes you stand out?"
-                      />
-                    </FormField>
-                  </div>
-                  <div className="form-group">
-                    <FormField label="Why Now? (Market timing)">
-                      <textarea
-                        className="textarea"
-                        value={whyNow}
-                        onChange={(event) => setWhyNow(event.target.value)}
-                        placeholder="Why is this the right time for your startup?"
-                      />
-                    </FormField>
-                  </div>
-                  <button className="btn primary w-full" type="submit" disabled={creatingStartup}>
-                    {creatingStartup ? 'Saving...' : 'Save startup'}
-                  </button>
-                </form>
-              </div>
-            ) : null}
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
@@ -1688,6 +1665,148 @@ export function ProfilePage() {
                 </div>
               )
             })}
+          </div>
+        )}
+
+        {showStartupForm && !loadingStartups && (
+          <div
+            data-testid="startup-form-panel"
+            style={{
+              marginTop: '1rem',
+              border: '1px solid hsl(var(--border))',
+              borderRadius: '0.75rem',
+              padding: '1.5rem',
+              background: 'hsl(var(--card))',
+            }}
+          >
+            <h3 className="text-lg font-semibold" style={{ marginBottom: '0.25rem' }}>
+              {myStartups.length === 0 ? 'Startup details' : 'Add another startup'}
+            </h3>
+            <p style={{ color: 'hsl(var(--muted-foreground))', fontSize: '0.875rem', marginBottom: '1rem' }}>
+              {myStartups.length === 0
+                ? 'Add your startup information to complete onboarding.'
+                : 'You can be a founder of multiple startups. Fill in the details for the new one.'}
+            </p>
+
+            <form onSubmit={handleCreateStartup} className="space-y-5">
+              {startupErrors.form ? <div className="form-error">{startupErrors.form}</div> : null}
+              <div className="form-group">
+                <FormField label="Startup name" error={startupErrors.name}>
+                  <input
+                    type="text"
+                    className="input"
+                    value={startupName}
+                    onChange={(event) => setStartupName(event.target.value)}
+                    placeholder="FoundersLib"
+                    required
+                  />
+                </FormField>
+              </div>
+              <div className="form-group">
+                <FormField label="Description" error={startupErrors.description}>
+                  <textarea
+                    className="textarea"
+                    value={startupDescription}
+                    onChange={(event) => setStartupDescription(event.target.value)}
+                    placeholder="What does your company do?"
+                  />
+                </FormField>
+              </div>
+              <div className="form-group">
+                <FormField label="Industry" error={startupErrors.industry}>
+                  <input
+                    type="text"
+                    className="input"
+                    value={startupIndustry}
+                    onChange={(event) => setStartupIndustry(event.target.value)}
+                    placeholder="Fintech"
+                    required
+                  />
+                </FormField>
+              </div>
+              <div className="grid-2">
+                <div className="form-group">
+                  <FormField label="Stage">
+                    <select className="select" value={startupStage} onChange={(event) => setStartupStage(event.target.value)}>
+                      <option value="">Select stage</option>
+                      <option value="idea">Idea</option>
+                      <option value="mvp">MVP</option>
+                      <option value="seed">Seed</option>
+                      <option value="series_a">Series A</option>
+                      <option value="series_b_plus">Series B+</option>
+                    </select>
+                  </FormField>
+                </div>
+                <div className="form-group">
+                  <FormField label="Fundraising status">
+                    <select
+                      className="select"
+                      value={fundraisingStatus}
+                      onChange={(event) => setFundraisingStatus(event.target.value)}
+                    >
+                      <option value="">Select status</option>
+                      <option value="not_raising">Not raising</option>
+                      <option value="raising">Raising</option>
+                      <option value="closed">Closed</option>
+                    </select>
+                  </FormField>
+                </div>
+              </div>
+              <div className="form-group">
+                <FormField label="Website URL">
+                  <input
+                    type="url"
+                    className="input"
+                    value={startupWebsite}
+                    onChange={(event) => setStartupWebsite(event.target.value)}
+                    placeholder="https://yourstartup.com"
+                  />
+                </FormField>
+              </div>
+              <div className="form-group">
+                <FormField label="Problem Statement">
+                  <textarea
+                    className="textarea"
+                    value={problemStatement}
+                    onChange={(event) => setProblemStatement(event.target.value)}
+                    placeholder="What core problem are you solving?"
+                  />
+                </FormField>
+              </div>
+              <div className="form-group">
+                <FormField label="Solution / Product Description">
+                  <textarea
+                    className="textarea"
+                    value={solutionDescription}
+                    onChange={(event) => setSolutionDescription(event.target.value)}
+                    placeholder="Describe your solution or product."
+                  />
+                </FormField>
+              </div>
+              <div className="form-group">
+                <FormField label="Unique Value Proposition (UVP)">
+                  <textarea
+                    className="textarea"
+                    value={uniqueValueProp}
+                    onChange={(event) => setUniqueValueProp(event.target.value)}
+                    placeholder="What makes you stand out?"
+                  />
+                </FormField>
+              </div>
+              <div className="form-group">
+                <FormField label="Why Now? (Market timing)">
+                  <textarea
+                    className="textarea"
+                    value={whyNow}
+                    onChange={(event) => setWhyNow(event.target.value)}
+                    placeholder="Why is this the right time for your startup?"
+                  />
+                </FormField>
+              </div>
+              <button className="btn primary w-full" type="submit" disabled={creatingStartup}>
+                {creatingStartup ? 'Saving...' : 'Save startup'}
+              </button>
+            </form>
           </div>
         )}
       </div>

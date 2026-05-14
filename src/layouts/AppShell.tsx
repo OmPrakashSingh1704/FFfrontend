@@ -2,7 +2,8 @@ import { Link, Outlet, useLocation } from 'react-router-dom'
 import {
   Home, Users, Briefcase, TrendingUp, MessageSquare, Bell,
   BarChart3, Settings, Search, FileText,
-  Activity, Wallet, Menu, X, Zap, Handshake, ClipboardList, UserCheck, Send
+  Activity, Wallet, Menu, X, Zap, Handshake, ClipboardList, UserCheck, Send,
+  Upload
 } from 'lucide-react'
 import { useState, useEffect, useCallback } from 'react'
 import { Helmet } from 'react-helmet-async'
@@ -54,6 +55,7 @@ const navSections = [
   {
     label: 'Tools',
     items: [
+      { path: '/app/uploads', label: 'Uploads', icon: Upload },
       { path: '/app/analytics', label: 'Analytics', icon: BarChart3, adminOnly: true as const },
       { path: '/app/admin', label: 'Admin', icon: Settings, adminOnly: true as const },
     ],

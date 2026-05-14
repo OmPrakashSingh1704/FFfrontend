@@ -13,6 +13,28 @@ dist-ssr
 *.local
 .cert/
 
+# Environment files — everything except the committed sample. *.local was
+# already covered above for Vite-specific overrides; this catches the
+# rest (.env, .env.production, etc.) so they never reach the repo.
+.env
+.env.*
+!.env.example
+
+# Local secrets dump. Everything inside is ignored EXCEPT the README so
+# the directory still appears in git. See secrets/README.md.
+secrets/*
+!secrets/README.md
+
+# Common credential file patterns — caught regardless of location.
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+service-account*.json
+*-service-account.json
+client_secret_*.json
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

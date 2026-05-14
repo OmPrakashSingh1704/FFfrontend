@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type CSSProperties } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Loader2, Linkedin, Twitter, Globe, MapPin, BadgeCheck, DollarSign, UserPlus, UserCheck, MessageCircle } from 'lucide-react'
 import { apiRequest } from '../lib/api'
@@ -8,6 +8,7 @@ import { fetchConnectionStatuses, type ConnectionStatus } from '../lib/connectio
 import { parseSlugId, buildProfileUrl } from '../lib/slugId'
 import { PageHead } from '../components/PageHead'
 import { JsonLd } from '../components/JsonLd'
+import { ProfilePosts } from '../components/ProfilePosts'
 
 type PublicInvestor = {
   id: string
@@ -32,6 +33,22 @@ type PublicInvestor = {
 }
 
 const SITE_URL = 'https://www.founderslib.in'
+
+// Inline icon link style — small circular hover affordance for social/web
+// links sitting next to a profile name. Matches PublicStartupPage and
+// PublicFounderPage; intentionally duplicated rather than lifted.
+const iconLinkStyle: CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  width: 28,
+  height: 28,
+  borderRadius: '999px',
+  color: 'hsl(var(--muted-foreground))',
+  border: '1px solid hsl(var(--border))',
+  textDecoration: 'none',
+  transition: 'color 0.15s, background 0.15s',
+}
 
 function formatCheckSize(n: number): string {
   if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(n % 1_000_000 === 0 ? 0 : 1)}M`
@@ -219,7 +236,7 @@ export function PublicInvestorPage() {
             </div>
           )}
           <div>
-            <h1 className="text-2xl font-semibold flex items-center gap-2">
+            <h1 className="text-2xl font-semibold inline-flex items-center gap-2 flex-wrap">
               {data.display_name}
               {data.is_verified ? <BadgeCheck className="w-5 h-5" style={{ color: 'var(--gold)' }} /> : null}
             </h1>
@@ -249,9 +266,52 @@ export function PublicInvestorPage() {
           </div>
         </div>
 
-        {/* Auth-only actions for signed-in viewers */}
+        {/* Right cluster: social icons always; auth actions for signed-in
+            non-self viewers. Column with the icons row on top. */}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.5rem', flexShrink: 0 }}>
+          {(data.website_url || data.linkedin_url || data.twitter_url) ? (
+            <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+              {data.website_url ? (
+                <a
+                  href={data.website_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="Website"
+                  title={data.website_url}
+                  style={iconLinkStyle}
+                  data-testid="investor-website-icon"
+                >
+                  <Globe className="w-4 h-4" />
+                </a>
+              ) : null}
+              {data.linkedin_url ? (
+                <a
+                  href={data.linkedin_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="LinkedIn"
+                  style={iconLinkStyle}
+                  data-testid="investor-linkedin-icon"
+                >
+                  <Linkedin className="w-4 h-4" />
+                </a>
+              ) : null}
+              {data.twitter_url ? (
+                <a
+                  href={data.twitter_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="Twitter"
+                  style={iconLinkStyle}
+                  data-testid="investor-twitter-icon"
+                >
+                  <Twitter className="w-4 h-4" />
+                </a>
+              ) : null}
+            </div>
+          ) : null}
         {currentUser && !isOwnProfile ? (
-          <div className="flex items-center gap-2 flex-shrink-0">
+          <div className="flex items-center gap-2" style={{ justifyContent: 'flex-end' }}>
             <button type="button" className="btn-sm ghost" onClick={handleChat} data-testid="chat-investor-btn">
               <MessageCircle className="w-3.5 h-3.5" />
               Chat
@@ -279,6 +339,7 @@ export function PublicInvestorPage() {
             )}
           </div>
         ) : null}
+        </div>
       </header>
 
       {data.investment_thesis ? (
@@ -335,23 +396,9 @@ export function PublicInvestorPage() {
         ) : null}
       </section>
 
-      <section className="flex flex-wrap gap-3 text-sm">
-        {data.linkedin_url ? (
-          <a href={data.linkedin_url} target="_blank" rel="noopener noreferrer" className="btn-sm ghost">
-            <Linkedin className="w-3.5 h-3.5" /> LinkedIn
-          </a>
-        ) : null}
-        {data.twitter_url ? (
-          <a href={data.twitter_url} target="_blank" rel="noopener noreferrer" className="btn-sm ghost">
-            <Twitter className="w-3.5 h-3.5" /> Twitter
-          </a>
-        ) : null}
-        {data.website_url ? (
-          <a href={data.website_url} target="_blank" rel="noopener noreferrer" className="btn-sm ghost">
-            <Globe className="w-3.5 h-3.5" /> Website
-          </a>
-        ) : null}
-      </section>
+      <ProfilePosts investorUserId={data.user.id} />
+
+      {/* Social/web links moved inline next to the investor name in the header. */}
 
       {/* CTA footer for anonymous visitors only — see PublicFounderPage
           for the rationale. */}

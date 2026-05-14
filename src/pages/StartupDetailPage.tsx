@@ -85,6 +85,12 @@ export function StartupDetailPage() {
   const [uploading, setUploading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
 
+  // Startup logo upload state — separate from the document uploader so an
+  // in-flight doc upload doesn't disable the logo affordance and vice versa.
+  const [uploadingLogo, setUploadingLogo] = useState(false)
+  const [logoHover, setLogoHover] = useState(false)
+  const logoInputRef = useRef<HTMLInputElement | null>(null)
+
   type DocQueueItem = { localId: string; file: File; docType: string; accessLevel: string }
   const [docQueue, setDocQueue] = useState<DocQueueItem[]>([])
   const [founderProfileIds, setFounderProfileIds] = useState<Record<string, string>>({})
@@ -299,6 +305,32 @@ export function StartupDetailPage() {
       pushToast('Failed to update visibility', 'error')
     } finally {
       setTogglingVisibility(false)
+    }
+  }
+
+  /**
+   * Upload a new logo for this startup. Backend at views.py:1144 accepts
+   * any member, returns the absolute logo URL on success. We optimistically
+   * refresh just the logo field on the existing startup state — saves a
+   * full re-fetch.
+   */
+  const handleLogoUpload = async (file?: File | null) => {
+    if (!file || !startup) return
+    setUploadingLogo(true)
+    try {
+      const formData = new FormData()
+      formData.append('logo', file)
+      const res = await uploadRequest<{ logo_url: string }>(
+        `/founders/startups/${startup.id}/logo/`,
+        formData,
+      )
+      setStartup((prev) => prev ? { ...prev, logo_url: res.logo_url, logo: res.logo_url } : prev)
+      pushToast('Logo updated', 'success')
+    } catch {
+      pushToast('Logo upload failed', 'error')
+    } finally {
+      setUploadingLogo(false)
+      if (logoInputRef.current) logoInputRef.current.value = ''
     }
   }
 
@@ -533,16 +565,75 @@ export function StartupDetailPage() {
           <div className="card" style={{ marginBottom: '1.5rem' }}>
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap', marginBottom: '0.75rem' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', minWidth: 0 }}>
-                {resolveMediaUrl(startup.logo ?? startup.logo_url) ? (
-                  <img
-                    src={resolveMediaUrl(startup.logo ?? startup.logo_url)!}
-                    alt={startup.name}
-                    style={{ width: 48, height: 48, borderRadius: 10, objectFit: 'cover', flexShrink: 0, border: '1px solid hsl(var(--border))' }}
+                {/* Logo. Members get an inline upload affordance: click the
+                    logo (or placeholder) to open the file picker. Non-members
+                    just see the static image. */}
+                <div
+                  style={{
+                    position: 'relative',
+                    width: 48,
+                    height: 48,
+                    flexShrink: 0,
+                    cursor: isMember ? 'pointer' : 'default',
+                  }}
+                  onClick={() => isMember && !uploadingLogo && logoInputRef.current?.click()}
+                  onMouseEnter={() => isMember && setLogoHover(true)}
+                  onMouseLeave={() => setLogoHover(false)}
+                  role={isMember ? 'button' : undefined}
+                  aria-label={isMember ? 'Change startup logo' : undefined}
+                  data-testid={isMember ? 'startup-logo-upload-trigger' : 'startup-logo'}
+                >
+                  {resolveMediaUrl(startup.logo ?? startup.logo_url) ? (
+                    <img
+                      src={resolveMediaUrl(startup.logo ?? startup.logo_url)!}
+                      alt={startup.name}
+                      style={{ width: 48, height: 48, borderRadius: 10, objectFit: 'cover', border: '1px solid hsl(var(--border))', display: 'block' }}
+                    />
+                  ) : (
+                    <div style={{ width: 48, height: 48, borderRadius: 10, background: 'hsl(var(--muted))', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Briefcase size={20} strokeWidth={1.5} style={{ color: 'hsl(var(--muted-foreground))' }} />
+                    </div>
+                  )}
+                  {/* Overlay for members only — shows on hover, plus always
+                      when no logo is set (placeholder = obviously editable)
+                      and always while uploading (spinner). */}
+                  {isMember && (() => {
+                    const hasLogo = !!resolveMediaUrl(startup.logo ?? startup.logo_url)
+                    const visible = uploadingLogo || logoHover || !hasLogo
+                    return (
+                      <div
+                        style={{
+                          position: 'absolute',
+                          inset: 0,
+                          borderRadius: 10,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          background: 'rgba(0,0,0,0.45)',
+                          color: '#fff',
+                          opacity: visible ? 1 : 0,
+                          transition: 'opacity 0.15s',
+                          pointerEvents: 'none',
+                        }}
+                      >
+                        {uploadingLogo ? (
+                          <Loader2 size={18} className="animate-spin" />
+                        ) : (
+                          <Upload size={16} strokeWidth={1.75} />
+                        )}
+                      </div>
+                    )
+                  })()}
+                </div>
+                {isMember && (
+                  <input
+                    type="file"
+                    accept="image/*"
+                    ref={logoInputRef}
+                    onChange={(e) => void handleLogoUpload(e.target.files?.[0])}
+                    style={{ display: 'none' }}
+                    disabled={uploadingLogo}
                   />
-                ) : (
-                  <div style={{ width: 48, height: 48, borderRadius: 10, background: 'hsl(var(--muted))', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    <Briefcase size={20} strokeWidth={1.5} style={{ color: 'hsl(var(--muted-foreground))' }} />
-                  </div>
                 )}
                 <div style={{ minWidth: 0 }}>
                   <h1 style={{ fontSize: '1.25rem', fontWeight: 600, marginBottom: '0.125rem' }}>
@@ -744,50 +835,99 @@ export function StartupDetailPage() {
             </div>
           </div>
 
-          {/* Founders */}
-          {startup.founders_list && startup.founders_list.length > 0 && (
-            <div className="section">
-              <div className="card">
-                <div className="section-label" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <Users style={{ width: '0.875rem', height: '0.875rem' }} strokeWidth={1.5} />
-                  Founders
-                </div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.375rem' }}>
-                  {startup.founders_list.map((founder) => {
-                    const userId = founder.id ?? founder.user_id ?? founder.user ?? null
-                    const founderProfileId =
-                      founder.founder_profile_id ??
-                      founder.profile_id ??
-                      (typeof (founder as Record<string, unknown>).profile === 'object' &&
-                      founder &&
-                      (founder as { profile?: { id?: string | null } }).profile?.id
-                        ? (founder as { profile?: { id?: string | null } }).profile?.id ?? null
-                        : null) ??
-                      (userId ? founderProfileIds[userId] ?? null : null)
+          {/* Founders — derived from founders_list (M2M) UNION members with founder/co_founder role.
+              The M2M can be empty on legacy startups, but the StartupMember table is the source of truth
+              for who founded the company. Dedupe by user id. */}
+          {(() => {
+            type FounderEntry = {
+              userId: string | null
+              fullName: string
+              founderProfileId: string | null
+            }
+            const seen = new Set<string>()
+            const entries: FounderEntry[] = []
 
-                    if (!founderProfileId) {
+            for (const f of startup.founders_list ?? []) {
+              const userId = f.id ?? f.user_id ?? f.user ?? null
+              const key = userId ?? `name:${f.full_name}`
+              if (seen.has(key)) continue
+              seen.add(key)
+              const founderProfileId =
+                f.founder_profile_id ??
+                f.profile_id ??
+                (typeof (f as Record<string, unknown>).profile === 'object' &&
+                f &&
+                (f as { profile?: { id?: string | null } }).profile?.id
+                  ? (f as { profile?: { id?: string | null } }).profile?.id ?? null
+                  : null) ??
+                (userId ? founderProfileIds[userId] ?? null : null)
+              entries.push({ userId, fullName: f.full_name, founderProfileId })
+            }
+
+            for (const m of startup.members ?? []) {
+              if (m.role !== 'founder' && m.role !== 'co_founder') continue
+              const userId = m.user
+              const key = userId ?? `name:${m.user_name ?? m.user_email ?? 'unknown'}`
+              if (seen.has(key)) continue
+              seen.add(key)
+              entries.push({
+                userId,
+                fullName: m.user_name ?? m.user_email ?? 'Unknown',
+                founderProfileId: userId ? founderProfileIds[userId] ?? null : null,
+              })
+            }
+
+            if (entries.length === 0) return null
+
+            return (
+              <div className="section">
+                <div className="card">
+                  <div className="section-label" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <Users style={{ width: '0.875rem', height: '0.875rem' }} strokeWidth={1.5} />
+                    Founders
+                  </div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.375rem' }}>
+                    {entries.map(({ userId, fullName, founderProfileId }) => {
+                      const isSelf = userId != null && user?.id != null && userId === user.id
+
+                      if (isSelf) {
+                        return (
+                          <Link
+                            key={`self-${userId}`}
+                            to="/app/me"
+                            className="tag"
+                            style={{ textDecoration: 'none' }}
+                            data-testid="founder-link-self"
+                          >
+                            {fullName} <span style={{ opacity: 0.6, fontSize: '0.75em' }}>(you)</span>
+                          </Link>
+                        )
+                      }
+
+                      if (!founderProfileId) {
+                        return (
+                          <span key={`${userId ?? fullName}-fallback`} className="tag">
+                            {fullName}
+                          </span>
+                        )
+                      }
                       return (
-                        <span key={`${userId ?? founder.full_name}-fallback`} className="tag">
-                          {founder.full_name}
-                        </span>
+                        <Link
+                          key={`${founderProfileId}-${userId ?? fullName}`}
+                          to={`/app/founders/${founderProfileId}`}
+                          className="tag"
+                          style={{ textDecoration: 'none' }}
+                          data-testid={`founder-link-${founderProfileId}`}
+                        >
+                          {fullName}
+                        </Link>
                       )
-                    }
-                    return (
-                      <Link
-                        key={`${founderProfileId}-${userId ?? founder.full_name}`}
-                        to={`/app/founders/${founderProfileId}`}
-                        className="tag"
-                        style={{ textDecoration: 'none' }}
-                        data-testid={`founder-link-${founderProfileId}`}
-                      >
-                        {founder.full_name}
-                      </Link>
-                    )
-                  })}
+                    })}
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
+            )
+          })()}
 
           {/* Join Requests (members only) */}
           {isMember && joinRequests.length > 0 && (
@@ -845,8 +985,8 @@ export function StartupDetailPage() {
                   {startup.members!.map((m) => (
                     <div key={m.id}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                        {(founderProfileIds[m.user] || investorProfileIds[m.user]) ? (
-                          <Link to={founderProfileIds[m.user] ? `/app/founders/${founderProfileIds[m.user]}` : `/app/investors/${investorProfileIds[m.user]}`} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flex: 1, minWidth: 0, textDecoration: 'none', color: 'inherit' }}>
+                        {(m.user === user?.id || founderProfileIds[m.user] || investorProfileIds[m.user]) ? (
+                          <Link to={m.user === user?.id ? '/app/me' : founderProfileIds[m.user] ? `/app/founders/${founderProfileIds[m.user]}` : `/app/investors/${investorProfileIds[m.user]}`} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flex: 1, minWidth: 0, textDecoration: 'none', color: 'inherit' }}>
                             <div style={{ width: 34, height: 34, borderRadius: '50%', background: 'hsl(var(--muted))', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '0.7rem', fontWeight: 600, color: 'hsl(var(--muted-foreground))' }}>
                               {(m.user_name ?? m.user_email ?? '?').slice(0, 2).toUpperCase()}
                             </div>

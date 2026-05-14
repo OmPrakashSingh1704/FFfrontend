@@ -1,6 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type CSSProperties } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { Loader2, Linkedin, Twitter, Globe, MapPin, TrendingUp, UserPlus, UserCheck, MessageCircle, Handshake } from 'lucide-react'
+import {
+  Loader2, Linkedin, Twitter, Globe, MapPin, TrendingUp, UserPlus, UserCheck,
+  MessageCircle, Handshake, Users, Calendar, BadgeCheck, Building2, Rocket,
+} from 'lucide-react'
 import { apiRequest } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
@@ -9,6 +12,7 @@ import { parseSlugId, buildProfileUrl } from '../lib/slugId'
 import { PageHead } from '../components/PageHead'
 import { JsonLd } from '../components/JsonLd'
 import { StartDealRoomModal } from '../components/StartDealRoomModal'
+import { ProfilePosts } from '../components/ProfilePosts'
 
 type PublicFounder = {
   id: string
@@ -22,7 +26,16 @@ type PublicFounder = {
   linkedin_url: string | null
   twitter_url: string | null
   website_url: string | null
-  user: { id: string; full_name: string; avatar_url: string | null }
+  profile_photo: string | null
+  profile_created_year: number | null
+  user: {
+    id: string
+    full_name: string
+    avatar_url: string | null
+    connection_count: number
+    league: string | null
+    joined_year: number | null
+  }
   startups: Array<{
     id: string
     slug: string
@@ -30,10 +43,33 @@ type PublicFounder = {
     tagline: string
     industry: string
     stage: string | null
+    logo_url: string | null
+    location: string | null
+    fundraising_status: string | null
+    hiring_status: boolean | null
+    verification_tier: number | null
   }>
+  startup_count: number
 }
 
 const SITE_URL = 'https://www.founderslib.in'
+
+// Inline icon link style — small circular hover affordance for social/web
+// links sitting next to a profile name. Matches PublicStartupPage and
+// PublicInvestorPage; intentionally duplicated rather than lifted, since
+// it's 4 properties and lives next to its consumers.
+const iconLinkStyle: CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  width: 28,
+  height: 28,
+  borderRadius: '999px',
+  color: 'hsl(var(--muted-foreground))',
+  border: '1px solid hsl(var(--border))',
+  textDecoration: 'none',
+  transition: 'color 0.15s, background 0.15s',
+}
 
 /**
  * Founder profile page — one URL for anon + signed-in viewers.
@@ -212,9 +248,9 @@ export function PublicFounderPage() {
 
       <header className="mb-8 flex items-start justify-between gap-4">
         <div className="flex items-center gap-5">
-          {data.user.avatar_url ? (
+          {(data.profile_photo || data.user.avatar_url) ? (
             <img
-              src={data.user.avatar_url}
+              src={data.profile_photo || data.user.avatar_url || ''}
               alt={fullName}
               className="rounded-full"
               style={{ width: '5rem', height: '5rem', objectFit: 'cover' }}
@@ -231,31 +267,103 @@ export function PublicFounderPage() {
             </div>
           )}
           <div>
-            <h1 className="text-2xl font-semibold">{fullName}</h1>
-          <p className="text-sm mt-1" style={{ color: 'hsl(var(--muted-foreground))' }}>
-            {data.headline}
-          </p>
-          <div className="mt-2 flex flex-wrap items-center gap-3 text-xs" style={{ color: 'hsl(var(--muted-foreground))' }}>
-            {data.location ? (
-              <span className="inline-flex items-center gap-1">
-                <MapPin className="w-3 h-3" />
-                {data.location}
-              </span>
-            ) : null}
-            {data.fundraising_status && data.fundraising_status !== 'not_raising' ? (
-              <span className="inline-flex items-center gap-1">
-                <TrendingUp className="w-3 h-3" />
-                Fundraising · {data.current_stage}
-              </span>
-            ) : null}
+            <h1 className="text-2xl font-semibold inline-flex items-center gap-2 flex-wrap">
+              {fullName}
+              {data.user.league ? (
+                <span
+                  className="badge"
+                  style={{ fontSize: '0.625rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}
+                  title={`${data.user.league} league`}
+                >
+                  {data.user.league}
+                </span>
+              ) : null}
+            </h1>
+            <p className="text-sm mt-1" style={{ color: 'hsl(var(--muted-foreground))' }}>
+              {data.headline}
+            </p>
+            <div className="mt-2 flex flex-wrap items-center gap-3 text-xs" style={{ color: 'hsl(var(--muted-foreground))' }}>
+              {data.location ? (
+                <span className="inline-flex items-center gap-1">
+                  <MapPin className="w-3 h-3" />
+                  {data.location}
+                </span>
+              ) : null}
+              {data.fundraising_status && data.fundraising_status !== 'not_raising' ? (
+                <span
+                  className="badge inline-flex items-center gap-1"
+                  style={{ background: 'hsl(var(--primary) / 0.15)', color: 'hsl(var(--primary))' }}
+                >
+                  <TrendingUp className="w-3 h-3" />
+                  {data.fundraising_status === 'raising' ? 'Raising' : 'Round closed'}
+                  {data.current_stage ? ` · ${data.current_stage}` : ''}
+                </span>
+              ) : data.current_stage ? (
+                <span className="badge">{data.current_stage}</span>
+              ) : null}
+              {data.user.connection_count > 0 ? (
+                <span className="inline-flex items-center gap-1">
+                  <Users className="w-3 h-3" />
+                  {data.user.connection_count} connection{data.user.connection_count === 1 ? '' : 's'}
+                </span>
+              ) : null}
+              {data.user.joined_year ? (
+                <span className="inline-flex items-center gap-1">
+                  <Calendar className="w-3 h-3" />
+                  Joined {data.user.joined_year}
+                </span>
+              ) : null}
             </div>
           </div>
         </div>
 
-        {/* Auth-only actions. Anonymous viewers don't see these (the
-            backend would refuse Connect anyway and Chat needs an inbox). */}
+        {/* Right cluster: social icons (always) + auth-only actions (signed-in
+            non-self viewers). Column layout so icons sit above the buttons
+            when both render; on mobile flex-wrap drops the cluster below. */}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.5rem', flexShrink: 0 }}>
+          {(data.website_url || data.linkedin_url || data.twitter_url) ? (
+            <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+              {data.website_url ? (
+                <a
+                  href={data.website_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="Website"
+                  title={data.website_url}
+                  style={iconLinkStyle}
+                  data-testid="founder-website-icon"
+                >
+                  <Globe className="w-4 h-4" />
+                </a>
+              ) : null}
+              {data.linkedin_url ? (
+                <a
+                  href={data.linkedin_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="LinkedIn"
+                  style={iconLinkStyle}
+                  data-testid="founder-linkedin-icon"
+                >
+                  <Linkedin className="w-4 h-4" />
+                </a>
+              ) : null}
+              {data.twitter_url ? (
+                <a
+                  href={data.twitter_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="Twitter"
+                  style={iconLinkStyle}
+                  data-testid="founder-twitter-icon"
+                >
+                  <Twitter className="w-4 h-4" />
+                </a>
+              ) : null}
+            </div>
+          ) : null}
         {currentUser && !isOwnProfile ? (
-          <div className="flex items-center gap-2 flex-shrink-0 flex-wrap">
+          <div className="flex items-center gap-2 flex-wrap" style={{ justifyContent: 'flex-end' }}>
             {viewerCanStartDealRoom ? (
               <button
                 type="button"
@@ -301,6 +409,7 @@ export function PublicFounderPage() {
             )}
           </div>
         ) : null}
+        </div>
       </header>
 
       {data.bio ? (
@@ -327,8 +436,10 @@ export function PublicFounderPage() {
 
       {data.startups.length > 0 ? (
         <section className="mb-8">
-          <h2 className="text-sm font-semibold uppercase tracking-wide mb-3" style={{ color: 'hsl(var(--muted-foreground))' }}>
+          <h2 className="text-sm font-semibold uppercase tracking-wide mb-3 inline-flex items-center gap-2" style={{ color: 'hsl(var(--muted-foreground))' }}>
+            <Rocket className="w-3.5 h-3.5" />
             Building
+            <span className="badge" style={{ fontSize: '0.7rem' }}>{data.startup_count}</span>
           </h2>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
             {data.startups.map((s) => (
@@ -336,17 +447,73 @@ export function PublicFounderPage() {
                 key={s.slug}
                 to={buildProfileUrl('startups', s.slug, s.id)}
                 className="card"
-                style={{ display: 'block', textDecoration: 'none' }}
+                style={{
+                  display: 'flex', gap: '0.875rem', alignItems: 'flex-start',
+                  textDecoration: 'none', padding: '1rem',
+                }}
               >
-                <h3 className="font-semibold mb-1">{s.name}</h3>
-                {s.tagline ? (
-                  <p className="text-sm" style={{ color: 'hsl(var(--muted-foreground))' }}>
-                    {s.tagline}
-                  </p>
-                ) : null}
-                <div className="mt-2 flex gap-2 text-xs">
-                  {s.industry ? <span className="badge">{s.industry}</span> : null}
-                  {s.stage ? <span className="badge">{s.stage}</span> : null}
+                {s.logo_url ? (
+                  <img
+                    src={s.logo_url}
+                    alt={`${s.name} logo`}
+                    style={{
+                      width: 44, height: 44, borderRadius: '0.5rem',
+                      objectFit: 'cover', flexShrink: 0,
+                      border: '1px solid hsl(var(--border))',
+                    }}
+                  />
+                ) : (
+                  <div style={{
+                    width: 44, height: 44, borderRadius: '0.5rem',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    background: 'hsl(var(--muted))', flexShrink: 0,
+                    color: 'hsl(var(--muted-foreground))',
+                  }}>
+                    <Building2 className="w-5 h-5" />
+                  </div>
+                )}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <h3 className="font-semibold mb-1 inline-flex items-center gap-2 flex-wrap">
+                    {s.name}
+                    {s.verification_tier && s.verification_tier > 0 ? (
+                      <BadgeCheck
+                        className="w-4 h-4"
+                        style={{ color: 'var(--gold)', flexShrink: 0 }}
+                        aria-label="Verified"
+                      />
+                    ) : null}
+                  </h3>
+                  {s.tagline ? (
+                    <p className="text-sm" style={{ color: 'hsl(var(--muted-foreground))' }}>
+                      {s.tagline}
+                    </p>
+                  ) : null}
+                  <div className="mt-2 flex flex-wrap gap-2 text-xs">
+                    {s.industry ? <span className="badge">{s.industry}</span> : null}
+                    {s.stage ? <span className="badge">{s.stage}</span> : null}
+                    {s.fundraising_status && s.fundraising_status !== 'not_raising' ? (
+                      <span
+                        className="badge"
+                        style={{ background: 'hsl(var(--primary) / 0.15)', color: 'hsl(var(--primary))' }}
+                      >
+                        {s.fundraising_status === 'raising' ? 'Raising' : 'Round closed'}
+                      </span>
+                    ) : null}
+                    {s.hiring_status ? (
+                      <span
+                        className="badge"
+                        style={{ background: 'rgba(34,197,94,0.15)', color: '#16a34a' }}
+                      >
+                        Hiring
+                      </span>
+                    ) : null}
+                    {s.location ? (
+                      <span className="inline-flex items-center gap-1" style={{ color: 'hsl(var(--muted-foreground))' }}>
+                        <MapPin className="w-3 h-3" />
+                        {s.location}
+                      </span>
+                    ) : null}
+                  </div>
                 </div>
               </Link>
             ))}
@@ -354,23 +521,9 @@ export function PublicFounderPage() {
         </section>
       ) : null}
 
-      <section className="flex flex-wrap gap-3 text-sm">
-        {data.linkedin_url ? (
-          <a href={data.linkedin_url} target="_blank" rel="noopener noreferrer" className="btn-sm ghost">
-            <Linkedin className="w-3.5 h-3.5" /> LinkedIn
-          </a>
-        ) : null}
-        {data.twitter_url ? (
-          <a href={data.twitter_url} target="_blank" rel="noopener noreferrer" className="btn-sm ghost">
-            <Twitter className="w-3.5 h-3.5" /> Twitter
-          </a>
-        ) : null}
-        {data.website_url ? (
-          <a href={data.website_url} target="_blank" rel="noopener noreferrer" className="btn-sm ghost">
-            <Globe className="w-3.5 h-3.5" /> Website
-          </a>
-        ) : null}
-      </section>
+      <ProfilePosts founderUserId={data.user.id} />
+
+      {/* Social/web links moved inline next to the founder name in the header. */}
 
       {viewerCanStartDealRoom ? (
         <StartDealRoomModal

@@ -26,7 +26,95 @@ import { useAuth } from '../context/AuthContext'
 import { Markdown } from '../components/Markdown'
 import { MarkdownCanvas } from '../components/MarkdownCanvas'
 import { CommentComposer, ComposerHint, decodeMentions, type Mention } from '../components/CommentComposer'
-import type { FeedComment, FeedEvent } from '../types/feed'
+import type { FeedAttribution, FeedComment, FeedEvent } from '../types/feed'
+
+/**
+ * Compact chip used in the composer's "Posting as" multi-select. Active state
+ * is a primary-tinted fill; inactive is a hairline border. Optional avatar
+ * thumbnail for startup chips.
+ */
+function AttributionChip({
+  active,
+  onToggle,
+  label,
+  avatarUrl,
+  testId,
+}: {
+  active: boolean
+  onToggle: () => void
+  label: string
+  avatarUrl?: string | null
+  testId?: string
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      data-testid={testId}
+      aria-pressed={active}
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: '0.375rem',
+        padding: '0.3rem 0.625rem',
+        borderRadius: '999px',
+        fontSize: '0.8125rem',
+        fontWeight: 500,
+        cursor: 'pointer',
+        background: active ? 'hsl(var(--primary) / 0.15)' : 'transparent',
+        color: active ? 'hsl(var(--primary))' : 'hsl(var(--foreground))',
+        border: `1px solid ${active ? 'hsl(var(--primary) / 0.4)' : 'hsl(var(--border))'}`,
+        transition: 'background 0.15s, border-color 0.15s',
+      }}
+    >
+      {avatarUrl ? (
+        <img
+          src={avatarUrl}
+          alt=""
+          style={{ width: 16, height: 16, borderRadius: '50%', objectFit: 'cover' }}
+        />
+      ) : null}
+      {label}
+    </button>
+  )
+}
+
+/**
+ * Stacked avatars for a feed card byline. Renders up to 3 overlapping circles
+ * for multi-attribution posts; a single avatar otherwise. Each avatar links to
+ * the attribution's `link` when present (e.g. startup profile, founder page).
+ */
+function StackedAvatars({ attributions, fallbackInitials }: {
+  attributions: FeedAttribution[]
+  fallbackInitials: string
+}) {
+  const shown = attributions.slice(0, 3)
+  return (
+    <div style={{ display: 'inline-flex', alignItems: 'center' }}>
+      {shown.map((a, idx) => (
+        <div
+          key={`${a.kind}-${a.id}`}
+          className="avatar"
+          style={{
+            marginLeft: idx === 0 ? 0 : '-0.5rem',
+            border: '2px solid hsl(var(--card))',
+            zIndex: shown.length - idx,
+            position: 'relative',
+          }}
+          title={`${a.name}${a.role_label ? ` · ${a.role_label}` : ''}`}
+        >
+          {a.avatar_url ? (
+            <img src={a.avatar_url} alt="" loading="lazy" decoding="async" />
+          ) : (
+            <span style={{ fontSize: '0.7rem', fontWeight: 600 }}>
+              {(a.name || fallbackInitials || '?').slice(0, 1).toUpperCase()}
+            </span>
+          )}
+        </div>
+      ))}
+    </div>
+  )
+}
 
 type FeedTab = 'ranked' | 'trending' | 'all'
 type FeedInteraction = {
@@ -626,6 +714,7 @@ function feedEndpoint(tab: FeedTab, offset: number) {
 
 export function FeedPage() {
   const { pushToast } = useToast()
+  const { user } = useAuth()
   const [tab, setTab] = useState<FeedTab>('ranked')
   const [items, setItems] = useState<FeedEvent[]>([])
   const [loading, setLoading] = useState(true)
@@ -646,6 +735,22 @@ export function FeedPage() {
     tags: '',
   })
 
+  /**
+   * Multi-profile attribution state — see backend FeedEvent.
+   * `myStartups` is the list of startups the user can post as (loaded once,
+   * when the composer first opens). `hasFounderProfile` / `hasInvestorProfile`
+   * gate the corresponding identity checkboxes. The Set + booleans are the
+   * actual selection, defaulted via applySmartDefault() on composer open.
+   */
+  type ComposerStartup = { id: string; name: string; logo_url: string | null }
+  const [myStartups, setMyStartups] = useState<ComposerStartup[]>([])
+  const [hasFounderProfile, setHasFounderProfile] = useState(false)
+  const [hasInvestorProfile, setHasInvestorProfile] = useState(false)
+  const [attributionLoaded, setAttributionLoaded] = useState(false)
+  const [selectedStartupIds, setSelectedStartupIds] = useState<Set<string>>(new Set())
+  const [postAsFounder, setPostAsFounder] = useState(false)
+  const [postAsInvestor, setPostAsInvestor] = useState(false)
+
   const tagList = useMemo(
     () =>
       form.tags
@@ -654,6 +759,59 @@ export function FeedPage() {
         .filter(Boolean),
     [form.tags],
   )
+
+  // Lazy-load attribution options the first time the composer opens. Cheap
+  // queries, but no reason to fire them for users who never post.
+  //
+  // Each request is individually wrapped in .catch() so a rejection never
+  // reaches Promise.all (which would propagate it). 404 is the *expected*
+  // shape for "no founder/investor profile" — we treat it as "absent" not
+  // an error. This keeps the composer working for users with any combo of
+  // founder/investor/startup roles.
+  useEffect(() => {
+    if (!composerOpen || attributionLoaded) return
+    let cancelled = false
+    void (async () => {
+      type MyStartupsResp = { results?: ComposerStartup[] } | ComposerStartup[]
+      const [startupsResult, founderResult, investorResult] = await Promise.all([
+        apiRequest<MyStartupsResp>('/founders/my-startups/').catch(() => null),
+        apiRequest('/founders/profile/me/').catch(() => null),
+        apiRequest('/investors/profile/me/').catch(() => null),
+      ])
+      if (cancelled) return
+
+      const startups: ComposerStartup[] = startupsResult
+        ? (Array.isArray(startupsResult)
+            ? startupsResult
+            : startupsResult.results ?? [])
+        : []
+      const hasFounder = founderResult !== null
+      const hasInvestor = investorResult !== null
+
+      setMyStartups(startups)
+      setHasFounderProfile(hasFounder)
+      setHasInvestorProfile(hasInvestor)
+      setAttributionLoaded(true)
+
+      // Smart default: pick one identity automatically so the user can hit
+      // submit without thinking. They can change before posting.
+      //  - exactly one startup → that startup
+      //  - founder profile exists → post as founder
+      //  - investor profile exists → post as investor
+      //  - none → leave empty; backend will fall back to bare User.
+      if (selectedStartupIds.size === 0 && !postAsFounder && !postAsInvestor) {
+        if (startups.length === 1) {
+          setSelectedStartupIds(new Set([startups[0].id]))
+        } else if (hasFounder) {
+          setPostAsFounder(true)
+        } else if (hasInvestor) {
+          setPostAsInvestor(true)
+        }
+      }
+    })()
+    return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [composerOpen, attributionLoaded])
 
   // Reset and reload when tab changes
   useEffect(() => {
@@ -845,6 +1003,12 @@ export function FeedPage() {
           content: form.content.trim(),
           link_url: form.link_url.trim() || undefined,
           tags: tagList.length ? tagList : undefined,
+          // Multi-profile attribution. Backend applies its own smart default
+          // if all three are empty, but we send the user's explicit choices
+          // when they've made any.
+          attributed_startup_ids: Array.from(selectedStartupIds),
+          post_as_founder: postAsFounder,
+          post_as_investor: postAsInvestor,
         },
       })
       pushToast('Post created', 'success')
@@ -942,6 +1106,64 @@ export function FeedPage() {
 
             {formError ? (
               <div style={{ fontSize: '0.8125rem', color: '#ef4444', marginBottom: '0.75rem' }}>{formError}</div>
+            ) : null}
+
+            {/* Posting-as selector. Multi-select chip row. Hidden when there's
+                only the bare User as an option (no profiles, no startups) — in
+                that case attribution falls back to User automatically. */}
+            {attributionLoaded && (myStartups.length > 0 || hasFounderProfile || hasInvestorProfile) ? (
+              <div style={{ marginBottom: '0.75rem' }} data-testid="composer-attribution">
+                <div
+                  style={{
+                    fontSize: '0.75rem',
+                    color: 'hsl(var(--muted-foreground))',
+                    marginBottom: '0.4rem',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.05em',
+                    fontWeight: 600,
+                  }}
+                >
+                  Posting as
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
+                  {hasFounderProfile && (
+                    <AttributionChip
+                      active={postAsFounder}
+                      onToggle={() => setPostAsFounder((v) => !v)}
+                      label={`${user?.full_name ?? 'You'} (Founder)`}
+                      testId="attribution-founder"
+                    />
+                  )}
+                  {hasInvestorProfile && (
+                    <AttributionChip
+                      active={postAsInvestor}
+                      onToggle={() => setPostAsInvestor((v) => !v)}
+                      label={`${user?.full_name ?? 'You'} (Investor)`}
+                      testId="attribution-investor"
+                    />
+                  )}
+                  {myStartups.map((s) => (
+                    <AttributionChip
+                      key={s.id}
+                      active={selectedStartupIds.has(s.id)}
+                      onToggle={() =>
+                        setSelectedStartupIds((prev) => {
+                          const next = new Set(prev)
+                          if (next.has(s.id)) {
+                            next.delete(s.id)
+                          } else {
+                            next.add(s.id)
+                          }
+                          return next
+                        })
+                      }
+                      label={s.name}
+                      avatarUrl={s.logo_url}
+                      testId={`attribution-startup-${s.id}`}
+                    />
+                  ))}
+                </div>
+              </div>
             ) : null}
 
             <div className="grid-2" style={{ marginBottom: '0.75rem' }}>
@@ -1065,53 +1287,105 @@ export function FeedPage() {
             const state = getInteraction(item, interactions)
             return (
               <article key={item.id} className="card" data-testid={`feed-item-${item.id}`} style={{ padding: 0, overflow: 'hidden' }}>
-                {/* Card header: avatar + author + timestamp + type badge */}
+                {/* Card header: stacked avatars + attribution row + timestamp + type badge */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.875rem 1.25rem 0' }}>
                   {(() => {
-                    const profilePath = item.author?.profile_id
-                      ? buildProfileUrl(
-                          item.author.role === 'investor' ? 'investors' : 'founders',
-                          item.author.full_name,
-                          item.author.profile_id,
-                        )
-                      : null
-                    const avatarAndName = (
-                      <>
-                        <div className="avatar">
-                          {item.author?.avatar_url ? (
-                            <img src={item.author.avatar_url} alt="" loading="lazy" decoding="async" />
-                          ) : (
-                            authorInitials(item.author?.full_name ?? item.startup_name ?? undefined)
-                          )}
+                    const attributions = item.attributions ?? []
+                    // Back-compat: when the backend hasn't been redeployed
+                    // yet, fall back to a single-author byline from item.author.
+                    if (attributions.length === 0) {
+                      const profilePath = item.author?.profile_id
+                        ? buildProfileUrl(
+                            item.author.role === 'investor' ? 'investors' : 'founders',
+                            item.author.full_name,
+                            item.author.profile_id,
+                          )
+                        : null
+                      const inner = (
+                        <>
+                          <div className="avatar">
+                            {item.author?.avatar_url ? (
+                              <img src={item.author.avatar_url} alt="" loading="lazy" decoding="async" />
+                            ) : (
+                              authorInitials(item.author?.full_name ?? item.startup_name ?? undefined)
+                            )}
+                          </div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                              <span style={{ fontSize: '0.875rem', fontWeight: 500 }}>
+                                {item.author?.full_name ?? item.startup_name ?? 'Unknown'}
+                              </span>
+                              <span style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))' }}>
+                                {relativeTime(item.created_at)}
+                              </span>
+                            </div>
+                          </div>
+                        </>
+                      )
+                      return profilePath ? (
+                        <Link
+                          to={profilePath}
+                          style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flex: 1, minWidth: 0, textDecoration: 'none', color: 'inherit' }}
+                          data-testid={`author-link-${item.id}`}
+                        >
+                          {inner}
+                        </Link>
+                      ) : (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flex: 1, minWidth: 0 }}>
+                          {inner}
                         </div>
+                      )
+                    }
+
+                    const primary = attributions[0]
+                    const rest = attributions.slice(1)
+                    return (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flex: 1, minWidth: 0 }}>
+                        <StackedAvatars
+                          attributions={attributions}
+                          fallbackInitials={item.author?.full_name ?? ''}
+                        />
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-                            <span style={{ fontSize: '0.875rem', fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                              {item.author?.full_name ?? item.startup_name ?? 'Unknown'}
-                            </span>
+                            {primary.link ? (
+                              <Link
+                                to={primary.link}
+                                style={{ fontSize: '0.875rem', fontWeight: 500, textDecoration: 'none', color: 'inherit' }}
+                                data-testid={`attribution-primary-${item.id}`}
+                              >
+                                {primary.name}
+                              </Link>
+                            ) : (
+                              <span style={{ fontSize: '0.875rem', fontWeight: 500 }}>
+                                {primary.name}
+                              </span>
+                            )}
                             <span style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))' }}>
                               {relativeTime(item.created_at)}
                             </span>
                           </div>
-                          {item.startup_name && item.author?.full_name && (
-                            <p style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))', margin: 0 }}>
-                              {item.startup_name}
+                          {rest.length > 0 && (
+                            <p
+                              style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))', margin: 0 }}
+                              data-testid={`attribution-rest-${item.id}`}
+                            >
+                              also by{' '}
+                              {rest.map((a, idx) => (
+                                <span key={`${a.kind}-${a.id}`}>
+                                  {idx > 0 ? ' · ' : ''}
+                                  {a.link ? (
+                                    <Link to={a.link} style={{ color: 'inherit', textDecoration: 'underline' }}>
+                                      {a.name}
+                                    </Link>
+                                  ) : (
+                                    a.name
+                                  )}
+                                  {a.role_label ? ` (${a.role_label})` : ''}
+                                </span>
+                              ))}
                             </p>
                           )}
                         </div>
-                      </>
-                    )
-                    return profilePath ? (
-                      <Link
-                        to={profilePath}
-                        style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flex: 1, minWidth: 0, textDecoration: 'none', color: 'inherit' }}
-                        data-testid={`author-link-${item.id}`}
-                      >
-                        {avatarAndName}
-                      </Link>
-                    ) : (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flex: 1, minWidth: 0 }}>
-                        {avatarAndName}
                       </div>
                     )
                   })()}

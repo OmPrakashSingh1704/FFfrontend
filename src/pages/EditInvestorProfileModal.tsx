@@ -24,9 +24,12 @@ const STAGE_OPTIONS = [
 const INVESTOR_TYPES = [
   { value: 'angel', label: 'Angel' },
   { value: 'vc', label: 'Venture Capital' },
+  { value: 'micro_vc', label: 'Micro VC' },
+  { value: 'fund', label: 'Fund' },
   { value: 'family_office', label: 'Family Office' },
-  { value: 'corporate', label: 'Corporate' },
+  { value: 'corporate_vc', label: 'Corporate VC' },
   { value: 'accelerator', label: 'Accelerator' },
+  { value: 'syndicate', label: 'Syndicate' },
 ]
 
 export function EditInvestorProfileModal({ profile, onClose, onSave }: Props) {

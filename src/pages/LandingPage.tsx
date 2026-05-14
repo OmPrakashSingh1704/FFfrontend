@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, Navigate } from 'react-router-dom'
 import { ArrowRight, TrendingUp, Users, MessageSquare, Zap, BarChart3, Lock } from 'lucide-react'
 import logo from '../assets/logo.svg'
 import { Page } from '../components/Page'
@@ -8,6 +8,7 @@ import { StatusLink } from '../components/StatusLink'
 import { ThemeToggle } from '../components/ThemeToggle'
 import { BackgroundPaths } from '../components/ui/background-paths'
 import { Waves } from '../components/ui/wave-background'
+import { useAuth } from '../context/AuthContext'
 
 const NAV_LINKS = [
   { href: '#home', label: 'Home' },
@@ -125,6 +126,16 @@ function DashboardPreview() {
 
 export function LandingPage() {
   const [openFaq, setOpenFaq] = useState<string | null>(null)
+  const { status } = useAuth()
+
+  // Authenticated users typing the bare base URL ("/") shouldn't see the
+  // marketing page — bounce them to the app dashboard. While auth status
+  // is still resolving ('idle' / 'loading'), render the landing page so
+  // anon visitors don't get a blank/loader flash; authed users will
+  // briefly see it but get redirected once the context settles.
+  if (status === 'authenticated') {
+    return <Navigate to="/app" replace />
+  }
 
   return (
     <Page className="page-home">

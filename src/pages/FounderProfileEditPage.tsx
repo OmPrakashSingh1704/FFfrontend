@@ -7,18 +7,18 @@ import {
 import { apiRequest } from '../lib/api'
 import { useToast } from '../context/ToastContext'
 import { FormField } from '../components/FormField'
+import { LocationInput } from '../components/LocationInput'
 import { hasErrors, validateRequired } from '../lib/forms'
 
-const STAGE_OPTIONS = ['idea', 'mvp', 'pre_seed', 'seed', 'series_a', 'series_b', 'growth']
+const STAGE_OPTIONS = ['idea', 'mvp', 'seed', 'series_a', 'series_b_plus']
 const STAGE_LABELS: Record<string, string> = {
-  idea: 'Idea', mvp: 'MVP', pre_seed: 'Pre-Seed', seed: 'Seed',
-  series_a: 'Series A', series_b: 'Series B', growth: 'Growth',
+  idea: 'Idea', mvp: 'MVP', seed: 'Seed',
+  series_a: 'Series A', series_b_plus: 'Series B+',
 }
-const FUNDRAISING_OPTIONS = ['not_fundraising', 'open_to_conversations', 'actively_fundraising', 'closed']
+const FUNDRAISING_OPTIONS = ['not_raising', 'raising', 'closed']
 const FUNDRAISING_LABELS: Record<string, string> = {
-  not_fundraising: 'Not Fundraising',
-  open_to_conversations: 'Open to Conversations',
-  actively_fundraising: 'Actively Fundraising',
+  not_raising: 'Not Raising',
+  raising: 'Raising',
   closed: 'Round Closed',
 }
 
@@ -91,7 +91,7 @@ export function FounderProfileEditPage() {
     try {
       await apiRequest(isNew ? '/founders/profile/' : '/founders/profile/update/', {
         method: isNew ? 'POST' : 'PATCH',
-        body: JSON.stringify({
+        body: {
           headline: form.headline,
           bio: form.bio || null,
           location: form.location || null,
@@ -102,7 +102,7 @@ export function FounderProfileEditPage() {
           current_stage: form.current_stage || null,
           skills: form.skills ? form.skills.split(',').map((s) => s.trim()).filter(Boolean) : [],
           is_public: form.is_public,
-        }),
+        },
       })
       pushToast(isNew ? 'Founder profile created' : 'Founder profile updated', 'success')
       navigate('/app/profile')
@@ -161,10 +161,9 @@ export function FounderProfileEditPage() {
           </FormField>
 
           <FormField label="Location" icon={<MapPin className="w-4 h-4" />}>
-            <input
-              className="input"
+            <LocationInput
               value={form.location}
-              onChange={set('location')}
+              onChange={(next) => setForm((prev) => ({ ...prev, location: next }))}
               placeholder="e.g. Bangalore, India"
             />
           </FormField>

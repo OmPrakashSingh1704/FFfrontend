@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { apiRequest } from '../lib/api'
 import { clearActiveCallIds, getActiveCallIds } from '../lib/callSession'
 import { clearTokens, getTokens, setTokens } from '../lib/tokenStorage'
@@ -22,12 +22,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [accessToken, setAccessToken] = useState<string | null>(getTokens().accessToken)
 
+  // Track whether we ever successfully loaded a user. Lets the catch branch
+  // decide between "transient blip on top of a known session" (keep status)
+  // vs. "we never had a session, bail" (flip to unauthenticated). A ref —
+  // NOT user state — because keying useCallback on user causes the effect
+  // below to re-fire every successful load → infinite fetch loop.
+  const hasLoadedUserRef = useRef(false)
+
   const refreshUser = useCallback(async () => {
     const tokens = getTokens()
     if (!tokens.accessToken) {
       setStatus('unauthenticated')
       setUser(null)
       setAccessToken(null)
+      hasLoadedUserRef.current = false
       return
     }
 
@@ -37,11 +45,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(me)
       setStatus('authenticated')
       setAccessToken(tokens.accessToken)
-    } catch {
-      clearTokens()
-      setAccessToken(null)
-      setUser(null)
-      setStatus('unauthenticated')
+      hasLoadedUserRef.current = true
+    } catch (err: unknown) {
+      // Only nuke the session for real auth failures. A transient 500 / network
+      // blip / 404 (shouldn't happen on /users/me/ but defensively) must not
+      // log the user out — apiRequest already handles real 401 by clearing
+      // tokens for us inside the retry path.
+      const apiStatus = (err as { status?: number })?.status
+      if (apiStatus === 401 || apiStatus === 403) {
+        clearTokens()
+        setAccessToken(null)
+        setUser(null)
+        setStatus('unauthenticated')
+        hasLoadedUserRef.current = false
+      } else if (!hasLoadedUserRef.current) {
+        // No prior successful load — bail to unauthenticated so ProtectedRoute
+        // can redirect. Don't clear tokens, the user can retry.
+        setStatus('unauthenticated')
+      }
+      // else: keep the stale user + 'authenticated' status. Caller can retry.
     }
   }, [])
 
