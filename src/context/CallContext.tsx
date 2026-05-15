@@ -81,6 +81,11 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
   const screenStreamRef = useRef<MediaStream | null>(null)
   const offerInProgress = useRef(false)
   const lastMessageRef = useRef<string | null>(null)
+  // ICE candidates that arrived before the peer connection had a remote
+  // description. addIceCandidate rejects in that state, so without this
+  // buffer the candidates are lost forever — fatal on symmetric NAT where
+  // every relay candidate matters. Flushed after setRemoteDescription.
+  const pendingCandidatesRef = useRef<RTCIceCandidateInit[]>([])
 
   const wsUrl = useMemo(() => {
     if (status !== 'authenticated') return null
@@ -116,6 +121,7 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
     screenStreamRef.current?.getTracks().forEach((t) => t.stop())
     screenStreamRef.current = null
     offerInProgress.current = false
+    pendingCandidatesRef.current = []
     setLocalStream(null)
     setRemoteStream(null)
     setMediaError(null)
@@ -123,6 +129,20 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
     setIsVideoOff(false)
     setIsScreenSharing(false)
   }, [localStream, remoteStream])
+
+  const flushPendingCandidates = useCallback(async () => {
+    const pc = pcRef.current
+    if (!pc) return
+    const queued = pendingCandidatesRef.current
+    pendingCandidatesRef.current = []
+    for (const cand of queued) {
+      try {
+        await pc.addIceCandidate(new RTCIceCandidate(cand))
+      } catch {
+        /* stale candidate — ignore */
+      }
+    }
+  }, [])
 
   const ensureLocalStream = useCallback(async () => {
     if (localStream) return localStream
@@ -156,8 +176,21 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
         })
       }
       pc.ontrack = (event) => {
-        const [stream] = event.streams
-        setRemoteStream(stream ?? new MediaStream([event.track]))
+        // ontrack fires once per track (audio + video are separate events).
+        // The old code replaced remoteStream on every event, so the second
+        // event would wipe the first track. Preserve all tracks instead.
+        const [incoming] = event.streams
+        setRemoteStream((prev) => {
+          if (incoming) {
+            // Peer attached a stream via pc.addTrack(track, stream). The
+            // same stream object is reused across track events, so once
+            // we've seen it we just keep it — React skips the re-render.
+            return prev?.id === incoming.id ? prev : incoming
+          }
+          const existing = prev ? prev.getTracks() : []
+          if (existing.some((t) => t.id === event.track.id)) return prev
+          return new MediaStream([...existing, event.track])
+        })
       }
       pcRef.current = pc
       return pc
@@ -422,42 +455,65 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
 
       if (type === 'webrtc_offer' && event.sdp && event.from_user_id) {
         const pc = ensurePeerConnection(event.from_user_id as string)
-        ensureLocalStream()
-          .then((stream) => {
+        const fromUserId = event.from_user_id as string
+        const offerSdp = event.sdp as string
+        ;(async () => {
+          try {
+            // Order matters on the answerer: setRemoteDescription LOCKS IN
+            // the m-line layout from the offer; addTrack then attaches our
+            // senders to those m-lines; createAnswer generates SDP that
+            // matches. The previous order (addTrack → setRemoteDescription
+            // → createAnswer) created m-lines from our local tracks first,
+            // then the remote description didn't match, and codec
+            // negotiation broke — the other side's video failed to decode.
+            await pc.setRemoteDescription({ type: 'offer', sdp: offerSdp })
+            const stream = await ensureLocalStream()
             stream.getTracks().forEach((track) => {
-              if (!pc.getSenders().some((s) => s.track === track)) pc.addTrack(track, stream)
+              if (!pc.getSenders().some((s) => s.track === track)) {
+                pc.addTrack(track, stream)
+              }
             })
-            return pc.setRemoteDescription({ type: 'offer', sdp: event.sdp as string })
-          })
-          .then(() => pc.createAnswer())
-          .then((answer) => pc.setLocalDescription(answer).then(() => answer))
-          .then((answer) => {
+            const answer = await pc.createAnswer()
+            await pc.setLocalDescription(answer)
             sendJson({
               type: 'answer',
               call_id: activeCall.call_id,
-              to_user_id: event.from_user_id,
+              to_user_id: fromUserId,
               sdp: answer.sdp,
             })
-          })
-          .catch(() => null)
+            await flushPendingCandidates()
+          } catch {
+            /* malformed SDP or media denied */
+          }
+        })()
       }
 
       if (type === 'webrtc_answer' && event.sdp) {
         const pc = pcRef.current
         if (pc && !pc.currentRemoteDescription) {
-          pc.setRemoteDescription({ type: 'answer', sdp: event.sdp as string }).catch(() => null)
+          pc.setRemoteDescription({ type: 'answer', sdp: event.sdp as string })
+            .then(() => flushPendingCandidates())
+            .catch(() => null)
         }
       }
 
       if (type === 'webrtc_ice_candidate' && event.candidate) {
-        pcRef.current
-          ?.addIceCandidate(new RTCIceCandidate(event.candidate as RTCIceCandidateInit))
-          .catch(() => null)
+        const pc = pcRef.current
+        const cand = event.candidate as RTCIceCandidateInit
+        if (pc && pc.remoteDescription) {
+          pc.addIceCandidate(new RTCIceCandidate(cand)).catch(() => null)
+        } else {
+          // Buffer until setRemoteDescription completes. Without this,
+          // candidates arriving in the gap between offer-send and
+          // answer-receive (or before the answerer processes the offer)
+          // are silently rejected and lost — fatal on symmetric NAT.
+          pendingCandidatesRef.current.push(cand)
+        }
       }
     } catch {
       /* ignore malformed */
     }
-  }, [activeCall, cleanupMedia, ensureLocalStream, ensurePeerConnection, lastMessage, sendJson, user?.id])
+  }, [activeCall, cleanupMedia, ensureLocalStream, ensurePeerConnection, flushPendingCandidates, lastMessage, sendJson, user?.id])
 
   useEffect(() => {
     if (!activeCall) cleanupMedia()
