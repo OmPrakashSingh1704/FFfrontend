@@ -462,10 +462,14 @@ export function PublicStartupPage() {
               Start deal room
             </button>
           ) : null}
-          {/* Request to Join — for authed non-members who aren't viewing
-              as an investor. Hidden for members (viewer_can_edit=true),
-              hidden for anon, hidden once a pending request exists. */}
-          {currentUser && !data.viewer_can_edit && currentUser.role !== 'investor' ? (
+          {/* Request to Join — any signed-in non-member can ask to join.
+              We previously also gated this on role !== 'investor' on the
+              theory that investors should use "Express Interest" instead,
+              but those are different actions (deal-room handshake vs.
+              team membership), and an investor can validly want to join
+              as an advisor or operating partner. Backend handles the
+              role assignment at approval time. */}
+          {currentUser && !data.viewer_can_edit ? (
             joinRequestSent ? (
               <span
                 className="badge"
