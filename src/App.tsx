@@ -17,6 +17,8 @@ const lazyPage = <T extends Record<string, unknown>>(factory: () => Promise<T>, 
   })
 
 const LandingPage = lazyPage(() => import('./pages/LandingPage'), 'LandingPage')
+const TermsPage = lazyPage(() => import('./pages/TermsPage'), 'TermsPage')
+const PrivacyPage = lazyPage(() => import('./pages/PrivacyPage'), 'PrivacyPage')
 const LoginPage = lazyPage(() => import('./pages/LoginPage'), 'LoginPage')
 const SignupPage = lazyPage(() => import('./pages/SignupPage'), 'SignupPage')
 // Public, SEO-indexable profile pages. Routed OUTSIDE the /app/* AppShell
@@ -113,6 +115,8 @@ function App() {
       <Suspense fallback={<RouteLoader />}>
         <Routes>
           <Route path="/" element={<LandingPage />} />
+          <Route path="/terms" element={<TermsPage />} />
+          <Route path="/privacy" element={<PrivacyPage />} />
           <Route path="/design-guidelines" element={<DesignGuidelinesPage />} />
 
           {/* Profile pages — one URL per resource, served to both anon and

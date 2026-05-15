@@ -1,57 +1,67 @@
 import { useState } from 'react'
 import { Link, Navigate } from 'react-router-dom'
-import { ArrowRight, TrendingUp, Users, MessageSquare, Zap, BarChart3, Lock } from 'lucide-react'
+import { motion } from 'framer-motion'
+import {
+  ArrowRight,
+  BadgeCheck,
+  FileText,
+  Globe,
+  Handshake,
+  Instagram,
+  Linkedin,
+  Lock,
+  MessageSquare,
+  ShieldCheck,
+  Sparkles,
+  Users,
+} from 'lucide-react'
 import logo from '../assets/logo.svg'
 import { Page } from '../components/Page'
 import { PageHead } from '../components/PageHead'
 import { StatusLink } from '../components/StatusLink'
 import { ThemeToggle } from '../components/ThemeToggle'
-import { BackgroundPaths } from '../components/ui/background-paths'
 import { Waves } from '../components/ui/wave-background'
 import { useAuth } from '../context/AuthContext'
 
 const NAV_LINKS = [
   { href: '#home', label: 'Home' },
-  { href: '#culture', label: 'Our Culture' },
-  { href: '#about', label: 'About' },
-  { href: '#contact', label: 'Contact' },
-]
-
-const RESOURCE_GROUPS = [
-  {
-    title: 'Programs',
-    items: ['FL Program', 'Startup School', 'Work at a Startup', 'Co-Founder Matching'],
-  },
-  {
-    title: 'Resources',
-    items: ['Startup Directory', 'Startup Library', 'Investors', 'Demo Day', 'Safe', 'Hacker News', 'Launch FL', 'FL Deals'],
-  },
-  {
-    title: 'Company',
-    items: ['FL Blog', 'Contact', 'Press', 'People', 'Careers', 'Privacy Policy', 'Notice at Collection', 'Security', 'Terms of Use'],
-  },
+  { href: '#verify', label: 'Verification' },
+  { href: '#founders', label: 'For Founders' },
+  { href: '#investors', label: 'For Investors' },
+  { href: '#faq', label: 'FAQ' },
 ]
 
 const FAQS = [
   {
-    question: 'How quickly does the support team reply?',
-    answer: 'We respond to most messages within one business day. Urgent production issues are usually answered in a few hours.',
+    question: 'How do you verify founders?',
+    answer:
+      'Profile review, team check, traction signals, and a short call when needed. We turn away re-pitches of the same idea and pitch-and-pray spammers.',
   },
   {
-    question: 'Can I request a live product demo?',
-    answer: 'Yes—mention “live demo” in your message and include your preferred time zone so we can send an invite.',
+    question: 'How do you verify investors?',
+    answer:
+      'Cheque size, recent deal activity, and sector fit. Inactive funds and dormant angels do not get listed. We do not list anyone who has not written a cheque in the last 18 months.',
   },
   {
-    question: 'Do you support custom investor lists?',
-    answer: 'Absolutely. Upload your target list or describe your thesis and we will curate introductions that match it.',
+    question: 'Is it free?',
+    answer:
+      'Free for founders today. Investors get a free tier with limits; paid plans unlock higher-volume use. No surprise pricing.',
   },
   {
-    question: 'Is there a self-serve onboarding option?',
-    answer: 'Founders who want to explore independently can get credentials within minutes—just note it when you reach out.',
+    question: 'What if I get spam intros anyway?',
+    answer:
+      'Report it. The sender loses trust credits and can be removed from the network. The system has teeth — that is the point.',
+  },
+  {
+    question: 'Why India-first?',
+    answer:
+      'India fundraising mechanics (SAFE / CCD / iSAFE), Tier-2 ecosystem signals, and INR cheque sizes need a network built for them — not a global tool retrofitted to local context.',
   },
 ]
 
 
+// Illustrative pipeline view. Investor names are intentionally anonymized —
+// this is a product mock, not a claim about real activity.
 function DashboardPreview() {
   return (
     <div className="features-visual" data-testid="dashboard-preview">
@@ -60,45 +70,45 @@ function DashboardPreview() {
           <div className="dashboard-dots">
             <span /><span /><span />
           </div>
-          <span className="dashboard-title">Pipeline Overview</span>
+          <span className="dashboard-title">Pipeline · Illustrative</span>
           <div style={{ width: 60 }} />
         </div>
         <div className="dashboard-body">
           <div className="dashboard-row bar-80">
-            <div className="row-avatar">SW</div>
+            <div className="row-avatar">A</div>
             <div className="row-info">
-              <strong>Sequoia Capital</strong>
-              <span>Series A &middot; $8M</span>
+              <strong>Investor A</strong>
+              <span>Seed &middot; ₹2Cr cheque</span>
             </div>
             <div className="row-bar"><div className="row-bar-fill" /></div>
-            <span className="row-status hot">Hot Lead</span>
+            <span className="row-status hot">Warm intro</span>
           </div>
 
           <div className="dashboard-row bar-60">
-            <div className="row-avatar">A1</div>
+            <div className="row-avatar">B</div>
             <div className="row-info">
-              <strong>Andreessen Horowitz</strong>
-              <span>Series A &middot; $10M</span>
+              <strong>Investor B</strong>
+              <span>Pre-Seed &middot; ₹50L cheque</span>
             </div>
             <div className="row-bar"><div className="row-bar-fill" /></div>
-            <span className="row-status">In Review</span>
+            <span className="row-status">In review</span>
           </div>
 
           <div className="dashboard-row bar-90">
-            <div className="row-avatar">AC</div>
+            <div className="row-avatar">C</div>
             <div className="row-info">
-              <strong>Accel Partners</strong>
-              <span>Series A &middot; $7M</span>
+              <strong>Investor C</strong>
+              <span>Seed &middot; ₹1Cr cheque</span>
             </div>
             <div className="row-bar"><div className="row-bar-fill" /></div>
-            <span className="row-status hot">Term Sheet</span>
+            <span className="row-status hot">Term sheet</span>
           </div>
 
           <div className="dashboard-row bar-45">
-            <div className="row-avatar">GV</div>
+            <div className="row-avatar">D</div>
             <div className="row-info">
-              <strong>GV (Google Ventures)</strong>
-              <span>Series A &middot; $6M</span>
+              <strong>Investor D</strong>
+              <span>Pre-Seed &middot; ₹25L cheque</span>
             </div>
             <div className="row-bar"><div className="row-bar-fill" /></div>
             <span className="row-status new">New</span>
@@ -106,16 +116,16 @@ function DashboardPreview() {
 
           <div className="dashboard-stats">
             <div className="dash-stat">
-              <strong>$31M</strong>
-              <span>Pipeline Value</span>
+              <strong>Pipeline</strong>
+              <span>Live view</span>
             </div>
             <div className="dash-stat">
-              <strong>89%</strong>
-              <span>Response Rate</span>
+              <strong>Warm intros</strong>
+              <span>Earned, not bought</span>
             </div>
             <div className="dash-stat">
-              <strong>14</strong>
-              <span>Days Avg Close</span>
+              <strong>Status</strong>
+              <span>In-thread updates</span>
             </div>
           </div>
         </div>
@@ -140,8 +150,8 @@ export function LandingPage() {
   return (
     <Page className="page-home">
       <PageHead
-        title="FoundersLib — the fundraising OS for founders and investors"
-        description="FoundersLib connects vetted founders and investors. Track deals, run intros, and manage your fundraising pipeline in one workspace built for India's startup ecosystem."
+        title="FoundersLib — verified founders and investors, India-first"
+        description="A vetted network for India's founders and investors. Every profile is reviewed before it goes live. Skip the cold DMs and tire-kickers."
         path="/"
       />
       <Waves className="fixed inset-0 z-0" />
@@ -173,90 +183,186 @@ export function LandingPage() {
       </header>
 
       <main id="main-content">
-        {/* Hero with Background Paths */}
-        <section id="home" data-testid="hero-section" className="relative">
-          <BackgroundPaths title="Connect with investors who matter" />
-        </section>
-
-
-        {/* Trusted By */}
-        <section className="trusted-by animate-fade-in-slow" data-testid="trusted-by-section">
-          <p>Trusted by founders at</p>
-          <div className="trusted-by-logos">
-            <span className="trusted-logo">Y Combinator</span>
-            <span className="trusted-logo">500 Startups</span>
-            <span className="trusted-logo">Techstars</span>
-            <span className="trusted-logo">AngelList</span>
-            <span className="trusted-logo">Product Hunt</span>
+        {/* Hero — split CTA, honest positioning */}
+        <section
+          id="home"
+          data-testid="hero-section"
+          className="relative min-h-screen w-full flex items-center justify-center overflow-hidden"
+        >
+          <div className="relative z-10 container mx-auto px-4 md:px-6 text-center">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, ease: 'easeOut' }}
+              className="max-w-4xl mx-auto"
+            >
+              <p
+                style={{
+                  fontSize: '0.8125rem',
+                  letterSpacing: '0.18em',
+                  textTransform: 'uppercase',
+                  color: 'hsl(var(--muted-foreground))',
+                  marginBottom: '1.25rem',
+                }}
+              >
+                India-first · Verified on both sides
+              </p>
+              <h1 className="text-4xl sm:text-6xl md:text-7xl font-bold mb-6 tracking-tighter">
+                Where India&apos;s next
+                <br />
+                <span className="text-gradient">1,000 startups get funded.</span>
+              </h1>
+              <p
+                style={{
+                  fontSize: '1.125rem',
+                  lineHeight: 1.6,
+                  color: 'hsl(var(--muted-foreground))',
+                  maxWidth: '38rem',
+                  margin: '0 auto 2.5rem',
+                }}
+              >
+                A verified network of founders and investors.
+                Quality of relationships, not size of database.
+              </p>
+              <div
+                style={{
+                  display: 'flex',
+                  flexWrap: 'wrap',
+                  gap: '0.75rem',
+                  justifyContent: 'center',
+                  marginBottom: '1.25rem',
+                }}
+              >
+                <Link
+                  className="btn primary"
+                  to="/signup?role=founder"
+                  data-testid="hero-founder-cta"
+                  style={{ padding: '0.875rem 1.5rem', fontSize: '0.9375rem' }}
+                >
+                  I&apos;m a founder
+                  <ArrowRight className="w-4 h-4 ml-2" />
+                </Link>
+                <Link
+                  className="btn ghost"
+                  to="/signup?role=investor"
+                  data-testid="hero-investor-cta"
+                  style={{ padding: '0.875rem 1.5rem', fontSize: '0.9375rem' }}
+                >
+                  I&apos;m an investor
+                  <ArrowRight className="w-4 h-4 ml-2" />
+                </Link>
+              </div>
+              <p
+                style={{
+                  fontSize: '0.8125rem',
+                  color: 'hsl(var(--muted-foreground))',
+                  margin: 0,
+                }}
+              >
+                Onboarding by review — usually within 48 hours.
+              </p>
+            </motion.div>
           </div>
         </section>
 
-        {/* Stats */}
-        <section style={{ maxWidth: 960, margin: '0 auto 4rem', padding: '0 1.5rem' }} data-testid="stats-section">
-          <div className="grid-4">
-            <div className="stat-card animate-fade-in animate-delay-1">
-              <div className="stat-header">
-                <span className="stat-label">Founders</span>
-                <div className="stat-icon">
-                  <Users size={16} strokeWidth={1.5} />
+        {/* How we vet — replaces fake "trusted by" logos */}
+        <section
+          id="verify"
+          className="features"
+          style={{ paddingTop: '4rem', paddingBottom: '4rem' }}
+          data-testid="verify-section"
+        >
+          <div className="section-header" style={{ textAlign: 'center', maxWidth: '36rem', margin: '0 auto 3rem' }}>
+            <p className="section-eyebrow">Why this works</p>
+            <h2 className="section-title">
+              Both sides go through <span className="text-gradient">verification</span>.
+            </h2>
+            <p className="section-lead">
+              The network is small on purpose. Every profile is reviewed before it goes live.
+            </p>
+          </div>
+          <div className="grid-3" style={{ maxWidth: 960, margin: '0 auto', padding: '0 1.5rem' }}>
+            <div className="card animate-fade-in animate-delay-1">
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+                <div className="feature-icon-modern">
+                  <BadgeCheck size={18} strokeWidth={1.5} />
+                </div>
+                <div>
+                  <h3 style={{ fontSize: '0.9375rem', fontWeight: 600, marginBottom: 6 }}>
+                    Founders are reviewed
+                  </h3>
+                  <p style={{ fontSize: '0.8125rem', color: 'hsl(var(--muted-foreground))', lineHeight: 1.55, margin: 0 }}>
+                    Profile, team, traction signals. We turn away pitch-and-pray spammers and
+                    re-pitches of the same idea.
+                  </p>
                 </div>
               </div>
-              <span className="stat-value">2,400+</span>
             </div>
-            <div className="stat-card animate-fade-in animate-delay-2">
-              <div className="stat-header">
-                <span className="stat-label">Investors</span>
-                <div className="stat-icon">
-                  <TrendingUp size={16} strokeWidth={1.5} />
+            <div className="card animate-fade-in animate-delay-2">
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+                <div className="feature-icon-modern">
+                  <ShieldCheck size={18} strokeWidth={1.5} />
+                </div>
+                <div>
+                  <h3 style={{ fontSize: '0.9375rem', fontWeight: 600, marginBottom: 6 }}>
+                    Investors are checked
+                  </h3>
+                  <p style={{ fontSize: '0.8125rem', color: 'hsl(var(--muted-foreground))', lineHeight: 1.55, margin: 0 }}>
+                    Cheque size, sector, recent activity. We do not list inactive funds or
+                    angels who have not written a cheque in 18 months.
+                  </p>
                 </div>
               </div>
-              <span className="stat-value">850+</span>
             </div>
-            <div className="stat-card animate-fade-in animate-delay-3">
-              <div className="stat-header">
-                <span className="stat-label">Intros Made</span>
-                <div className="stat-icon">
-                  <Zap size={16} strokeWidth={1.5} />
+            <div className="card animate-fade-in animate-delay-3">
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+                <div className="feature-icon-modern">
+                  <Handshake size={18} strokeWidth={1.5} />
+                </div>
+                <div>
+                  <h3 style={{ fontSize: '0.9375rem', fontWeight: 600, marginBottom: 6 }}>
+                    Intros are earned
+                  </h3>
+                  <p style={{ fontSize: '0.8125rem', color: 'hsl(var(--muted-foreground))', lineHeight: 1.55, margin: 0 }}>
+                    A trust-and-credits system means warm intros are actually warm.
+                    Cold-DMing is not a feature.
+                  </p>
                 </div>
               </div>
-              <span className="stat-value">14K+</span>
-            </div>
-            <div className="stat-card animate-fade-in animate-delay-4">
-              <div className="stat-header">
-                <span className="stat-label">Capital Raised</span>
-                <div className="stat-icon">
-                  <BarChart3 size={16} strokeWidth={1.5} />
-                </div>
-              </div>
-              <span className="stat-value">$220M</span>
             </div>
           </div>
         </section>
 
-        {/* Features */}
-        <section id="about" className="features" data-testid="features-section">
+        {/* Platform / how it actually works.
+            Headline spans MUST be short — `.section-title--spaced span` is
+            `white-space: nowrap` at ~3.75rem, so anything over ~3 words
+            overflows the column on desktop and crashes into the dashboard
+            preview on the right. */}
+        <section id="platform" className="features" data-testid="features-section">
           <div className="features-layout">
             <div className="features-content">
               <div className="section-header">
                 <p className="section-eyebrow">Platform</p>
                 <h2 className="section-title section-title--spaced">
-                  <span>Everything you need to</span>
-                  <span className="text-gradient"> raise capital</span>
+                  <span>Built for</span>
+                  <span className="text-gradient">Indian fundraising.</span>
                 </h2>
                 <p className="section-lead">
-                  Purpose-built tools that help founders move faster and close deals with confidence.
+                  Verification on both sides. Warm intros earned through participation.
+                  Deal mechanics built for the Indian ecosystem.
                 </p>
               </div>
               <div className="grid-2" style={{ gap: 16 }}>
                 <div className="card feature-card-new animate-slide-up animate-delay-1">
                   <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
                     <div className="feature-icon-modern">
-                      <TrendingUp size={18} strokeWidth={1.5} />
+                      <BadgeCheck size={18} strokeWidth={1.5} />
                     </div>
                     <div>
-                      <h3 style={{ fontSize: '0.9375rem', fontWeight: 600, marginBottom: 4 }}>Pipeline Tracking</h3>
+                      <h3 style={{ fontSize: '0.9375rem', fontWeight: 600, marginBottom: 4 }}>Verified profiles</h3>
                       <p style={{ fontSize: '0.8125rem', color: 'hsl(var(--muted-foreground))', lineHeight: 1.5 }}>
-                        Real-time visibility into your fundraising pipeline and investor engagement signals.
+                        Manual review, not signup-form trust. You see who someone actually is
+                        before you spend time on the conversation.
                       </p>
                     </div>
                   </div>
@@ -264,12 +370,13 @@ export function LandingPage() {
                 <div className="card feature-card-new animate-slide-up animate-delay-2">
                   <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
                     <div className="feature-icon-modern">
-                      <Users size={18} strokeWidth={1.5} />
+                      <Handshake size={18} strokeWidth={1.5} />
                     </div>
                     <div>
-                      <h3 style={{ fontSize: '0.9375rem', fontWeight: 600, marginBottom: 4 }}>Warm Introductions</h3>
+                      <h3 style={{ fontSize: '0.9375rem', fontWeight: 600, marginBottom: 4 }}>Warm intros, not cold DMs</h3>
                       <p style={{ fontSize: '0.8125rem', color: 'hsl(var(--muted-foreground))', lineHeight: 1.5 }}>
-                        Get introduced to investors through trusted mutual connections in one click.
+                        Earn trust credits through real participation; spend them on intros.
+                        Spammers run out of credits fast.
                       </p>
                     </div>
                   </div>
@@ -280,9 +387,10 @@ export function LandingPage() {
                       <Lock size={18} strokeWidth={1.5} />
                     </div>
                     <div>
-                      <h3 style={{ fontSize: '0.9375rem', fontWeight: 600, marginBottom: 4 }}>Secure Data Room</h3>
+                      <h3 style={{ fontSize: '0.9375rem', fontWeight: 600, marginBottom: 4 }}>Deal rooms in-thread</h3>
                       <p style={{ fontSize: '0.8125rem', color: 'hsl(var(--muted-foreground))', lineHeight: 1.5 }}>
-                        Share pitch decks and financials with granular access controls and analytics.
+                        NDAs, document sharing, term-sheet status. The conversation and the
+                        paperwork live in the same place.
                       </p>
                     </div>
                   </div>
@@ -290,12 +398,13 @@ export function LandingPage() {
                 <div className="card feature-card-new animate-slide-up animate-delay-4">
                   <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
                     <div className="feature-icon-modern">
-                      <MessageSquare size={18} strokeWidth={1.5} />
+                      <Globe size={18} strokeWidth={1.5} />
                     </div>
                     <div>
-                      <h3 style={{ fontSize: '0.9375rem', fontWeight: 600, marginBottom: 4 }}>Real-time Messaging</h3>
+                      <h3 style={{ fontSize: '0.9375rem', fontWeight: 600, marginBottom: 4 }}>India-native</h3>
                       <p style={{ fontSize: '0.8125rem', color: 'hsl(var(--muted-foreground))', lineHeight: 1.5 }}>
-                        Built-in chat with video calls, reactions, and encrypted conversations.
+                        SAFE / CCD / iSAFE, INR and USD cheques, Tier-1 and Tier-2 city coverage.
+                        Not a global tool retrofitted.
                       </p>
                     </div>
                   </div>
@@ -306,75 +415,199 @@ export function LandingPage() {
           </div>
         </section>
 
-        {/* Testimonials */}
-        <section id="culture" className="testimonials" data-testid="testimonials-section">
-          <div className="section-header" style={{ textAlign: 'center', maxWidth: '32rem', margin: '0 auto 3rem' }}>
-            <p className="section-eyebrow">Testimonials</p>
-            <h2 className="section-title">Loved by <span className="text-gradient">founders</span></h2>
-          </div>
-          <div className="grid-3" style={{ maxWidth: 960, margin: '0 auto', padding: '0 1.5rem' }}>
-            <div className="card animate-fade-in animate-delay-1">
-              <blockquote style={{ fontSize: '0.875rem', lineHeight: 1.6, color: 'hsl(var(--foreground))', margin: '0 0 16px', fontStyle: 'italic' }}>
-                "We closed our Series A in 3 weeks. The pipeline tracking and intro system
-                made the entire process feel effortless."
-              </blockquote>
-              <hr className="divider" style={{ margin: '12px 0' }} />
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <div className="avatar">SC</div>
+        {/* For founders */}
+        <section
+          id="founders"
+          className="features"
+          style={{ paddingTop: '4rem', paddingBottom: '4rem' }}
+          data-testid="founders-section"
+        >
+          <div className="grid-2" style={{ maxWidth: 1100, margin: '0 auto', padding: '0 1.5rem', gap: '2.5rem', alignItems: 'center' }}>
+            <div>
+              <p className="section-eyebrow">For Founders</p>
+              <h2 className="section-title" style={{ marginBottom: '1rem' }}>
+                Find investors who actually <span className="text-gradient">invest at your stage</span>.
+              </h2>
+              <p style={{ fontSize: '0.9375rem', lineHeight: 1.65, color: 'hsl(var(--muted-foreground))', marginBottom: '1.5rem' }}>
+                Search by cheque size, sector, stage, and recent deals — not by who has the
+                loudest Twitter. Track every conversation in one workspace: pipeline, chat,
+                deal room, NDA, documents. No spreadsheets, no lost threads.
+              </p>
+              <Link
+                className="btn primary"
+                to="/signup?role=founder"
+                data-testid="founders-cta"
+                style={{ padding: '0.75rem 1.25rem', fontSize: '0.9375rem' }}
+              >
+                Apply as a founder
+                <ArrowRight className="w-4 h-4 ml-2" />
+              </Link>
+            </div>
+            <div style={{ display: 'grid', gap: '0.75rem' }}>
+              <div className="card" style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-start' }}>
+                <div className="feature-icon-modern"><Users size={16} strokeWidth={1.5} /></div>
                 <div>
-                  <strong style={{ fontSize: '0.8125rem', display: 'block' }}>Sarah Chen</strong>
-                  <span style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))' }}>CEO, DataFlow (FL W24)</span>
+                  <strong style={{ fontSize: '0.875rem', display: 'block', marginBottom: 2 }}>Targeted, not sprayed</strong>
+                  <span style={{ fontSize: '0.8125rem', color: 'hsl(var(--muted-foreground))' }}>
+                    Filter investors by what they actually fund.
+                  </span>
                 </div>
               </div>
-            </div>
-            <div className="card animate-fade-in animate-delay-2">
-              <blockquote style={{ fontSize: '0.875rem', lineHeight: 1.6, color: 'hsl(var(--foreground))', margin: '0 0 16px', fontStyle: 'italic' }}>
-                "The signal intelligence saved us from wasting time on cold outreach.
-                Every intro was warm and relevant."
-              </blockquote>
-              <hr className="divider" style={{ margin: '12px 0' }} />
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <div className="avatar">MR</div>
+              <div className="card" style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-start' }}>
+                <div className="feature-icon-modern"><FileText size={16} strokeWidth={1.5} /></div>
                 <div>
-                  <strong style={{ fontSize: '0.8125rem', display: 'block' }}>Marcus Rivera</strong>
-                  <span style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))' }}>Founder, BuildStack</span>
+                  <strong style={{ fontSize: '0.875rem', display: 'block', marginBottom: 2 }}>One workspace</strong>
+                  <span style={{ fontSize: '0.8125rem', color: 'hsl(var(--muted-foreground))' }}>
+                    Pipeline, chat, deal room, documents — in-thread.
+                  </span>
                 </div>
               </div>
-            </div>
-            <div className="card animate-fade-in animate-delay-3">
-              <blockquote style={{ fontSize: '0.875rem', lineHeight: 1.6, color: 'hsl(var(--foreground))', margin: '0 0 16px', fontStyle: 'italic' }}>
-                "Finally a platform that treats fundraising like a proper pipeline.
-                The analytics alone are worth it."
-              </blockquote>
-              <hr className="divider" style={{ margin: '12px 0' }} />
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <div className="avatar">PS</div>
+              <div className="card" style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-start' }}>
+                <div className="feature-icon-modern"><MessageSquare size={16} strokeWidth={1.5} /></div>
                 <div>
-                  <strong style={{ fontSize: '0.8125rem', display: 'block' }}>Priya Sharma</strong>
-                  <span style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))' }}>CTO, NeuralOps</span>
+                  <strong style={{ fontSize: '0.875rem', display: 'block', marginBottom: 2 }}>Real answers</strong>
+                  <span style={{ fontSize: '0.8125rem', color: 'hsl(var(--muted-foreground))' }}>
+                    Pass / interested / in review — never silence.
+                  </span>
                 </div>
               </div>
             </div>
           </div>
         </section>
 
-        {/* Contact */}
-        <section id="contact" className="cta contact-section" data-testid="cta-section">
+        {/* For investors */}
+        <section
+          id="investors"
+          className="features"
+          style={{ paddingTop: '4rem', paddingBottom: '4rem' }}
+          data-testid="investors-section"
+        >
+          <div className="grid-2" style={{ maxWidth: 1100, margin: '0 auto', padding: '0 1.5rem', gap: '2.5rem', alignItems: 'center' }}>
+            <div style={{ display: 'grid', gap: '0.75rem', order: 1 }}>
+              <div className="card" style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-start' }}>
+                <div className="feature-icon-modern"><BadgeCheck size={16} strokeWidth={1.5} /></div>
+                <div>
+                  <strong style={{ fontSize: '0.875rem', display: 'block', marginBottom: 2 }}>Vetted deal flow</strong>
+                  <span style={{ fontSize: '0.8125rem', color: 'hsl(var(--muted-foreground))' }}>
+                    Sorted by your thesis — stage, sector, geography.
+                  </span>
+                </div>
+              </div>
+              <div className="card" style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-start' }}>
+                <div className="feature-icon-modern"><Lock size={16} strokeWidth={1.5} /></div>
+                <div>
+                  <strong style={{ fontSize: '0.875rem', display: 'block', marginBottom: 2 }}>Diligence in-platform</strong>
+                  <span style={{ fontSize: '0.8125rem', color: 'hsl(var(--muted-foreground))' }}>
+                    NDA, documents, term-sheet status, all in one thread.
+                  </span>
+                </div>
+              </div>
+              <div className="card" style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-start' }}>
+                <div className="feature-icon-modern"><Sparkles size={16} strokeWidth={1.5} /></div>
+                <div>
+                  <strong style={{ fontSize: '0.875rem', display: 'block', marginBottom: 2 }}>Never recycled</strong>
+                  <span style={{ fontSize: '0.8125rem', color: 'hsl(var(--muted-foreground))' }}>
+                    Founders disclose where they have already pitched.
+                  </span>
+                </div>
+              </div>
+            </div>
+            <div style={{ order: 2 }}>
+              <p className="section-eyebrow">For Investors</p>
+              <h2 className="section-title" style={{ marginBottom: '1rem' }}>
+                India deal flow <span className="text-gradient">without the inbox flood</span>.
+              </h2>
+              <p style={{ fontSize: '0.9375rem', lineHeight: 1.65, color: 'hsl(var(--muted-foreground))', marginBottom: '1.5rem' }}>
+                See vetted founders sorted by your thesis. Pass quickly, save what is
+                interesting, run the diligence inside the platform. Your deal flow stays
+                organized; founders get a real answer instead of silence.
+              </p>
+              <Link
+                className="btn primary"
+                to="/signup?role=investor"
+                data-testid="investors-cta"
+                style={{ padding: '0.75rem 1.25rem', fontSize: '0.9375rem' }}
+              >
+                Apply as an investor
+                <ArrowRight className="w-4 h-4 ml-2" />
+              </Link>
+            </div>
+          </div>
+        </section>
+
+        {/* Honest about stage */}
+        <section
+          className="features"
+          style={{ paddingTop: '2rem', paddingBottom: '4rem' }}
+          data-testid="cohort-section"
+        >
+          <div
+            className="card animate-fade-in"
+            style={{
+              maxWidth: 720,
+              margin: '0 auto',
+              padding: '2rem',
+              textAlign: 'center',
+              borderColor: 'hsl(var(--border))',
+            }}
+          >
+            <div
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                fontSize: '0.75rem',
+                letterSpacing: '0.12em',
+                textTransform: 'uppercase',
+                color: 'hsl(var(--muted-foreground))',
+                marginBottom: '1rem',
+              }}
+            >
+              <Sparkles size={14} strokeWidth={1.5} />
+              Stage
+            </div>
+            <h2 className="section-title" style={{ marginBottom: '0.75rem' }}>
+              Currently onboarding the founding cohort.
+            </h2>
+            <p style={{ fontSize: '0.9375rem', lineHeight: 1.65, color: 'hsl(var(--muted-foreground))', marginBottom: '1.5rem' }}>
+              FoundersLib is early on purpose. We would rather have 200 verified founders and
+              100 active investors than 20,000 unverified profiles. If you are serious about
+              raising or deploying capital in India, we want to talk.
+            </p>
+            <Link
+              className="btn primary"
+              to="/signup"
+              data-testid="cohort-cta"
+              style={{ padding: '0.75rem 1.25rem', fontSize: '0.9375rem' }}
+            >
+              Request access
+              <ArrowRight className="w-4 h-4 ml-2" />
+            </Link>
+          </div>
+        </section>
+
+        {/* Contact + FAQ */}
+        <section id="faq" className="cta contact-section" data-testid="cta-section">
           <div className="contact-grid">
             <div className="cta-card contact-card animate-fade-in">
-              <p className="contact-eyebrow">Connect with us</p>
-              <h2>We&rsquo;re here to help</h2>
-              <p>You can directly connect with our support team for anything related to onboarding, partnerships, or platform access.</p>
+              <p className="contact-eyebrow">Talk to us</p>
+              <h2>Get in touch</h2>
+              <p>
+                Questions about access, verification, or partnerships? Reach the team directly.
+                We read every note.
+              </p>
               <div className="contact-email-block">
                 <span>Email</span>
-                <a href="mailto:info@ounderslib.in">info@ounderslib.in</a>
+                <a href="mailto:info@founderslib.in">info@founderslib.in</a>
               </div>
-              <p className="contact-note">Prefer quick answers? Browse the most common questions below or send us a note any time.</p>
+              <p className="contact-note">
+                Onboarding is by review. Most applications get a response within 48 hours.
+              </p>
             </div>
 
             <div className="cta-card contact-card faq-card animate-fade-in">
-              <p className="contact-eyebrow">Previously Asked Questions</p>
-              <h3>Answers for founders</h3>
+              <p className="contact-eyebrow">FAQ</p>
+              <h3>Common questions</h3>
               <div className="faq-list">
                 {FAQS.map(({ question, answer }) => {
                   const isOpen = openFaq === question
@@ -400,27 +633,77 @@ export function LandingPage() {
           </div>
         </section>
 
-        {/* Resource links */}
-        <section className="yc-links" data-testid="yc-links">
-          <div className="yc-links-inner">
-            {RESOURCE_GROUPS.map(({ title, items }) => (
-              <div key={title} className="yc-links-column">
-                <p className="yc-links-title">{title}</p>
-                <ul>
-                  {items.map(item => (
-                    <li key={item}>
-                      <a href="#">{item}</a>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
+        <div
+          className="footer-note"
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: '0.75rem',
+            padding: '1.25rem 1.5rem',
+          }}
+        >
+          <span style={{ fontSize: '0.8125rem', color: 'hsl(var(--muted-foreground))' }}>
+            © 2026 FoundersLib · India-first fundraising network
+          </span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+            <a
+              href="https://www.linkedin.com/company/founderslib"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="FoundersLib on LinkedIn"
+              data-testid="footer-linkedin"
+              style={{
+                color: 'hsl(var(--muted-foreground))',
+                display: 'inline-flex',
+                alignItems: 'center',
+              }}
+            >
+              <Linkedin size={16} strokeWidth={1.5} />
+            </a>
+            <a
+              href="https://www.instagram.com/founderslib/"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="FoundersLib on Instagram"
+              data-testid="footer-instagram"
+              style={{
+                color: 'hsl(var(--muted-foreground))',
+                display: 'inline-flex',
+                alignItems: 'center',
+              }}
+            >
+              <Instagram size={16} strokeWidth={1.5} />
+            </a>
+            <Link
+              to="/terms"
+              style={{ fontSize: '0.8125rem', color: 'hsl(var(--muted-foreground))' }}
+              data-testid="footer-terms"
+            >
+              Terms
+            </Link>
+            <Link
+              to="/privacy"
+              style={{ fontSize: '0.8125rem', color: 'hsl(var(--muted-foreground))' }}
+              data-testid="footer-privacy"
+            >
+              Privacy
+            </Link>
+            <a
+              href="mailto:info@founderslib.in"
+              style={{ fontSize: '0.8125rem', color: 'hsl(var(--muted-foreground))' }}
+            >
+              Contact
+            </a>
+            <a
+              href="#faq"
+              style={{ fontSize: '0.8125rem', color: 'hsl(var(--muted-foreground))' }}
+            >
+              FAQ
+            </a>
+            <StatusLink variant="badge" />
           </div>
-        </section>
-
-        <div className="footer-note" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem' }}>
-          <span>© 2026 FoundersLib</span>
-          <StatusLink variant="badge" />
         </div>
       </main>
 

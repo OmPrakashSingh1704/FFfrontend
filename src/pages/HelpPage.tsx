@@ -125,7 +125,7 @@ export function HelpPage() {
             <span className="badge info" style={{ position: 'absolute', top: 12, right: 12 }}>Coming soon</span>
           </div>
 
-          <a href="mailto:support@founderslib.com" className="card" data-testid="help-link-email" style={{ textDecoration: 'none', color: 'inherit' }}>
+          <a href="mailto:support@founderslib.in" className="card" data-testid="help-link-email" style={{ textDecoration: 'none', color: 'inherit' }}>
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
               <div style={{ width: 36, height: 36, borderRadius: 8, background: 'rgba(249, 115, 22, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                 <Mail size={18} strokeWidth={1.5} style={{ color: 'var(--gold)' }} />
@@ -133,7 +133,7 @@ export function HelpPage() {
               <div>
                 <h3 style={{ fontSize: '0.875rem', fontWeight: 600, marginBottom: 4 }}>Email Support</h3>
                 <p style={{ fontSize: '0.8125rem', color: 'hsl(var(--muted-foreground))', lineHeight: 1.5 }}>
-                  Reach us at support@founderslib.com for direct help.
+                  Reach us at support@founderslib.in for direct help.
                 </p>
               </div>
             </div>
