@@ -5560,3 +5560,105 @@ img.profile-avatar-lg {
   letter-spacing: 0.04em;
   font-size: 0.8125rem;
 }
+
+/* ── Toasts ──────────────────────────────────────────────────────────
+ * ToastContext renders <div class="toast-stack"><div class="toast
+ * toast-{tone}">...</div></div>. These classes had no CSS — toasts
+ * were emitted as unstyled divs, invisible against the page.
+ *
+ * Fixed in the bottom-right corner so they don't block content. Each
+ * toast has a tone-coloured left border + filled background, dismiss
+ * button on the right, slide-in animation.
+ */
+.toast-stack {
+  position: fixed;
+  right: 1.25rem;
+  bottom: 1.25rem;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-width: min(420px, calc(100vw - 2.5rem));
+  pointer-events: none;
+}
+
+.toast {
+  pointer-events: auto;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.75rem 0.875rem;
+  background: hsl(var(--card));
+  color: hsl(var(--foreground));
+  border: 1px solid hsl(var(--border));
+  border-left-width: 3px;
+  border-radius: 0.625rem;
+  font-size: 0.875rem;
+  line-height: 1.45;
+  box-shadow:
+    0 10px 25px rgba(0, 0, 0, 0.18),
+    0 4px 10px rgba(0, 0, 0, 0.08);
+  animation: toast-in 0.18s ease-out;
+  word-break: break-word;
+}
+
+.toast > span {
+  flex: 1;
+  min-width: 0;
+}
+
+.toast > button {
+  flex-shrink: 0;
+  background: transparent;
+  border: none;
+  color: hsl(var(--muted-foreground));
+  font-size: 0.875rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0.125rem 0.25rem;
+  margin: -0.125rem -0.25rem 0 0;
+  border-radius: 4px;
+  transition: color 0.15s, background 0.15s;
+}
+
+.toast > button:hover {
+  color: hsl(var(--foreground));
+  background: hsl(var(--muted));
+}
+
+.toast-info {
+  border-left-color: #3b82f6;
+}
+
+.toast-success {
+  border-left-color: #22c55e;
+}
+
+.toast-warning {
+  border-left-color: #f59e0b;
+}
+
+.toast-error {
+  border-left-color: #ef4444;
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Mobile: stretch across full width so long error messages stay readable */
+@media (max-width: 480px) {
+  .toast-stack {
+    left: 1rem;
+    right: 1rem;
+    bottom: 1rem;
+    max-width: none;
+  }
+}
