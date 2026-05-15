@@ -478,8 +478,31 @@ export function ProfilePage() {
       pushToast('Startup saved', 'success')
       resetStartupForm()
       setShowStartupForm(false)
-    } catch {
-      setStartupErrors({ form: 'Unable to save startup details. Please try again.' })
+    } catch (err) {
+      // Surface the backend's actual validation/error message instead of
+      // a generic "try again" — when the save fails we want to see the
+      // specific field that's wrong, not guess.
+      const apiErr = err as { details?: Record<string, unknown>; message?: string }
+      let message = 'Unable to save startup details. Please try again.'
+      const details = apiErr?.details
+      if (details && typeof details === 'object') {
+        if (typeof details.error === 'string') {
+          message = details.error
+        } else if (typeof details.detail === 'string') {
+          message = details.detail
+        } else {
+          const firstField = Object.entries(details).find(([k]) => k !== 'error' && k !== 'detail')
+          if (firstField) {
+            const [field, val] = firstField
+            const msg = Array.isArray(val) ? String(val[0] ?? '') : String(val ?? '')
+            if (msg) message = `${field}: ${msg}`
+          }
+        }
+      } else if (apiErr?.message) {
+        message = apiErr.message
+      }
+      setStartupErrors({ form: message })
+      pushToast(message, 'error')
     } finally {
       setCreatingStartup(false)
     }

@@ -512,6 +512,14 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
             .then(() => flushPendingCandidates())
             .catch(() => null)
         }
+        // Belt-and-suspenders: receiving an answer SDP is proof the peer is
+        // actively negotiating, so the call is functionally active. Flip the
+        // local status so the 35s ring timer can't fire even if the earlier
+        // `participant_joined` event was missed (WS reconnect window, etc).
+        setActiveCall((prev) => {
+          if (!prev || prev.status === 'active') return prev
+          return { ...prev, status: 'active' }
+        })
       }
 
       if (type === 'webrtc_ice_candidate' && event.candidate) {

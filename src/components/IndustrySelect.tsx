@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState } from 'react'
-import { Briefcase } from 'lucide-react'
+import { Briefcase, ChevronDown } from 'lucide-react'
 import { filterIndustries, INDUSTRIES } from '../lib/industryData'
 
 /**
@@ -93,12 +93,14 @@ export function IndustrySelect({
         type="text"
         id={inputId}
         className={inputClassName}
+        style={{ paddingRight: '2.25rem' }}
         value={value}
         onChange={(e) => {
           onChange(e.target.value)
           setOpen(true)
         }}
         onFocus={() => setOpen(true)}
+        onClick={() => setOpen(true)}
         onKeyDown={onKeyDown}
         placeholder={placeholder}
         required={required}
@@ -110,6 +112,34 @@ export function IndustrySelect({
         data-testid={testId}
         disabled={disabled}
       />
+      <button
+        type="button"
+        aria-label={open ? 'Close industry list' : 'Open industry list'}
+        onClick={() => setOpen((prev) => !prev)}
+        tabIndex={-1}
+        style={{
+          position: 'absolute',
+          right: '0.5rem',
+          top: '50%',
+          transform: 'translateY(-50%)',
+          background: 'transparent',
+          border: 'none',
+          padding: '0.25rem',
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          color: 'hsl(var(--muted-foreground))',
+        }}
+      >
+        <ChevronDown
+          size={16}
+          strokeWidth={1.75}
+          style={{
+            transition: 'transform 0.15s ease',
+            transform: open ? 'rotate(180deg)' : 'rotate(0deg)',
+          }}
+        />
+      </button>
       {open && suggestions.length > 0 && (
         <ul
           id={listboxId}
