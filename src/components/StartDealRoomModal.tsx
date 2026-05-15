@@ -17,11 +17,23 @@ type Props = {
   open: boolean
   onClose: () => void
   /**
-   * Candidate startups the viewer can express interest in. Length 1 hides
-   * the picker; length 0 shouldn't be reachable (caller should gate the
-   * button on `targets.length > 0`).
+   * Candidate startups. Interpretation depends on `investorId`:
+   *   - investor flow (investorId undefined): startups the investor is
+   *     expressing interest IN. Length 1 hides the picker.
+   *   - founder flow (investorId provided): startups the founder is
+   *     expressing interest FROM. Length 1 hides the picker.
+   * Length 0 shouldn't be reachable — caller should gate the trigger.
    */
   targets: StartDealRoomTarget[]
+  /**
+   * When set, this is the founder-side flow: the founder is expressing
+   * interest in this investor on behalf of one of their startups. The
+   * server still requires `startup_id` (picked from `targets`); we add
+   * `investor_id` to the body.
+   * When undefined, server resolves investor from request.user (the
+   * classic investor-side flow).
+   */
+  investorId?: string
   /**
    * Optional context line shown at the top of the modal. Use it to name
    * the founder (e.g. "Building with Alex Morgan") so the investor knows
@@ -50,7 +62,7 @@ type InterestResponse = {
  * The investor's own InvestorProfile is resolved server-side from
  * request.user, so the frontend doesn't have to pass investor_id.
  */
-export function StartDealRoomModal({ open, onClose, targets, contextLine }: Props) {
+export function StartDealRoomModal({ open, onClose, targets, investorId, contextLine }: Props) {
   const navigate = useNavigate()
   const { pushToast } = useToast()
   const [selectedId, setSelectedId] = useState<string>(targets[0]?.id ?? '')
@@ -58,6 +70,8 @@ export function StartDealRoomModal({ open, onClose, targets, contextLine }: Prop
   const [submitting, setSubmitting] = useState(false)
 
   if (!open) return null
+
+  const isFounderFlow = !!investorId
 
   const handleSubmit = async () => {
     if (!selectedId || submitting) return
@@ -67,6 +81,7 @@ export function StartDealRoomModal({ open, onClose, targets, contextLine }: Prop
         method: 'POST',
         body: {
           startup_id: selectedId,
+          investor_id: investorId,  // only set on founder flow; backend resolves from user on investor flow
           message: message.trim() || undefined,
         },
       })
@@ -75,10 +90,10 @@ export function StartDealRoomModal({ open, onClose, targets, contextLine }: Prop
         onClose()
         navigate(`/app/deals/${res.deal_room_id}`)
       } else {
-        pushToast(
-          'Interest sent. A deal room opens automatically once the founder reciprocates.',
-          'success',
-        )
+        const waitingMsg = isFounderFlow
+          ? 'Interest sent. A deal room opens automatically once the investor reciprocates.'
+          : 'Interest sent. A deal room opens automatically once the founder reciprocates.'
+        pushToast(waitingMsg, 'success')
         onClose()
       }
     } catch (err: unknown) {
@@ -117,14 +132,25 @@ export function StartDealRoomModal({ open, onClose, targets, contextLine }: Prop
         ) : null}
 
         <p className="text-sm mb-4" style={{ color: 'hsl(var(--muted-foreground))' }}>
-          You'll express interest in this startup. The founder gets notified, and
-          a private workspace with chat, calls, documents, and a mutual-consent
-          workflow opens the moment they reciprocate.
+          {isFounderFlow ? (
+            <>
+              You'll express interest in this investor on behalf of one of your
+              startups. The investor gets notified, and a private workspace with
+              chat, documents, and a mutual-consent workflow opens the moment
+              they reciprocate.
+            </>
+          ) : (
+            <>
+              You'll express interest in this startup. The founder gets notified,
+              and a private workspace with chat, calls, documents, and a
+              mutual-consent workflow opens the moment they reciprocate.
+            </>
+          )}
         </p>
 
         {targets.length > 1 ? (
           <div className="form-group">
-            <label>Which startup?</label>
+            <label>{isFounderFlow ? 'From which startup?' : 'Which startup?'}</label>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
               {targets.map((target) => (
                 <label

@@ -1,6 +1,6 @@
 import { useEffect, useState, type CSSProperties } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { Loader2, Linkedin, Twitter, Globe, MapPin, BadgeCheck, DollarSign, UserPlus, UserCheck, MessageCircle } from 'lucide-react'
+import { Loader2, Linkedin, Twitter, Globe, MapPin, BadgeCheck, DollarSign, UserPlus, UserCheck, MessageCircle, Handshake } from 'lucide-react'
 import { apiRequest } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
@@ -9,6 +9,8 @@ import { parseSlugId, buildProfileUrl } from '../lib/slugId'
 import { PageHead } from '../components/PageHead'
 import { JsonLd } from '../components/JsonLd'
 import { ProfilePosts } from '../components/ProfilePosts'
+import { TagOverflow } from '../components/TagOverflow'
+import { StartDealRoomModal, type StartDealRoomTarget } from '../components/StartDealRoomModal'
 
 type PublicInvestor = {
   id: string
@@ -72,6 +74,11 @@ export function PublicInvestorPage() {
   const [notFound, setNotFound] = useState(false)
   const [connecting, setConnecting] = useState(false)
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus | null>(null)
+  // Founder-side "Express interest" flow. We need to know which startups
+  // the viewer is a member of so they can pick which one to send from.
+  // Empty array = viewer isn't a founder of anything → button hidden.
+  const [myStartups, setMyStartups] = useState<StartDealRoomTarget[]>([])
+  const [dealRoomOpen, setDealRoomOpen] = useState(false)
 
   const parsed = slugId ? parseSlugId(slugId) : null
   const slug = parsed?.slug || slugId || ''
@@ -106,6 +113,31 @@ export function PublicInvestorPage() {
       .then((statuses) => { setConnectionStatus(statuses.get(targetUserId) ?? null) })
       .catch(() => {})
   }, [data?.user?.id, currentUser?.id])
+
+  // Load viewer's own startups so we know whether to show "Express interest".
+  // 403/404 is fine — they're just not a founder. We swallow errors silently
+  // so the page works for anon visitors and investors-only accounts.
+  useEffect(() => {
+    if (!currentUser?.id) return
+    let cancelled = false
+    void (async () => {
+      try {
+        const res = await apiRequest<{ results?: Array<{ id: string; name: string; industry?: string; current_stage?: string }> } | Array<{ id: string; name: string; industry?: string; current_stage?: string }>>(
+          '/founders/my-startups/',
+        )
+        if (cancelled) return
+        const rows = Array.isArray(res) ? res : res.results ?? []
+        setMyStartups(rows.map((s) => ({
+          id: s.id,
+          name: s.name,
+          hint: s.industry || s.current_stage || undefined,
+        })))
+      } catch {
+        if (!cancelled) setMyStartups([])
+      }
+    })()
+    return () => { cancelled = true }
+  }, [currentUser?.id])
 
   const handleConnect = async () => {
     const targetUserId = data?.user?.id
@@ -311,11 +343,22 @@ export function PublicInvestorPage() {
             </div>
           ) : null}
         {currentUser && !isOwnProfile ? (
-          <div className="flex items-center gap-2" style={{ justifyContent: 'flex-end' }}>
+          <div className="flex items-center gap-2 flex-wrap" style={{ justifyContent: 'flex-end' }}>
             <button type="button" className="btn-sm ghost" onClick={handleChat} data-testid="chat-investor-btn">
               <MessageCircle className="w-3.5 h-3.5" />
               Chat
             </button>
+            {myStartups.length > 0 ? (
+              <button
+                type="button"
+                className="btn-sm primary"
+                onClick={() => setDealRoomOpen(true)}
+                data-testid="express-interest-investor-btn"
+              >
+                <Handshake className="w-3.5 h-3.5" />
+                Express interest
+              </button>
+            ) : null}
             {connectionStatus === 'accepted' ? (
               <span
                 className="btn-sm ghost"
@@ -328,7 +371,7 @@ export function PublicInvestorPage() {
             ) : (
               <button
                 type="button"
-                className="btn-sm primary"
+                className="btn-sm ghost"
                 disabled={connecting || connectionStatus === 'pending'}
                 onClick={() => void handleConnect()}
                 data-testid="connect-investor-btn"
@@ -378,25 +421,43 @@ export function PublicInvestorPage() {
           <div>
             <h3 className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: 'hsl(var(--muted-foreground))' }}>
               Industries
+              <span style={{ marginLeft: '0.5rem', fontWeight: 400, color: 'hsl(var(--muted-foreground))', textTransform: 'none', letterSpacing: 'normal' }}>
+                · {data.industries_focus.length}
+              </span>
             </h3>
-            <div className="flex flex-wrap gap-1.5">
-              {data.industries_focus.map((i) => <span key={i} className="badge">{i}</span>)}
-            </div>
+            <TagOverflow
+              tags={data.industries_focus}
+              maxVisible={6}
+              data-testid="investor-industries"
+            />
           </div>
         ) : null}
         {data.geography_focus.length > 0 ? (
           <div>
             <h3 className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: 'hsl(var(--muted-foreground))' }}>
               Geography
+              <span style={{ marginLeft: '0.5rem', fontWeight: 400, color: 'hsl(var(--muted-foreground))', textTransform: 'none', letterSpacing: 'normal' }}>
+                · {data.geography_focus.length}
+              </span>
             </h3>
-            <div className="flex flex-wrap gap-1.5">
-              {data.geography_focus.map((g) => <span key={g} className="badge">{g}</span>)}
-            </div>
+            <TagOverflow
+              tags={data.geography_focus}
+              maxVisible={6}
+              data-testid="investor-geography"
+            />
           </div>
         ) : null}
       </section>
 
       <ProfilePosts investorUserId={data.user.id} />
+
+      <StartDealRoomModal
+        open={dealRoomOpen}
+        onClose={() => setDealRoomOpen(false)}
+        investorId={data.id}
+        targets={myStartups}
+        contextLine={`Expressing interest in ${data.display_name}${data.fund_name ? ` · ${data.fund_name}` : ''}`}
+      />
 
       {/* Social/web links moved inline next to the investor name in the header. */}
 

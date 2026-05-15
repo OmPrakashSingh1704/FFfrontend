@@ -4,6 +4,7 @@ import { normalizeList } from '../lib/pagination'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 import { resolveMediaUrl } from '../lib/env'
+import { buildProfileUrl } from '../lib/slugId'
 import { TrendingUp, Briefcase, Star, Loader2, ChevronRight, Zap, Users, ClipboardList } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
@@ -299,7 +300,10 @@ export function MatchingPage() {
                             <ScoreBar label="Verification" value={m.score.verification_score} />
                             <ScoreBar label="Traction" value={m.score.traction_score} />
                             <div style={{ marginTop: 8 }}>
-                              <Link to={`/app/investors/${m.investor.id}`} className="btn-sm ghost">
+                              <Link
+                                to={buildProfileUrl('investors', m.investor.display_name, m.investor.id)}
+                                className="btn-sm ghost"
+                              >
                                 View profile <ChevronRight size={12} />
                               </Link>
                             </div>
@@ -382,8 +386,12 @@ export function MatchingPage() {
                                         <div style={{ fontSize: '0.8125rem', fontWeight: 500 }}>{f.full_name}</div>
                                         {f.headline && <div style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.headline}</div>}
                                       </div>
-                                      {f.profile_id && (
-                                        <Link to={`/app/founders/${f.profile_id}`} className="btn-sm ghost" style={{ flexShrink: 0 }}>
+                                      {f.user_id && (
+                                        <Link
+                                          to={buildProfileUrl('founders', f.full_name, f.user_id)}
+                                          className="btn-sm ghost"
+                                          style={{ flexShrink: 0 }}
+                                        >
                                           View <ChevronRight size={11} />
                                         </Link>
                                       )}
@@ -394,7 +402,10 @@ export function MatchingPage() {
                             )}
 
                             <div>
-                              <Link to={`/app/startups/${m.startup.id}`} className="btn-sm ghost">
+                              <Link
+                                to={buildProfileUrl('startups', m.startup.name, m.startup.id)}
+                                className="btn-sm ghost"
+                              >
                                 View startup <ChevronRight size={12} />
                               </Link>
                             </div>

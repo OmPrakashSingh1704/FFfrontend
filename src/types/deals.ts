@@ -10,6 +10,28 @@ export type DealRoomListItem = {
   created_at: string
 }
 
+export type InterestDirection = 'founder_to_investor' | 'investor_to_founder'
+
+/**
+ * One side of the deal-room handshake. When both sides express interest
+ * in the same startup+investor pair, the backend auto-creates a DealRoom
+ * and the interest is "consumed". Until then it shows up on the Deals
+ * page as "pending" so the other side can reciprocate.
+ *
+ * Mirrors `ff_backend.deals.serializers.InterestExpressionSerializer`.
+ */
+export type InterestExpression = {
+  id: string
+  startup: string
+  startup_name: string
+  investor: string
+  investor_name: string
+  expressed_by_name: string
+  direction: InterestDirection
+  message: string
+  created_at: string
+}
+
 export type DealRoomDoc = {
   id: string
   name: string
