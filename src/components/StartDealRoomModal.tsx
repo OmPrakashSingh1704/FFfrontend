@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Handshake, Loader2, X } from 'lucide-react'
 import { apiRequest } from '../lib/api'
@@ -68,6 +68,22 @@ export function StartDealRoomModal({ open, onClose, targets, investorId, context
   const [selectedId, setSelectedId] = useState<string>(targets[0]?.id ?? '')
   const [message, setMessage] = useState('')
   const [submitting, setSubmitting] = useState(false)
+
+  // `targets` is fetched async by the parent (e.g. /founders/my-startups/)
+  // so the modal often mounts with an empty list and populates later. If
+  // we initialized selectedId once from `targets[0]?.id ?? ''` and never
+  // updated it, the submit button stayed disabled forever — there's no
+  // picker UI in the single-target case for the user to set it manually.
+  // Sync whenever targets changes, but ONLY when our current selection
+  // isn't valid against the new list (preserves a deliberate user pick).
+  useEffect(() => {
+    if (targets.length === 0) {
+      if (selectedId !== '') setSelectedId('')
+      return
+    }
+    const stillValid = targets.some((t) => t.id === selectedId)
+    if (!stillValid) setSelectedId(targets[0].id)
+  }, [targets, selectedId])
 
   if (!open) return null
 
