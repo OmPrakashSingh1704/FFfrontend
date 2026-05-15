@@ -166,6 +166,7 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
       const pc = new RTCPeerConnection(
         iceServers?.length ? { iceServers: iceServers as RTCIceServer[] } : undefined,
       )
+      console.info('[call] pc created', { target: targetUserId, iceServers: iceServers?.length ?? 0 })
       pc.onicecandidate = (event) => {
         if (!event.candidate || !activeCall?.call_id) return
         sendJson({
@@ -175,11 +176,27 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
           candidate: event.candidate,
         })
       }
+      pc.oniceconnectionstatechange = () => {
+        console.info('[call] iceConnectionState ->', pc.iceConnectionState)
+      }
+      pc.onconnectionstatechange = () => {
+        console.info('[call] connectionState ->', pc.connectionState)
+      }
+      pc.onsignalingstatechange = () => {
+        console.info('[call] signalingState ->', pc.signalingState)
+      }
       pc.ontrack = (event) => {
         // ontrack fires once per track (audio + video are separate events).
         // The old code replaced remoteStream on every event, so the second
         // event would wipe the first track. Preserve all tracks instead.
         const [incoming] = event.streams
+        console.info('[call] ontrack', {
+          kind: event.track.kind,
+          streamId: incoming?.id,
+          trackId: event.track.id,
+          readyState: event.track.readyState,
+          muted: event.track.muted,
+        })
         setRemoteStream((prev) => {
           if (incoming) {
             // Peer attached a stream via pc.addTrack(track, stream). The
@@ -474,17 +491,13 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
         const pc = ensurePeerConnection(event.from_user_id as string)
         const fromUserId = event.from_user_id as string
         const offerSdp = event.sdp as string
+        console.info('[call] received offer from', fromUserId)
         ;(async () => {
           try {
-            // Order matters on the answerer: setRemoteDescription LOCKS IN
-            // the m-line layout from the offer; addTrack then attaches our
-            // senders to those m-lines; createAnswer generates SDP that
-            // matches. The previous order (addTrack → setRemoteDescription
-            // → createAnswer) created m-lines from our local tracks first,
-            // then the remote description didn't match, and codec
-            // negotiation broke — the other side's video failed to decode.
             await pc.setRemoteDescription({ type: 'offer', sdp: offerSdp })
+            console.info('[call] setRemoteDescription(offer) ok')
             const stream = await ensureLocalStream()
+            console.info('[call] local stream ready', { tracks: stream.getTracks().map((t) => t.kind) })
             stream.getTracks().forEach((track) => {
               if (!pc.getSenders().some((s) => s.track === track)) {
                 pc.addTrack(track, stream)
@@ -492,6 +505,7 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
             })
             const answer = await pc.createAnswer()
             await pc.setLocalDescription(answer)
+            console.info('[call] sending answer')
             sendJson({
               type: 'answer',
               call_id: activeCall.call_id,
@@ -499,18 +513,22 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
               sdp: answer.sdp,
             })
             await flushPendingCandidates()
-          } catch {
-            /* malformed SDP or media denied */
+          } catch (e) {
+            console.error('[call] answerer flow failed', e)
           }
         })()
       }
 
       if (type === 'webrtc_answer' && event.sdp) {
         const pc = pcRef.current
+        console.info('[call] received answer', { hasRemoteDesc: !!pc?.currentRemoteDescription })
         if (pc && !pc.currentRemoteDescription) {
           pc.setRemoteDescription({ type: 'answer', sdp: event.sdp as string })
-            .then(() => flushPendingCandidates())
-            .catch(() => null)
+            .then(() => {
+              console.info('[call] setRemoteDescription(answer) ok')
+              return flushPendingCandidates()
+            })
+            .catch((e) => console.error('[call] setRemoteDescription(answer) failed', e))
         }
         // Belt-and-suspenders: receiving an answer SDP is proof the peer is
         // actively negotiating, so the call is functionally active. Flip the
