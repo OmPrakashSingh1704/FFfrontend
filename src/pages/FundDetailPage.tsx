@@ -55,9 +55,11 @@ type PendingApply = { type: 'fund' | 'benefit'; id: string; name: string }
 
 type SavedFundEntry = { id: string; fund: { id: string } }
 
+type MyStartup = { id: string; name: string }
+
 export function FundDetailPage() {
   const { id } = useParams()
-const { pushToast } = useToast()
+  const { pushToast } = useToast()
   const [fund, setFund] = useState<FundDetail | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -65,6 +67,11 @@ const { pushToast } = useToast()
   const [saving, setSaving] = useState(false)
   const [isApplied, setIsApplied] = useState(false)
   const [pendingDialog, setPendingDialog] = useState<PendingApply | null>(null)
+  // Applications require a `startup` id alongside `fund`. We fetch the
+  // viewer's startups and auto-include the first one. If they have zero,
+  // we disable the Apply button and surface a friendly hint.
+  const [myStartups, setMyStartups] = useState<MyStartup[]>([])
+  const primaryStartupId = myStartups[0]?.id ?? null
 
   useEffect(() => {
     if (!id) return
@@ -109,6 +116,43 @@ const { pushToast } = useToast()
       .catch(() => {})
   }, [id])
 
+  // Fetch the viewer's startups so we know which one to apply on behalf of.
+  // Apply is gated on having at least one. 403/404 = not a founder; we
+  // silently leave the list empty and the UI disables the button.
+  useEffect(() => {
+    let cancelled = false
+    void (async () => {
+      try {
+        const res = await apiRequest<MyStartup[] | { results: MyStartup[] }>(
+          '/founders/my-startups/',
+        )
+        if (cancelled) return
+        setMyStartups(normalizeList(res))
+      } catch {
+        if (!cancelled) setMyStartups([])
+      }
+    })()
+    return () => { cancelled = true }
+  }, [])
+
+  // Pull the backend's field-specific error out of an apiRequest rejection.
+  // Falls back to a generic line if the shape isn't what we expect.
+  const extractApiError = (err: unknown, fallback: string): string => {
+    const e = err as { details?: Record<string, unknown>; message?: string }
+    const details = e?.details
+    if (details && typeof details === 'object') {
+      if (typeof details.error === 'string') return details.error
+      if (typeof details.detail === 'string') return details.detail
+      const first = Object.entries(details).find(([k]) => k !== 'error' && k !== 'detail')
+      if (first) {
+        const [field, val] = first
+        const msg = Array.isArray(val) ? String(val[0] ?? '') : String(val ?? '')
+        if (msg) return `${field}: ${msg}`
+      }
+    }
+    return e?.message ?? fallback
+  }
+
   // Show "Did you apply?" dialog on tab refocus
   useEffect(() => {
     const onVisible = () => {
@@ -128,12 +172,19 @@ const { pushToast } = useToast()
     if (!pendingDialog || !id) return
     sessionStorage.removeItem(PENDING_APPLY_KEY)
     setPendingDialog(null)
+    if (!primaryStartupId) {
+      pushToast('Add a startup to your profile before applying to funds.', 'error')
+      return
+    }
     try {
-      await apiRequest('/applications/', { method: 'POST', body: { fund: id } })
+      await apiRequest('/applications/', {
+        method: 'POST',
+        body: { fund: id, startup: primaryStartupId },
+      })
       setIsApplied(true)
       pushToast('Application recorded!', 'success')
-    } catch {
-      pushToast('Could not record application.', 'error')
+    } catch (err) {
+      pushToast(extractApiError(err, 'Could not record application.'), 'error')
     }
   }
 
@@ -147,7 +198,12 @@ const { pushToast } = useToast()
     setSaving(true)
     try {
       if (savedEntryId) {
-        await apiRequest(`/funds/saved/${savedEntryId}/`, { method: 'DELETE' })
+        // Backend (SavedFundDeleteView) keys the DELETE URL by FUND id,
+        // not the SavedFund row id — it does `SavedFund.get(fund_id=<pk>)`
+        // internally. Passing savedEntryId here looks superficially right
+        // ("delete the saved entry") but it sends the wrong UUID and the
+        // server silently returns 404, which we swallowed as "Action failed".
+        await apiRequest(`/funds/saved/${id}/`, { method: 'DELETE' })
         setSavedEntryId(null)
         setFund((prev) => prev ? { ...prev, is_saved: false } : prev)
         pushToast('Fund removed from saved', 'success')
@@ -160,8 +216,8 @@ const { pushToast } = useToast()
         setFund((prev) => prev ? { ...prev, is_saved: true } : prev)
         pushToast('Fund saved', 'success')
       }
-    } catch {
-      pushToast('Action failed', 'error')
+    } catch (err) {
+      pushToast(extractApiError(err, 'Action failed'), 'error')
     } finally {
       setSaving(false)
     }
@@ -267,13 +323,26 @@ const { pushToast } = useToast()
                   <button
                     className="btn-sm primary"
                     type="button"
+                    disabled={!primaryStartupId}
+                    title={
+                      primaryStartupId
+                        ? undefined
+                        : 'Add a startup to your profile to apply to funds.'
+                    }
                     onClick={() => void (async () => {
+                      if (!primaryStartupId) {
+                        pushToast('Add a startup to your profile before applying to funds.', 'error')
+                        return
+                      }
                       try {
-                        await apiRequest('/applications/', { method: 'POST', body: { fund: id } })
+                        await apiRequest('/applications/', {
+                          method: 'POST',
+                          body: { fund: id, startup: primaryStartupId },
+                        })
                         setIsApplied(true)
                         pushToast('Application submitted!', 'success')
-                      } catch {
-                        pushToast('Could not submit application.', 'error')
+                      } catch (err) {
+                        pushToast(extractApiError(err, 'Could not submit application.'), 'error')
                       }
                     })()}
                     data-testid="apply-fund-btn"

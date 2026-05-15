@@ -3,7 +3,7 @@ import { Link, useParams } from 'react-router-dom'
 import {
   Loader2, Linkedin, Twitter, Globe, MapPin, Handshake,
   FileText, BadgeCheck, Briefcase, TrendingUp, Building2,
-  DollarSign, Sparkles, Upload,
+  DollarSign, Sparkles, Upload, UserPlus, X,
 } from 'lucide-react'
 import { apiRequest, uploadRequest } from '../lib/api'
 import { useToast } from '../context/ToastContext'
@@ -108,6 +108,14 @@ export function PublicStartupPage() {
   const { slugId } = useParams<{ slugId: string }>()
   const { user: currentUser } = useAuth()
   const [dealRoomOpen, setDealRoomOpen] = useState(false)
+  // "Request to Join" flow for non-members. Was previously only wired up
+  // on the retired StartupDetailPage; ported here so the canonical public
+  // route exposes it. `joinRequestSent` flips after a successful POST and
+  // after the GET tells us a pending one already exists.
+  const [showJoinForm, setShowJoinForm] = useState(false)
+  const [joinMessage, setJoinMessage] = useState('')
+  const [joiningStartup, setJoiningStartup] = useState(false)
+  const [joinRequestSent, setJoinRequestSent] = useState(false)
   const [data, setData] = useState<PublicStartup | null>(null)
   const [loading, setLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
@@ -140,6 +148,46 @@ export function PublicStartupPage() {
     })()
     return () => { cancelled = true }
   }, [slug])
+
+  // Check whether the viewer already has a pending join request. Skip if
+  // they're a member (viewer_can_edit) or anon. 404 / 403 are silently
+  // ignored — they just mean "no pending request" for our purposes.
+  useEffect(() => {
+    const startupId = data?.id
+    if (!startupId || !currentUser || data?.viewer_can_edit) return
+    let cancelled = false
+    apiRequest<{ has_pending: boolean }>(`/founders/startups/${startupId}/join-request/`)
+      .then((res) => {
+        if (!cancelled && res?.has_pending) setJoinRequestSent(true)
+      })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [data?.id, data?.viewer_can_edit, currentUser])
+
+  const handleJoinRequest = async () => {
+    if (!data) return
+    setJoiningStartup(true)
+    try {
+      await apiRequest(`/founders/startups/${data.id}/join-request/`, {
+        method: 'POST',
+        body: { message: joinMessage },
+      })
+      setJoinRequestSent(true)
+      setShowJoinForm(false)
+      setJoinMessage('')
+      pushToast('Join request sent!', 'success')
+    } catch (err) {
+      const apiErr = err as { details?: { detail?: string; error?: string }; message?: string }
+      const msg =
+        apiErr?.details?.detail
+        ?? apiErr?.details?.error
+        ?? apiErr?.message
+        ?? 'Failed to send join request'
+      pushToast(msg, 'error')
+    } finally {
+      setJoiningStartup(false)
+    }
+  }
 
   /**
    * Inline logo upload. Backend at views.py:1144 accepts any StartupMember.
@@ -414,8 +462,109 @@ export function PublicStartupPage() {
               Start deal room
             </button>
           ) : null}
+          {/* Request to Join — for authed non-members who aren't viewing
+              as an investor. Hidden for members (viewer_can_edit=true),
+              hidden for anon, hidden once a pending request exists. */}
+          {currentUser && !data.viewer_can_edit && currentUser.role !== 'investor' ? (
+            joinRequestSent ? (
+              <span
+                className="badge"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 4,
+                  background: '#3b82f622',
+                  color: '#3b82f6',
+                  border: '1px solid #3b82f644',
+                }}
+                data-testid="join-request-sent-badge"
+              >
+                <UserPlus className="w-3 h-3" />
+                Request sent
+              </span>
+            ) : (
+              <button
+                type="button"
+                className="btn-sm ghost"
+                onClick={() => setShowJoinForm(true)}
+                data-testid="join-request-btn"
+              >
+                <UserPlus className="w-3.5 h-3.5" />
+                Request to Join
+              </button>
+            )
+          ) : null}
         </div>
       </header>
+
+      {/* Inline join-request form. Rendered below the header so it doesn't
+          shove the action row around on open/close. */}
+      {showJoinForm ? (
+        <div
+          className="mb-6"
+          style={{
+            padding: '1rem',
+            background: 'hsl(var(--muted))',
+            borderRadius: 10,
+            border: '1px solid hsl(var(--border))',
+          }}
+          data-testid="join-request-form"
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+            <span style={{ fontWeight: 600, fontSize: '0.875rem' }}>Request to Join {data.name}</span>
+            <button
+              type="button"
+              className="btn-sm ghost"
+              style={{ padding: 4 }}
+              onClick={() => setShowJoinForm(false)}
+              aria-label="Close"
+            >
+              <X size={14} />
+            </button>
+          </div>
+          <p style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))', marginBottom: '0.75rem' }}>
+            The startup team will review your request and respond. Add a short note
+            about why you want to join — it helps.
+          </p>
+          <textarea
+            className="input"
+            rows={3}
+            placeholder="Why do you want to join? (optional)"
+            value={joinMessage}
+            onChange={(e) => setJoinMessage(e.target.value)}
+            style={{ resize: 'vertical', marginBottom: '0.5rem', width: '100%' }}
+            data-testid="join-message-input"
+            maxLength={500}
+          />
+          <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+            <button
+              type="button"
+              className="btn-sm ghost"
+              onClick={() => setShowJoinForm(false)}
+              disabled={joiningStartup}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              className="btn-sm primary"
+              onClick={() => void handleJoinRequest()}
+              disabled={joiningStartup}
+              data-testid="join-request-submit"
+            >
+              {joiningStartup ? (
+                <>
+                  <Loader2 size={12} className="animate-spin" /> Sending…
+                </>
+              ) : (
+                <>
+                  <UserPlus size={12} /> Send Request
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      ) : null}
 
       {data.pitch_summary ? (
         <section
