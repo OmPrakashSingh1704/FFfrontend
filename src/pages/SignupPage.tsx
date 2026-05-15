@@ -26,7 +26,15 @@ export function SignupPage() {
     // can create either or both profiles independently. Backend silently
     // defaults to FOUNDER on registration; their role auto-promotes the
     // moment they create any profile (see User.recompute_role_from_profiles).
-    const nextErrors = validateRequired({ full_name: fullName, email, password, confirm })
+    // `validateRequired` returns a Partial keyed by only the fields it
+    // received, so we widen here to the full SignupFields shape — we
+    // tack on `accept` below for the consent gate.
+    const nextErrors: Partial<Record<SignupFields, string>> = validateRequired({
+      full_name: fullName,
+      email,
+      password,
+      confirm,
+    })
 
     if (email && !isEmail(email)) {
       nextErrors.email = 'Enter a valid email address'
