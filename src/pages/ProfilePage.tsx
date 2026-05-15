@@ -9,6 +9,7 @@ import { useToast } from '../context/ToastContext'
 import { normalizeList } from '../lib/pagination'
 import { FormField } from '../components/FormField'
 import { LocationInput } from '../components/LocationInput'
+import { IndustrySelect } from '../components/IndustrySelect'
 import {
   User,
   Mail,
@@ -1714,12 +1715,9 @@ export function ProfilePage() {
               </div>
               <div className="form-group">
                 <FormField label="Industry" error={startupErrors.industry}>
-                  <input
-                    type="text"
-                    className="input"
+                  <IndustrySelect
                     value={startupIndustry}
-                    onChange={(event) => setStartupIndustry(event.target.value)}
-                    placeholder="Fintech"
+                    onChange={setStartupIndustry}
                     required
                   />
                 </FormField>

@@ -444,13 +444,30 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
       // and the create-offer effect fires. Also catch `participant_update`
       // and `joined_call` defensively in case the backend emits one of those
       // first (some flows do).
+      //
+      // We ALSO transition activeCall.status from 'ringing' → 'active' here.
+      // The 35s ring timer is gated on status === 'ringing'; without this,
+      // the initiator's status stays 'ringing' forever (the backend's
+      // status update doesn't push down to the client), the timer fires 35s
+      // after pickup, and the call gets auto-ended with reason='no_answer'.
+      // That's the "call hangs up itself ~30s after pickup" symptom.
       if (type === 'call_event' && event.event_type === 'participant_joined') {
         if (event.data && (event.data as { user_id?: string }).user_id !== String(user?.id ?? '')) {
           setPeerJoined(true)
+          setActiveCall((prev) => {
+            if (!prev || prev.status === 'active') return prev
+            return { ...prev, status: 'active' }
+          })
         }
       }
       if (type === 'participant_update' && event.user_id && String(event.user_id) !== String(user?.id ?? '')) {
-        if (event.status === 'connected') setPeerJoined(true)
+        if (event.status === 'connected') {
+          setPeerJoined(true)
+          setActiveCall((prev) => {
+            if (!prev || prev.status === 'active') return prev
+            return { ...prev, status: 'active' }
+          })
+        }
       }
 
       if (type === 'webrtc_offer' && event.sdp && event.from_user_id) {

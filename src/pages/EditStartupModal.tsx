@@ -3,6 +3,7 @@ import { Loader2 } from 'lucide-react'
 import { apiRequest } from '../lib/api'
 import { useToast } from '../context/ToastContext'
 import type { StartupDetail } from '../types/startup'
+import { IndustrySelect } from '../components/IndustrySelect'
 
 type Props = {
   startup: StartupDetail
@@ -149,7 +150,11 @@ export function EditStartupModal({ startup, onClose, onSave }: Props) {
             </label>
             <label style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', fontSize: '0.8125rem' }}>
               <span style={{ fontWeight: 500 }}>Industry</span>
-              <input className="input" value={form.industry as string} onChange={set('industry')} data-testid="input-industry" />
+              <IndustrySelect
+                value={(form.industry as string) ?? ''}
+                onChange={(next) => setForm((prev) => ({ ...prev, industry: next }))}
+                data-testid="input-industry"
+              />
             </label>
             <div style={{ display: 'flex', gap: '0.5rem' }}>
               <label style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', fontSize: '0.8125rem', flex: 1 }}>

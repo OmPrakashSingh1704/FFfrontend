@@ -4,6 +4,7 @@ import { useLocation as useRouterLocation, useNavigate } from 'react-router-dom'
 import { Check, ChevronDown } from 'lucide-react'
 import { FormField } from '../components/FormField'
 import { LocationInput } from '../components/LocationInput'
+import { IndustrySelect } from '../components/IndustrySelect'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 import { apiRequest, uploadRequest } from '../lib/api'
@@ -1097,12 +1098,9 @@ export function OnboardingPage() {
               </div>
               <div className="form-group">
                 <FormField label="Industry" error={startupErrors.industry}>
-                  <input
-                    type="text"
-                    className="input"
+                  <IndustrySelect
                     value={startupIndustry}
-                    onChange={(event) => setStartupIndustry(event.target.value)}
-                    placeholder="Fintech"
+                    onChange={setStartupIndustry}
                     required
                   />
                 </FormField>
