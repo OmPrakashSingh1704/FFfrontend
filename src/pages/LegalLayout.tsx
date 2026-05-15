@@ -82,22 +82,47 @@ export function LegalLayout({ title, description, path, lastUpdated, children }:
               fontSize: 'clamp(1.75rem, 3.5vw, 2.5rem)',
               fontWeight: 700,
               letterSpacing: '-0.015em',
-              marginBottom: '0.5rem',
+              marginBottom: '0.75rem',
             }}
           >
             {title.split('—')[0].trim()}
           </h1>
-          <p
+          <div
             style={{
-              fontSize: '0.8125rem',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.375rem',
+              padding: '0.25rem 0.625rem',
+              borderRadius: '999px',
+              border: '1px solid hsl(var(--border))',
+              background: 'hsl(var(--muted))',
+              fontSize: '0.75rem',
+              fontWeight: 500,
               color: 'hsl(var(--muted-foreground))',
+              letterSpacing: '0.02em',
               marginBottom: '2.5rem',
             }}
+            data-testid="legal-last-updated"
           >
-            Last updated: {lastUpdated}
-          </p>
+            <span style={{ fontWeight: 600 }}>Last updated</span>
+            <span aria-hidden="true">·</span>
+            <span>{lastUpdated}</span>
+          </div>
 
-          <div className="legal-body">{children}</div>
+          <div className="legal-body">
+            {children}
+            <hr
+              style={{
+                margin: '3rem 0 1.25rem',
+                border: 'none',
+                borderTop: '1px solid hsl(var(--border))',
+              }}
+            />
+            <p style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))', margin: 0 }}>
+              This page was last updated on <strong>{lastUpdated}</strong>. Continued use of
+              the Platform after this date constitutes acceptance of the current version.
+            </p>
+          </div>
         </div>
 
         <div

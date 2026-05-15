@@ -7,8 +7,8 @@ import { LegalLayout } from './LegalLayout'
  *   - "FoundersLib" is used as both the platform name AND the operating
  *     company. Swap for the registered private limited company when
  *     incorporated (e.g., "FoundersLib Technologies Private Limited").
- *   - Jurisdiction is Bengaluru, India by default — change in §15 if
- *     your registered office is elsewhere.
+ *   - Jurisdiction is Jodhpur, Rajasthan, India — set per the founder's
+ *     registered office. Update §15 if this changes.
  *   - Contact email is support@founderslib.in (matches HelpPage).
  */
 export function TermsPage() {
@@ -292,8 +292,8 @@ export function TermsPage() {
       <h2>15. Governing Law</h2>
       <p>These Terms shall be governed by the laws of India.</p>
       <p>
-        Any disputes shall fall under the jurisdiction of courts located in Bengaluru,
-        India.
+        Any disputes shall fall under the jurisdiction of courts located in Jodhpur,
+        Rajasthan, India.
       </p>
 
       <h2>16. Changes to Terms</h2>

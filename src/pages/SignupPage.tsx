@@ -7,7 +7,7 @@ import { useToast } from '../context/ToastContext'
 import { apiRequest } from '../lib/api'
 import { hasErrors, isEmail, validateRequired } from '../lib/forms'
 
-type SignupFields = 'full_name' | 'email' | 'password' | 'confirm' | 'form'
+type SignupFields = 'full_name' | 'email' | 'password' | 'confirm' | 'accept' | 'form'
 
 export function SignupPage() {
   const navigate = useNavigate()
@@ -16,6 +16,7 @@ export function SignupPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
+  const [acceptedLegal, setAcceptedLegal] = useState(false)
   const [errors, setErrors] = useState<Partial<Record<SignupFields, string>>>({})
   const [submitting, setSubmitting] = useState(false)
 
@@ -37,6 +38,14 @@ export function SignupPage() {
 
     if (password && confirm && password !== confirm) {
       nextErrors.confirm = 'Passwords do not match'
+    }
+
+    // Explicit consent is required for DPDP / GDPR. We capture it at the
+    // form level rather than relying on the browser `required` attribute
+    // alone, so we can show a friendly error and keep the same data-shape
+    // we use everywhere else.
+    if (!acceptedLegal) {
+      nextErrors.accept = 'Please accept the Terms of Service and Privacy Policy to continue.'
     }
 
     if (hasErrors(nextErrors)) {
@@ -153,6 +162,65 @@ export function SignupPage() {
                 data-testid="signup-confirm-input"
               />
             </FormField>
+          </div>
+
+          <div className="form-group">
+            <label
+              style={{
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: '0.625rem',
+                cursor: 'pointer',
+                fontSize: '0.8125rem',
+                lineHeight: 1.5,
+                color: 'hsl(var(--muted-foreground))',
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={acceptedLegal}
+                onChange={(event) => {
+                  setAcceptedLegal(event.target.checked)
+                  if (event.target.checked && errors.accept) {
+                    setErrors((prev) => ({ ...prev, accept: undefined }))
+                  }
+                }}
+                data-testid="signup-accept-legal"
+                style={{ marginTop: '0.2rem', accentColor: 'var(--gold)', flexShrink: 0 }}
+                aria-describedby={errors.accept ? 'signup-accept-error' : undefined}
+              />
+              <span>
+                I agree to the{' '}
+                <Link
+                  to="/terms"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ color: 'var(--gold)', textDecoration: 'underline' }}
+                >
+                  Terms of Service
+                </Link>{' '}
+                and{' '}
+                <Link
+                  to="/privacy"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ color: 'var(--gold)', textDecoration: 'underline' }}
+                >
+                  Privacy Policy
+                </Link>
+                .
+              </span>
+            </label>
+            {errors.accept ? (
+              <span
+                id="signup-accept-error"
+                className="field-error"
+                role="alert"
+                style={{ marginTop: '0.375rem', display: 'block' }}
+              >
+                {errors.accept}
+              </span>
+            ) : null}
           </div>
 
           <button className="btn primary w-full" type="submit" disabled={submitting} data-testid="signup-submit-btn">
