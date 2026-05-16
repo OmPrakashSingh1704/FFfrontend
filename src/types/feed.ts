@@ -33,6 +33,42 @@ export type FeedAttribution = {
   role_label: string | null
 }
 
+/**
+ * OpenGraph card for a URL referenced in a post. Fetched asynchronously by
+ * the backend after post creation, so `link_preview` may be null even when
+ * `link_url` is set (status='pending'). Renderers fall back to the bare
+ * URL chip in that case.
+ */
+export type LinkPreview = {
+  url: string
+  status: 'pending' | 'ok' | 'error'
+  title: string
+  description: string
+  image_url: string
+  site_name: string
+}
+
+/**
+ * Metadata for a file the user uploaded as part of a post. Mirrors the
+ * backend FeedAttachmentSerializer payload. The renderer uses these fields
+ * to enrich what would otherwise be bare markdown links — video posters,
+ * doc cards, image aspect-ratio hints — by looking the URL up in a Map.
+ */
+export type FeedAttachment = {
+  id: string
+  type: 'image' | 'video' | 'audio' | 'document'
+  url: string
+  file_name: string
+  file_size: number
+  mime_type: string
+  width?: number | null
+  height?: number | null
+  duration?: number | null
+  thumbnail_url?: string | null
+  alt_text?: string
+  order?: number
+}
+
 export type FeedEvent = {
   id: string
   event_type?: string
@@ -47,6 +83,8 @@ export type FeedEvent = {
   }
   startup_name?: string | null
   link_url?: string | null
+  link_preview?: LinkPreview | null
+  attachments?: FeedAttachment[]
   tags?: string[]
   like_count?: number
   comment_count?: number

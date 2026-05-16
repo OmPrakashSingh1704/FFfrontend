@@ -1608,23 +1608,20 @@ export function OnboardingPage() {
 
       {/* Footer buttons */}
       <div className="flex justify-between items-center mt-8 pt-6" style={{ borderTop: '1px solid hsl(var(--border))' }}>
-        <button className="btn-sm ghost" type="button" onClick={handleSkip}>
-          Skip for now
-        </button>
-        <div className="flex gap-3">
-          {activeStep > 0 && (
-            <button
-              className="btn-sm ghost"
-              type="button"
-              onClick={() => goToStepByIndex(activeStep - 1)}
-            >
-              Back
-            </button>
-          )}
-          <button className="btn-sm primary" type="button" onClick={() => navigate('/app')}>
-            Continue to dashboard
+        {activeStep > 0 ? (
+          <button
+            className="btn-sm ghost"
+            type="button"
+            onClick={() => goToStepByIndex(activeStep - 1)}
+          >
+            Back
           </button>
-        </div>
+        ) : (
+          <span />
+        )}
+        <button className="btn-sm primary" type="button" onClick={handleSkip}>
+          Continue to dashboard
+        </button>
       </div>
     </section>
   )

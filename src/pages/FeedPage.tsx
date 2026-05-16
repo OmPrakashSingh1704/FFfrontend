@@ -24,9 +24,9 @@ import { buildProfileUrl } from '../lib/slugId'
 import { useToast } from '../context/ToastContext'
 import { useAuth } from '../context/AuthContext'
 import { Markdown } from '../components/Markdown'
-import { MarkdownCanvas } from '../components/MarkdownCanvas'
+import { MarkdownCanvas, type MarkdownCanvasHandle } from '../components/MarkdownCanvas'
 import { CommentComposer, ComposerHint, decodeMentions, type Mention } from '../components/CommentComposer'
-import type { FeedAttribution, FeedComment, FeedEvent } from '../types/feed'
+import type { FeedAttribution, FeedComment, FeedEvent, LinkPreview } from '../types/feed'
 
 /**
  * Compact chip used in the composer's "Posting as" multi-select. Active state
@@ -704,6 +704,161 @@ function CommentSection({ eventId, onCountChange }: CommentSectionProps) {
   )
 }
 
+/**
+ * Renders the OG link card in a post body. If the backend has fetched
+ * metadata (status='ok' with at least a title or image), shows a rich
+ * card with thumbnail + site + title + description. Otherwise falls back
+ * to the original bare-URL chip — which is what the user sees in the
+ * brief window between posting and the worker finishing the fetch.
+ */
+function LinkPreviewBlock({
+  url,
+  preview,
+}: {
+  url: string
+  preview?: LinkPreview | null
+}) {
+  const [imageBroken, setImageBroken] = useState(false)
+  const hasCard =
+    preview && preview.status === 'ok' && (preview.title || preview.image_url)
+
+  if (!hasCard) {
+    return (
+      <a
+        href={url}
+        target="_blank"
+        rel="noreferrer"
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.5rem',
+          marginTop: '0.625rem',
+          padding: '0.5rem 0.75rem',
+          borderRadius: '0.5rem',
+          background: 'hsl(var(--muted) / 0.5)',
+          border: '1px solid hsl(var(--border))',
+          fontSize: '0.8125rem',
+          color: 'var(--gold)',
+          textDecoration: 'none',
+          transition: 'background 0.15s',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap',
+        }}
+      >
+        <ExternalLink style={{ width: '0.875rem', height: '0.875rem', flexShrink: 0, strokeWidth: 1.5 }} />
+        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          {url.replace(/^https?:\/\//, '').slice(0, 60)}
+        </span>
+      </a>
+    )
+  }
+
+  const showImage = preview.image_url && !imageBroken
+  // Hostname for the footer label — preferred over og:site_name when the
+  // site doesn't set one, falls back to the raw URL if URL parsing fails
+  // (shouldn't happen since the backend validated it, but defense in depth).
+  let host = ''
+  try {
+    host = new URL(url).hostname.replace(/^www\./, '')
+  } catch {
+    host = url
+  }
+
+  return (
+    <a
+      href={url}
+      target="_blank"
+      rel="noreferrer"
+      style={{
+        display: 'flex',
+        marginTop: '0.625rem',
+        borderRadius: '0.5rem',
+        border: '1px solid hsl(var(--border))',
+        background: 'hsl(var(--card))',
+        overflow: 'hidden',
+        textDecoration: 'none',
+        color: 'inherit',
+        transition: 'border-color 0.15s, background 0.15s',
+      }}
+    >
+      {showImage ? (
+        <img
+          src={preview.image_url}
+          alt=""
+          loading="lazy"
+          decoding="async"
+          onError={() => setImageBroken(true)}
+          style={{
+            width: '7.5rem',
+            minHeight: '5rem',
+            objectFit: 'cover',
+            flexShrink: 0,
+            background: 'hsl(var(--muted))',
+          }}
+        />
+      ) : null}
+      <div
+        style={{
+          padding: '0.625rem 0.75rem',
+          minWidth: 0,
+          flex: 1,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '0.125rem',
+        }}
+      >
+        <span
+          style={{
+            fontSize: '0.6875rem',
+            textTransform: 'uppercase',
+            letterSpacing: '0.05em',
+            color: 'hsl(var(--muted-foreground))',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          {preview.site_name || host}
+        </span>
+        {preview.title ? (
+          <span
+            style={{
+              fontSize: '0.875rem',
+              fontWeight: 600,
+              lineHeight: 1.3,
+              color: 'hsl(var(--foreground))',
+              // Two-line clamp — webkit-line-clamp works in all modern
+              // browsers including Firefox now.
+              display: '-webkit-box',
+              WebkitLineClamp: 2,
+              WebkitBoxOrient: 'vertical',
+              overflow: 'hidden',
+            }}
+          >
+            {preview.title}
+          </span>
+        ) : null}
+        {preview.description ? (
+          <span
+            style={{
+              fontSize: '0.75rem',
+              lineHeight: 1.4,
+              color: 'hsl(var(--muted-foreground))',
+              display: '-webkit-box',
+              WebkitLineClamp: 2,
+              WebkitBoxOrient: 'vertical',
+              overflow: 'hidden',
+            }}
+          >
+            {preview.description}
+          </span>
+        ) : null}
+      </div>
+    </a>
+  )
+}
+
 const FEED_PAGE_SIZE = 20
 
 function feedEndpoint(tab: FeedTab, offset: number) {
@@ -726,6 +881,11 @@ export function FeedPage() {
   const [formError, setFormError] = useState<string | null>(null)
   const [interactions, setInteractions] = useState<Record<string, FeedInteraction>>({})
   const [composerOpen, setComposerOpen] = useState(false)
+  // Used at submit time to pull the IDs of files dropped into the
+  // composer so the post-create call can link them to the new FeedEvent.
+  // Without this the attachment rows stay orphans and the renderer can't
+  // resolve URLs to their metadata (no doc card / video poster / etc.).
+  const composerCanvasRef = useRef<MarkdownCanvasHandle | null>(null)
   const sentinelRef = useRef<HTMLDivElement>(null)
   const [form, setForm] = useState({
     event_type: feedEventTypes[0].value,
@@ -995,6 +1155,7 @@ export function FeedPage() {
     setSubmitting(true)
     setFormError(null)
     try {
+      const attachmentIds = composerCanvasRef.current?.getReferencedAttachmentIds() ?? []
       await apiRequest('/feed/create/', {
         method: 'POST',
         body: {
@@ -1003,6 +1164,12 @@ export function FeedPage() {
           content: form.content.trim(),
           link_url: form.link_url.trim() || undefined,
           tags: tagList.length ? tagList : undefined,
+          // Files the user dropped into the composer. Backend's
+          // FeedEventCreateSerializer.create() runs an update that sets
+          // FeedAttachment.event_id for every orphan row in this list, so
+          // the new post owns them and the read serializer can include
+          // their metadata in `attachments`.
+          attachment_ids: attachmentIds.length ? attachmentIds : undefined,
           // Multi-profile attribution. Backend applies its own smart default
           // if all three are empty, but we send the user's explicit choices
           // when they've made any.
@@ -1204,6 +1371,7 @@ export function FeedPage() {
                   MIME allowlist and runs async virus scanning before the
                   URL is exposed to readers. */}
               <MarkdownCanvas
+                ref={composerCanvasRef}
                 className="textarea"
                 value={form.content}
                 onChange={(next) => setForm((prev) => ({ ...prev, content: next }))}
@@ -1400,7 +1568,7 @@ export function FeedPage() {
                     {item.title || item.startup_name || 'Update'}
                   </h3>
                   {item.content ? (
-                    <Markdown size="sm">{item.content}</Markdown>
+                    <Markdown size="sm" attachments={item.attachments}>{item.content}</Markdown>
                   ) : (
                     <p style={{ fontSize: '0.8125rem', color: 'hsl(var(--muted-foreground))', margin: 0, lineHeight: 1.6 }}>
                       No additional details provided.
@@ -1416,35 +1584,11 @@ export function FeedPage() {
                     </div>
                   )}
 
-                  {/* Link preview */}
+                  {/* Link preview — rich OG card when the backend has finished
+                      fetching, bare URL chip otherwise (status='pending'/'error'
+                      or no preview row yet). */}
                   {item.link_url ? (
-                    <a
-                      href={item.link_url}
-                      target="_blank"
-                      rel="noreferrer"
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '0.5rem',
-                        marginTop: '0.625rem',
-                        padding: '0.5rem 0.75rem',
-                        borderRadius: '0.5rem',
-                        background: 'hsl(var(--muted) / 0.5)',
-                        border: '1px solid hsl(var(--border))',
-                        fontSize: '0.8125rem',
-                        color: 'var(--gold)',
-                        textDecoration: 'none',
-                        transition: 'background 0.15s',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
-                      }}
-                    >
-                      <ExternalLink style={{ width: '0.875rem', height: '0.875rem', flexShrink: 0, strokeWidth: 1.5 }} />
-                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {item.link_url.replace(/^https?:\/\//, '').slice(0, 60)}
-                      </span>
-                    </a>
+                    <LinkPreviewBlock url={item.link_url} preview={item.link_preview} />
                   ) : null}
                 </div>
 

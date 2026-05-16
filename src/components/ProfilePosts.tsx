@@ -206,7 +206,7 @@ export function ProfilePosts(props: Props) {
                     WebkitBoxOrient: 'vertical',
                   }}
                 >
-                  <Markdown size="sm">{p.content.length > 200 ? `${p.content.slice(0, 200)}…` : p.content}</Markdown>
+                  <Markdown size="sm" attachments={p.attachments}>{p.content.length > 200 ? `${p.content.slice(0, 200)}…` : p.content}</Markdown>
                 </div>
               ) : null}
 

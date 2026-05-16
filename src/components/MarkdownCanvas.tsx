@@ -38,6 +38,14 @@ type AttachmentResponse = {
 
 export type MarkdownCanvasHandle = {
   focus: () => void
+  /**
+   * Returns the IDs of attachments currently referenced in the markdown
+   * value. Used by the parent at submit time to send `attachment_ids`
+   * on the post-create call — without it the orphan FeedAttachment rows
+   * stay unlinked to the post and the doc/video/image enrichment never
+   * fires on read. Filters out chips the user deleted from the strip.
+   */
+  getReferencedAttachmentIds: () => string[]
 }
 
 type MarkdownCanvasProps = Omit<TextareaHTMLAttributes<HTMLTextAreaElement>, 'children' | 'onChange' | 'value' | 'maxLength'> & {
@@ -197,6 +205,21 @@ export const MarkdownCanvas = forwardRef<MarkdownCanvasHandle, MarkdownCanvasPro
 
     useImperativeHandle(ref, () => ({
       focus: () => textareaRef.current?.focus(),
+      getReferencedAttachmentIds: () => {
+        // Parse the current markdown for refs we recognize as our uploads
+        // and pull the corresponding attachment IDs. Walking the text (not
+        // attachmentsRef directly) means deleted chips are correctly
+        // omitted — if the URL isn't in the markdown anymore, we don't
+        // ship its ID.
+        const known = new Set(attachmentsRef.current.keys())
+        const refs = parseRefs(valueRef.current, known)
+        const ids = new Set<string>()
+        for (const r of refs) {
+          const att = attachmentsRef.current.get(r.url)
+          if (att?.id) ids.add(att.id)
+        }
+        return Array.from(ids)
+      },
     }), [])
 
     const maxBytes = Math.min(maxFileSizeMB * 1024 * 1024, MAX_BYTES_DEFAULT)
