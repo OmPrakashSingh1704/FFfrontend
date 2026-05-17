@@ -26,3 +26,11 @@ export const STATUS_PAGE_URL =
  */
 export const STATUS_PAGE_SUMMARY_URL =
   (import.meta.env.VITE_STATUS_PAGE_SUMMARY_URL as string | undefined) || ''
+
+/**
+ * Cloudflare Turnstile public site key. When set, the signup form renders the
+ * Turnstile widget and the backend will require a valid token. Leave empty in
+ * dev to skip the captcha entirely.
+ */
+export const TURNSTILE_SITE_KEY =
+  (import.meta.env.VITE_TURNSTILE_SITE_KEY as string | undefined) || ''

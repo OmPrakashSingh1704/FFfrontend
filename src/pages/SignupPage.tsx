@@ -1,13 +1,15 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { User, Mail, Lock, ArrowRight } from 'lucide-react'
+import { Turnstile, type TurnstileInstance } from '@marsidev/react-turnstile'
 import { FormField } from '../components/FormField'
 import { PageHead } from '../components/PageHead'
 import { useToast } from '../context/ToastContext'
 import { apiRequest } from '../lib/api'
+import { TURNSTILE_SITE_KEY } from '../lib/env'
 import { hasErrors, isEmail, validateRequired } from '../lib/forms'
 
-type SignupFields = 'full_name' | 'email' | 'password' | 'confirm' | 'accept' | 'form'
+type SignupFields = 'full_name' | 'email' | 'password' | 'confirm' | 'accept' | 'captcha' | 'form'
 
 export function SignupPage() {
   const navigate = useNavigate()
@@ -17,8 +19,15 @@ export function SignupPage() {
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
   const [acceptedLegal, setAcceptedLegal] = useState(false)
+  const [captchaToken, setCaptchaToken] = useState('')
+  // Honeypot — real users never type here (the field is visually hidden + aria-hidden +
+  // tabindex=-1). Bots that auto-fill every input on the page will populate it and the
+  // backend will reject the request.
+  const [honeypot, setHoneypot] = useState('')
   const [errors, setErrors] = useState<Partial<Record<SignupFields, string>>>({})
   const [submitting, setSubmitting] = useState(false)
+  const captchaRef = useRef<TurnstileInstance | null>(null)
+  const captchaEnabled = Boolean(TURNSTILE_SITE_KEY)
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -56,6 +65,10 @@ export function SignupPage() {
       nextErrors.accept = 'Please accept the Terms of Service and Privacy Policy to continue.'
     }
 
+    if (captchaEnabled && !captchaToken) {
+      nextErrors.captcha = 'Please complete the captcha to continue.'
+    }
+
     if (hasErrors(nextErrors)) {
       setErrors(nextErrors)
       return
@@ -72,6 +85,8 @@ export function SignupPage() {
           full_name: fullName,
           password,
           password_confirm: confirm,
+          website: honeypot,
+          ...(captchaEnabled ? { captcha_token: captchaToken } : {}),
         },
       })
       sessionStorage.setItem('pendingSignupEmail', email)
@@ -80,6 +95,12 @@ export function SignupPage() {
       navigate('/verify-email', { state: { email } })
     } catch {
       setErrors({ form: 'Signup failed. Please review your details and try again.' })
+      // Turnstile tokens are single-use — refresh the widget after any failure
+      // so the user can retry without a stale token blocking them.
+      if (captchaEnabled) {
+        captchaRef.current?.reset()
+        setCaptchaToken('')
+      }
     } finally {
       setSubmitting(false)
     }
@@ -106,6 +127,31 @@ export function SignupPage() {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6" data-testid="signup-form">
+          {/* Honeypot — invisible to real users. Naming it "website" is intentional;
+              it's a common field name that form-filling bots target. */}
+          <div
+            aria-hidden="true"
+            style={{
+              position: 'absolute',
+              left: '-10000px',
+              top: 'auto',
+              width: '1px',
+              height: '1px',
+              overflow: 'hidden',
+            }}
+          >
+            <label htmlFor="signup-website">Website (leave blank)</label>
+            <input
+              id="signup-website"
+              type="text"
+              name="website"
+              tabIndex={-1}
+              autoComplete="off"
+              value={honeypot}
+              onChange={(event) => setHoneypot(event.target.value)}
+            />
+          </div>
+
           {errors.form ? <div className="form-error">{errors.form}</div> : null}
 
           <div className="form-group">
@@ -230,6 +276,27 @@ export function SignupPage() {
               </span>
             ) : null}
           </div>
+
+          {captchaEnabled ? (
+            <div className="form-group" data-testid="signup-captcha-wrapper">
+              <Turnstile
+                ref={captchaRef}
+                siteKey={TURNSTILE_SITE_KEY}
+                onSuccess={(token) => {
+                  setCaptchaToken(token)
+                  if (errors.captcha) setErrors((prev) => ({ ...prev, captcha: undefined }))
+                }}
+                onError={() => setCaptchaToken('')}
+                onExpire={() => setCaptchaToken('')}
+                options={{ theme: 'auto' }}
+              />
+              {errors.captcha ? (
+                <span className="field-error" role="alert" style={{ marginTop: '0.375rem', display: 'block' }}>
+                  {errors.captcha}
+                </span>
+              ) : null}
+            </div>
+          ) : null}
 
           <button className="btn primary w-full" type="submit" disabled={submitting} data-testid="signup-submit-btn">
             {submitting ? 'Creating account...' : 'Create account'}
