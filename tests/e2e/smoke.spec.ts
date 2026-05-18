@@ -2,7 +2,9 @@ import { test, expect } from '@playwright/test'
 
 test('landing page loads', async ({ page }) => {
   await page.goto('/')
-  await expect(page.getByText('FoundersLib')).toBeVisible()
+  // "FoundersLib" appears in the nav, body copy, email link, and footer —
+  // scope to the nav so the strict-mode locator is unambiguous.
+  await expect(page.getByTestId('landing-nav').getByText('FoundersLib')).toBeVisible()
   await expect(page.getByRole('link', { name: 'Sign in' })).toBeVisible()
 })
 

@@ -7,6 +7,11 @@ export type DealRoomListItem = {
   nda_signed_by_investor: boolean
   nda_fully_signed: boolean
   document_count: number
+  /**
+   * Unread chat messages on the deal-room conversation for the requesting
+   * user. 0 when caught up or the room has no conversation yet (legacy).
+   */
+  unread_count?: number
   created_at: string
 }
 
@@ -55,6 +60,12 @@ export type DealRoomDetail = {
   close_reason?: string | null
   closed_at?: string | null
   documents: DealRoomDoc[]
+  /**
+   * UUID of the deal-room Conversation. Null for legacy rooms that haven't
+   * been backfilled yet. When present, the DealRoomDetailPage shows a
+   * "Discussion" button that deep-links to /app/chat?conversationId=<id>.
+   */
+  conversation_id: string | null
   created_at: string
 }
 

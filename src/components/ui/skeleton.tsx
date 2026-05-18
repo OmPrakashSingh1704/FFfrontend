@@ -52,20 +52,29 @@ export function SkeletonAvatar({ size = 40, className, style, ...props }: Skelet
   )
 }
 
-type SkeletonListProps = {
+// Omit 'children' from HTMLAttributes since our render-prop shape conflicts
+// with its ReactNode default. Everything else (data-*, aria-*, role, etc.)
+// passes through to the wrapper div via {...props}.
+type SkeletonListProps = Omit<HTMLAttributes<HTMLDivElement>, 'children'> & {
   count: number
-  className?: string
   itemClassName?: string
   children: (index: number) => ReactNode
 }
 
-export function SkeletonList({ count, className, itemClassName, children }: SkeletonListProps) {
+export function SkeletonList({
+  count,
+  className,
+  itemClassName,
+  children,
+  ...props
+}: SkeletonListProps) {
   return (
     <div
       className={cn('flex flex-col gap-3', className)}
       role="status"
       aria-busy="true"
       aria-live="polite"
+      {...props}
     >
       <span className="sr-only">Loading…</span>
       {Array.from({ length: count }).map((_, i) => (

@@ -75,7 +75,44 @@
     --gold-light: #d4d4d4;
     --accent-glow: rgba(250, 250, 250, 0.4);
     --brand-rgb: 250, 250, 250;
+
+    /* ReactFlow controls/minimap default to white-on-dark via their own
+       CSS vars (the bundled style.css ships light-mode values). Override
+       the public custom-property names so the zoom/fit/lock buttons and
+       the minimap stay legible against our dark canvas. Names mirror the
+       upstream API at https://reactflow.dev/api-reference/components/controls */
+    --xy-controls-button-background-color-default: hsl(0 0% 10%);
+    --xy-controls-button-background-color-hover-default: hsl(0 0% 18%);
+    --xy-controls-button-color-default: hsl(0 0% 92%);
+    --xy-controls-button-color-hover-default: hsl(0 0% 100%);
+    --xy-controls-button-border-color-default: hsl(0 0% 22%);
+    --xy-background-color-default: hsl(0 0% 4%);
+    --xy-minimap-background-color-default: hsl(0 0% 8%);
+    --xy-minimap-mask-background-color-default: rgba(255, 255, 255, 0.04);
+    --xy-minimap-node-background-color-default: hsl(0 0% 30%);
   }
+}
+
+/* Fallback for older @xyflow/react bundles that still ship the unprefixed
+   variable names. Setting both shapes makes this resilient across upgrades. */
+[data-theme="dark"] .react-flow__controls-button {
+  background-color: hsl(0 0% 10%);
+  color: hsl(0 0% 92%);
+  border-bottom: 1px solid hsl(0 0% 22%);
+  fill: hsl(0 0% 92%);
+}
+
+[data-theme="dark"] .react-flow__controls-button:hover {
+  background-color: hsl(0 0% 18%);
+  color: hsl(0 0% 100%);
+}
+
+[data-theme="dark"] .react-flow__controls-button svg {
+  fill: currentColor;
+}
+
+[data-theme="dark"] .react-flow__minimap {
+  background-color: hsl(0 0% 8%);
 }
 
 @layer base {

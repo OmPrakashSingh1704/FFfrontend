@@ -181,7 +181,19 @@ export function WorkflowApprovalPanel({
                       display: 'flex', alignItems: 'center', gap: 8,
                       padding: '0.5rem 0.625rem', borderRadius: 6,
                       border: `1px solid ${isMyPick ? 'hsl(var(--primary))' : 'hsl(var(--border))'}`,
-                      background: isMyPick ? 'hsl(var(--primary) / 0.08)' : 'transparent',
+                      // In dark mode the card sits at ~4% lightness and the
+                      // border at ~15%. A transparent option pill blends
+                      // into the card with only the dim border to mark its
+                      // edges — barely visible. Use the muted token (15%
+                      // in dark, 96% in light) as the resting background
+                      // so the pill has shape in both themes. For the
+                      // selected state, bump the primary tint from 0.08
+                      // to 0.18 so it reads clearly against muted without
+                      // overpowering the typography.
+                      background: isMyPick
+                        ? 'hsl(var(--primary) / 0.18)'
+                        : 'hsl(var(--muted))',
+                      color: 'hsl(var(--foreground))',
                       cursor: requiresPick ? 'pointer' : 'default',
                       fontSize: '0.8125rem',
                     }}

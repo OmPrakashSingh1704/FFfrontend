@@ -95,6 +95,11 @@ export function ChatPage() {
   const { id } = useParams()
   const [searchParams] = useSearchParams()
   const newChatId = searchParams.get('newChat')
+  // Deep-link entry point for deal-room conversations (and any other case
+  // where we hand a callsite a conversation UUID and want it pre-selected
+  // when ChatPage opens). Mirrors the older `newChat` param but for an
+  // existing conversation rather than a user-to-DM bootstrap.
+  const conversationIdParam = searchParams.get('conversationId')
   const navigate = useNavigate()
   const { user, accessToken } = useAuth()
   const { pushToast } = useToast()
@@ -151,7 +156,7 @@ export function ChatPage() {
         const list = normalizeList(data)
         if (!cancelled) {
           setConversations(list)
-          if (!activeId && list.length > 0 && !newChatId) {
+          if (!activeId && list.length > 0 && !newChatId && !conversationIdParam) {
             setActiveId(list[0].id)
             navigate(`/app/chat/${list[0].id}`, { replace: true })
           }
@@ -171,12 +176,24 @@ export function ChatPage() {
     return () => {
       cancelled = true
     }
-  }, [navigate, newChatId])
+  }, [navigate, newChatId, conversationIdParam])
 
   useEffect(() => {
     if (!id) return
     setActiveId(id)
   }, [id])
+
+  // When opened via /app/chat?conversationId=<uuid>, normalize to the
+  // canonical /app/chat/<uuid> form so the rest of the page (active id,
+  // message fetch, WebSocket join) all key off the same source.
+  // `replace: true` so the user's history isn't littered with the query
+  // form when they hit Back.
+  useEffect(() => {
+    if (!conversationIdParam) return
+    if (String(activeId) === conversationIdParam) return
+    setActiveId(conversationIdParam)
+    navigate(`/app/chat/${conversationIdParam}`, { replace: true })
+  }, [conversationIdParam, activeId, navigate])
 
   useEffect(() => {
     if (!newChatId) return

@@ -2,13 +2,15 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import {
   ArrowLeft, CheckCircle, XCircle, Clock, Shield, FileText,
-  Upload, Loader2,
+  Upload, Loader2, Maximize2, Workflow as WorkflowIcon, X,
 } from 'lucide-react'
 
 import { apiRequest, uploadRequest } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 import { DetailPageSkeleton } from '../components/skeletons'
+import { DealRoomChat } from '../components/DealRoomChat'
+import { DealRoomNDAModal } from '../components/DealRoomNDAModal'
 import {
   WorkflowApprovalPanel,
   WorkflowCanvas,
@@ -52,8 +54,30 @@ export function DealRoomDetailPage() {
   const [approving, setApproving] = useState(false)
   const [approveError, setApproveError] = useState<string | null>(null)
   const [signingNda, setSigningNda] = useState(false)
+  // Open state for the click-through NDA modal. The modal handles the
+  // template fetch + sha256 + typed-name flow; we just toggle visibility
+  // and refresh the room when it reports success.
+  const [ndaModalOpen, setNdaModalOpen] = useState(false)
   const [uploadingDoc, setUploadingDoc] = useState(false)
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
+  // Floating-window state for the Workflow. The minimized mini-card is the
+  // default surface (always shown in the left column); clicking it opens
+  // a centered popover with the full canvas + approval panel + history.
+  // No persistence — each page visit starts with the window closed so
+  // users land on the chat-forward view by default.
+  const [workflowWindowOpen, setWorkflowWindowOpen] = useState(false)
+
+  // ESC to close the floating window — keyboard parity with the close
+  // button. Registered only while the window is open to avoid a global
+  // listener leak.
+  useEffect(() => {
+    if (!workflowWindowOpen) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setWorkflowWindowOpen(false)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [workflowWindowOpen])
 
   const loadWorkflow = useCallback(async () => {
     if (!id) return
@@ -153,20 +177,24 @@ export function DealRoomDetailPage() {
     }
   }
 
-  const handleSignNda = async () => {
+  // Re-fetch the room after the NDA modal reports a successful sign. The
+  // modal itself handled the POST + validation; this just syncs local
+  // state so the section flips to "NDA fully signed" without a reload.
+  const refetchRoomAfterSign = useCallback(async () => {
     if (!id) return
     setSigningNda(true)
     try {
-      await apiRequest(`/deals/rooms/${id}/sign-nda/`, { method: 'POST' })
-      pushToast('NDA signed', 'success')
       const updated = await apiRequest<DealRoomDetail>(`/deals/rooms/${id}/`)
       setRoom(updated)
     } catch {
-      pushToast('Failed to sign NDA', 'error')
+      // Best-effort refresh — the POST already succeeded, so the worst
+      // case is a stale UI until next navigation. Toast and move on.
+      pushToast('Signed, but the room state could not refresh. Reload to see updates.', 'info')
     } finally {
       setSigningNda(false)
+      setNdaModalOpen(false)
     }
-  }
+  }, [id, pushToast])
 
   const handleDocUpload = async (file: File) => {
     if (!id) return
@@ -214,52 +242,119 @@ export function DealRoomDetailPage() {
         >
           <ArrowLeft size={12} /> All deals
         </Link>
-        <h1 className="page-title" style={{ marginBottom: 4 }}>
-          {room.startup.name} × {room.investor.display_name}
-        </h1>
-        <span style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))' }}>
-          Created {formatDate(room.created_at)} · {room.status.replace(/_/g, ' ')}
-        </span>
+        <div style={{ minWidth: 0 }}>
+          <h1 className="page-title" style={{ marginBottom: 4 }}>
+            {room.startup.name} × {room.investor.display_name}
+          </h1>
+          <span style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))' }}>
+            Created {formatDate(room.created_at)} · {room.status.replace(/_/g, ' ')}
+          </span>
+        </div>
       </div>
 
-      {/* Workflow */}
-      {workflow ? (
-        <section style={{ marginBottom: '1rem' }} data-testid="workflow-section">
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
-            <h2 style={{ fontWeight: 600, fontSize: '0.9375rem', margin: 0 }}>Workflow</h2>
-            {isComplete && (
-              <span style={{ fontSize: '0.75rem', color: '#22c55e', display: 'flex', alignItems: 'center', gap: 4 }}>
-                <CheckCircle size={12} /> Complete
-              </span>
-            )}
-          </div>
+      {/* Workflow column + Discussion — side-by-side. The left column
+          stacks the mini-card (click to open canvas) on top of the
+          approval panel, so users can approve the next stage without
+          opening the floating window. The popup keeps the full canvas +
+          panel + history for context. Layout collapses to single-column
+          under 900px so the mini-card and chat remain readable on tablets.
+          Chat sits in the right column when the room has a conversation;
+          legacy rooms fall through to a single-column layout. */}
+      {workflow || room.conversation_id ? (
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: workflow && room.conversation_id ? 'minmax(0, 320px) minmax(0, 1fr)' : '1fr',
+            gap: '1rem',
+            alignItems: 'start',
+            marginBottom: '1rem',
+          }}
+        >
+          {workflow ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              <button
+                type="button"
+                onClick={() => setWorkflowWindowOpen(true)}
+                data-testid="workflow-mini-card"
+                aria-label="Open workflow"
+                className="card"
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'stretch',
+                  gap: '0.5rem',
+                  padding: '0.875rem 1rem',
+                  cursor: 'pointer',
+                  border: '1px solid hsl(var(--border))',
+                  background: 'hsl(var(--card))',
+                  color: 'inherit',
+                  textAlign: 'left',
+                  width: '100%',
+                  font: 'inherit',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <WorkflowIcon size={14} strokeWidth={1.5} style={{ color: 'var(--gold)' }} />
+                  <h2 style={{ fontWeight: 600, fontSize: '0.9375rem', margin: 0, flex: 1 }}>Workflow</h2>
+                  <Maximize2 size={12} strokeWidth={1.5} style={{ color: 'hsl(var(--muted-foreground))' }} />
+                </div>
+                <div
+                  data-testid="workflow-mini-summary"
+                  style={{
+                    fontSize: '0.75rem',
+                    color: 'hsl(var(--muted-foreground))',
+                    lineHeight: 1.4,
+                  }}
+                >
+                  {isComplete ? (
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: '#22c55e' }}>
+                      <CheckCircle size={12} /> Complete
+                    </span>
+                  ) : currentNode ? (
+                    <>Current: <span style={{ color: 'hsl(var(--foreground))', fontWeight: 500 }}>{currentNode.name}</span></>
+                  ) : (
+                    'Not started'
+                  )}
+                </div>
+                <span
+                  style={{
+                    fontSize: '0.6875rem',
+                    color: 'hsl(var(--muted-foreground))',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 4,
+                  }}
+                >
+                  Click to open
+                </span>
+              </button>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 320px', gap: '1rem', alignItems: 'start' }}>
-            <WorkflowCanvas
-              mode="view"
-              nodes={workflow.nodes}
-              edges={workflow.edges}
-              currentNodeId={currentNode?.id ?? null}
-              selectedNodeId={selectedNodeId}
-              onNodeSelect={setSelectedNodeId}
-              onPositionsChange={isClosed ? undefined : handlePositionsChange}
-              height={460}
-            />
-            <WorkflowApprovalPanel
-              currentNode={currentNode}
-              outgoingEdges={outgoingEdges}
-              nodesById={nodesById}
-              role={role}
-              isComplete={isComplete}
-              isClosed={isClosed}
-              submitting={approving}
-              errorMessage={approveError}
-              uploadedDocumentTypes={uploadedDocumentTypes}
-              onApprove={(payload) => void handleApprove(payload)}
-            />
-          </div>
-          <WorkflowHistory nodes={workflow.nodes} />
-        </section>
+              {/* Inline approval panel — the primary action surface for
+                  workflow progression. Same component as inside the
+                  floating window, but rendered directly under the mini
+                  card so approvers don't need to open the popup for a
+                  routine "approve & pick next step" action. */}
+              <div data-testid="workflow-approval-panel-inline">
+                <WorkflowApprovalPanel
+                  currentNode={currentNode}
+                  outgoingEdges={outgoingEdges}
+                  nodesById={nodesById}
+                  role={role}
+                  isComplete={isComplete}
+                  isClosed={isClosed}
+                  submitting={approving}
+                  errorMessage={approveError}
+                  uploadedDocumentTypes={uploadedDocumentTypes}
+                  onApprove={(payload) => void handleApprove(payload)}
+                />
+              </div>
+            </div>
+          ) : null}
+
+          {room.conversation_id ? (
+            <DealRoomChat conversationId={room.conversation_id} readOnly={isClosed} />
+          ) : null}
+        </div>
       ) : null}
 
       {/* NDA */}
@@ -283,7 +378,7 @@ export function DealRoomDetailPage() {
             type="button"
             className="btn-sm primary"
             disabled={signingNda}
-            onClick={() => void handleSignNda()}
+            onClick={() => setNdaModalOpen(true)}
             data-testid="sign-nda-btn"
           >
             {signingNda ? <><Loader2 size={12} className="animate-spin" /> Signing...</> : <><Clock size={12} /> Sign NDA</>}
@@ -347,6 +442,121 @@ export function DealRoomDetailPage() {
           </div>
         )}
       </section>
+
+      {/* Click-through NDA modal. Fetches the template, requires
+          scroll-to-bottom + checkbox + typed name, then POSTs the
+          version + sha256 alongside the typed name so the server can
+          reject any tampered submission. */}
+      {ndaModalOpen && id ? (
+        <DealRoomNDAModal
+          conversationDealRoomId={id}
+          onClose={() => setNdaModalOpen(false)}
+          onSigned={() => void refetchRoomAfterSign()}
+        />
+      ) : null}
+
+      {/* Floating workflow window. Backdrop is a separate stacking layer
+          so the click-to-close target is the entire darkened area, not
+          just outside the card. The window sizes to 90vw × 85vh capped at
+          1000×700 so it fits comfortably on laptop screens without going
+          full-bleed — preserves the user's sense of "I'm still in the
+          deal room, this is a temporary view." */}
+      {workflow && workflowWindowOpen ? (
+        <div
+          data-testid="workflow-window-backdrop"
+          onClick={() => setWorkflowWindowOpen(false)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0, 0, 0, 0.55)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+            padding: '2rem',
+          }}
+        >
+          <div
+            data-testid="workflow-window"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Workflow detail"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: 'hsl(var(--card))',
+              border: '1px solid hsl(var(--border))',
+              borderRadius: 12,
+              boxShadow: '0 20px 50px rgba(0, 0, 0, 0.35)',
+              width: 'min(1000px, 90vw)',
+              height: 'min(700px, 85vh)',
+              display: 'flex',
+              flexDirection: 'column',
+              overflow: 'hidden',
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                padding: '0.875rem 1.25rem',
+                borderBottom: '1px solid hsl(var(--border))',
+              }}
+            >
+              <WorkflowIcon size={14} strokeWidth={1.5} style={{ color: 'var(--gold)' }} />
+              <h2 style={{ fontWeight: 600, fontSize: '0.9375rem', margin: 0, flex: 1 }}>Workflow</h2>
+              {isComplete && (
+                <span style={{ fontSize: '0.75rem', color: '#22c55e', display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <CheckCircle size={12} /> Complete
+                </span>
+              )}
+              <button
+                type="button"
+                onClick={() => setWorkflowWindowOpen(false)}
+                aria-label="Close workflow window"
+                data-testid="workflow-window-close"
+                style={{
+                  padding: 4,
+                  border: 'none',
+                  background: 'transparent',
+                  color: 'hsl(var(--muted-foreground))',
+                  cursor: 'pointer',
+                  borderRadius: 6,
+                }}
+              >
+                <X size={14} strokeWidth={1.5} />
+              </button>
+            </div>
+            <div style={{ flex: 1, overflowY: 'auto', padding: '1rem 1.25rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 320px', gap: '1rem', alignItems: 'start' }}>
+                <WorkflowCanvas
+                  mode="view"
+                  nodes={workflow.nodes}
+                  edges={workflow.edges}
+                  currentNodeId={currentNode?.id ?? null}
+                  selectedNodeId={selectedNodeId}
+                  onNodeSelect={setSelectedNodeId}
+                  onPositionsChange={isClosed ? undefined : handlePositionsChange}
+                  height={420}
+                />
+                <WorkflowApprovalPanel
+                  currentNode={currentNode}
+                  outgoingEdges={outgoingEdges}
+                  nodesById={nodesById}
+                  role={role}
+                  isComplete={isComplete}
+                  isClosed={isClosed}
+                  submitting={approving}
+                  errorMessage={approveError}
+                  uploadedDocumentTypes={uploadedDocumentTypes}
+                  onApprove={(payload) => void handleApprove(payload)}
+                />
+              </div>
+              <WorkflowHistory nodes={workflow.nodes} />
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   )
 }

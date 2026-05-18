@@ -18,7 +18,11 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
+      // `channel: 'chrome'` uses the system-installed Chrome binary instead
+      // of Playwright's bundled Chromium, so contributors don't have to run
+      // `npx playwright install` before the e2e suite works. Falls back to
+      // bundled Chromium automatically if Chrome isn't found.
+      use: { ...devices['Desktop Chrome'], channel: 'chrome' },
     },
   ],
 })

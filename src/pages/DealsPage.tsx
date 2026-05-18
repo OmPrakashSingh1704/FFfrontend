@@ -1,12 +1,18 @@
-import { useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import { apiRequest } from '../lib/api'
 import { normalizeList } from '../lib/pagination'
 import { useToast } from '../context/ToastContext'
 import { useAuth } from '../context/AuthContext'
-import { Handshake, ArrowRight, Settings, Clock, Inbox, Send } from 'lucide-react'
+import { Handshake, ArrowRight, Settings, Clock, Inbox, Send, Check, Loader2 } from 'lucide-react'
 import { ListRowsSkeleton } from '../components/skeletons'
 import type { DealRoomListItem, InterestExpression } from '../types/deals'
+
+type ReciprocateResponse = {
+  detail: string
+  mutual?: boolean
+  deal_room_id?: string
+}
 
 const STATUS_COLORS: Record<string, string> = {
   active: '#22c55e',
@@ -40,15 +46,19 @@ function StatusBadge({ status }: { status: string }) {
 export function DealsPage() {
   const { pushToast } = useToast()
   const { user } = useAuth()
+  const navigate = useNavigate()
   const isInvestor = user?.role === 'investor'
   const [rooms, setRooms] = useState<DealRoomListItem[]>([])
   const [interests, setInterests] = useState<InterestExpression[]>([])
   const [loading, setLoading] = useState(true)
+  const [reciprocatingId, setReciprocatingId] = useState<string | null>(null)
 
-  useEffect(() => {
-    let cancelled = false
-    const load = async () => {
-      setLoading(true)
+  // Lifted out of useEffect so the reciprocate handler can re-run it after
+  // a successful POST. `showSpinner` lets us skip the page-level skeleton
+  // on background refreshes (we already showed it on first load).
+  const reload = useCallback(
+    async (showSpinner: boolean) => {
+      if (showSpinner) setLoading(true)
       try {
         // Fetch deal rooms and pending interests in parallel. We don't fail
         // the whole page if one side errors — partial data beats an empty
@@ -57,22 +67,60 @@ export function DealsPage() {
           apiRequest<DealRoomListItem[] | { results: DealRoomListItem[] }>('/deals/rooms/'),
           apiRequest<InterestExpression[] | { results: InterestExpression[] }>('/deals/my-interests/'),
         ])
-        if (cancelled) return
         if (roomsRes.status === 'fulfilled') {
           setRooms(normalizeList(roomsRes.value))
-        } else {
+        } else if (showSpinner) {
+          // Only toast on the initial load — background refreshes failing
+          // silently is fine, the next user action will surface it.
           pushToast('Failed to load deal rooms', 'error')
         }
         if (interestsRes.status === 'fulfilled') {
           setInterests(normalizeList(interestsRes.value))
         }
       } finally {
-        if (!cancelled) setLoading(false)
+        if (showSpinner) setLoading(false)
       }
-    }
-    void load()
+    },
+    [pushToast],
+  )
+
+  useEffect(() => {
+    let cancelled = false
+    void (async () => {
+      await reload(true)
+      if (cancelled) return
+    })()
     return () => { cancelled = true }
-  }, [pushToast])
+  }, [reload])
+
+  const handleReciprocate = useCallback(
+    async (interest: InterestExpression) => {
+      if (reciprocatingId) return
+      setReciprocatingId(interest.id)
+      try {
+        const res = await apiRequest<ReciprocateResponse>('/deals/interest/', {
+          method: 'POST',
+          body: { startup_id: interest.startup, investor_id: interest.investor },
+        })
+        if (res.mutual && res.deal_room_id) {
+          pushToast('Mutual interest! Deal room created.', 'success')
+          navigate(`/app/deals/${res.deal_room_id}`)
+          return
+        }
+        // No mutual yet (shouldn't really happen for an incoming card since
+        // the other side already expressed interest, but the backend is the
+        // source of truth — defer to it). Just refresh in place.
+        pushToast(res.detail || 'Interest expressed.', 'success')
+        await reload(false)
+      } catch (err) {
+        const e = err as { details?: { detail?: string }; message?: string }
+        pushToast(e.details?.detail || e.message || 'Could not reciprocate', 'error')
+      } finally {
+        setReciprocatingId(null)
+      }
+    },
+    [reciprocatingId, navigate, pushToast, reload],
+  )
 
   // Filter to interests that don't have a matching deal room yet — those
   // ARE pending (still waiting for the other side to reciprocate). Once
@@ -142,7 +190,14 @@ export function DealsPage() {
                   </p>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                     {pending.incoming.map((i) => (
-                      <PendingInterestCard key={i.id} interest={i} variant="incoming" />
+                      <PendingInterestCard
+                        key={i.id}
+                        interest={i}
+                        variant="incoming"
+                        onReciprocate={handleReciprocate}
+                        isReciprocating={reciprocatingId === i.id}
+                        anyReciprocating={reciprocatingId !== null}
+                      />
                     ))}
                   </div>
                 </div>
@@ -183,32 +238,59 @@ export function DealsPage() {
                 <span className="badge">{rooms.length}</span>
               </h2>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                {rooms.map((room) => (
-                  <div key={room.id} className="card" data-testid="deal-room-card">
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                      <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'hsl(var(--muted))', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                        <Handshake size={16} strokeWidth={1.5} style={{ color: 'var(--gold)' }} />
+                {rooms.map((room) => {
+                  const unread = room.unread_count ?? 0
+                  return (
+                    <div key={room.id} className="card" data-testid="deal-room-card">
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                        <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'hsl(var(--muted))', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                          <Handshake size={16} strokeWidth={1.5} style={{ color: 'var(--gold)' }} />
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <span style={{ display: 'block', fontWeight: unread > 0 ? 600 : 500, fontSize: '0.875rem' }}>
+                            {room.startup_name} × {room.investor_name}
+                          </span>
+                          <span style={{ display: 'block', fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))' }}>
+                            {new Date(room.created_at).toLocaleDateString()} · {room.document_count} document{room.document_count !== 1 ? 's' : ''}
+                          </span>
+                        </div>
+                        {/* Unread chat-message badge. Caps at "9+" so a long
+                            absence doesn't push the card layout around. */}
+                        {unread > 0 ? (
+                          <span
+                            data-testid={`deal-room-unread-${room.id}`}
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              minWidth: 20,
+                              height: 20,
+                              padding: '0 6px',
+                              borderRadius: 999,
+                              fontSize: '0.6875rem',
+                              fontWeight: 600,
+                              background: 'hsl(var(--primary))',
+                              color: 'hsl(var(--primary-foreground))',
+                              flexShrink: 0,
+                            }}
+                            aria-label={`${unread} unread message${unread === 1 ? '' : 's'}`}
+                          >
+                            {unread > 9 ? '9+' : unread}
+                          </span>
+                        ) : null}
+                        <StatusBadge status={room.status} />
+                        <Link
+                          to={`/app/deals/${room.id}`}
+                          className="btn-sm ghost"
+                          data-testid="view-details-link"
+                          style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}
+                        >
+                          View Details <ArrowRight size={12} />
+                        </Link>
                       </div>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <span style={{ display: 'block', fontWeight: 500, fontSize: '0.875rem' }}>
-                          {room.startup_name} × {room.investor_name}
-                        </span>
-                        <span style={{ display: 'block', fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))' }}>
-                          {new Date(room.created_at).toLocaleDateString()} · {room.document_count} document{room.document_count !== 1 ? 's' : ''}
-                        </span>
-                      </div>
-                      <StatusBadge status={room.status} />
-                      <Link
-                        to={`/app/deals/${room.id}`}
-                        className="btn-sm ghost"
-                        data-testid="view-details-link"
-                        style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}
-                      >
-                        View Details <ArrowRight size={12} />
-                      </Link>
                     </div>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             </section>
           ) : null}
@@ -223,13 +305,23 @@ export function DealsPage() {
  * other party has expressed interest and is waiting on the viewer to
  * reciprocate; "outgoing" means the viewer sent it and is waiting on
  * the other side.
+ *
+ * Incoming cards render an inline Accept button — clicking it POSTs to
+ * /deals/interest/ with the same (startup, investor) pair, which the
+ * backend detects as mutual and auto-creates the DealRoom.
  */
 function PendingInterestCard({
   interest,
   variant,
+  onReciprocate,
+  isReciprocating = false,
+  anyReciprocating = false,
 }: {
   interest: InterestExpression
   variant: 'incoming' | 'outgoing'
+  onReciprocate?: (interest: InterestExpression) => void
+  isReciprocating?: boolean
+  anyReciprocating?: boolean
 }) {
   const accent = variant === 'incoming' ? '#f59e0b' : 'hsl(var(--muted-foreground))'
   // Who's on the other side, from the viewer's perspective?
@@ -287,23 +379,46 @@ function PendingInterestCard({
             </p>
           ) : null}
         </div>
-        <span
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            padding: '2px 10px',
-            borderRadius: 999,
-            fontSize: '0.6875rem',
-            fontWeight: 600,
-            background: `${accent}22`,
-            color: accent,
-            border: `1px solid ${accent}44`,
-            textTransform: 'capitalize',
-            flexShrink: 0,
-          }}
-        >
-          {variant === 'incoming' ? 'Awaiting you' : 'Awaiting them'}
-        </span>
+        {variant === 'incoming' && onReciprocate ? (
+          <button
+            type="button"
+            className="btn-sm primary"
+            onClick={() => onReciprocate(interest)}
+            disabled={anyReciprocating}
+            data-testid={`reciprocate-${interest.id}`}
+            style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}
+          >
+            {isReciprocating ? (
+              <>
+                <Loader2 size={12} className="animate-spin" />
+                Accepting…
+              </>
+            ) : (
+              <>
+                <Check size={12} strokeWidth={2} />
+                Accept
+              </>
+            )}
+          </button>
+        ) : (
+          <span
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              padding: '2px 10px',
+              borderRadius: 999,
+              fontSize: '0.6875rem',
+              fontWeight: 600,
+              background: `${accent}22`,
+              color: accent,
+              border: `1px solid ${accent}44`,
+              textTransform: 'capitalize',
+              flexShrink: 0,
+            }}
+          >
+            Awaiting them
+          </span>
+        )}
       </div>
     </div>
   )
