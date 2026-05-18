@@ -5,6 +5,7 @@ import { apiRequest } from '../lib/api'
 import { normalizeList, type PaginatedResponse } from '../lib/pagination'
 import { useToast } from '../context/ToastContext'
 import { MarkdownTextarea } from '../components/MarkdownTextarea'
+import { TableRowsSkeleton, ListRowsSkeleton } from '../components/skeletons'
 import type { FundDetail, FundListItem } from '../types/fund'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -430,7 +431,7 @@ export function AdminFundsPage() {
             </div>
           </div>
 
-          {fundsLoading && <div className="empty-state"><Landmark className="empty-icon" strokeWidth={1.5} /><p className="empty-description">Loading funds...</p></div>}
+          {fundsLoading && <TableRowsSkeleton rows={6} cols={5} />}
           {fundsError && <div className="empty-state"><p className="empty-description" style={{ color: '#ef4444' }}>{fundsError}</p></div>}
 
           {!fundsLoading && !fundsError && (
@@ -491,7 +492,7 @@ export function AdminFundsPage() {
       {/* ── Benefits Tab ───────────────────────────────────────────────────────── */}
       {activeTab === 'benefits' && (
         <>
-          {benefitsLoading && <div className="empty-state"><Gift className="empty-icon" strokeWidth={1.5} /><p className="empty-description">Loading benefits...</p></div>}
+          {benefitsLoading && <ListRowsSkeleton count={5} />}
           {benefitsError && <div className="empty-state"><p className="empty-description" style={{ color: '#ef4444' }}>{benefitsError}</p></div>}
 
           {!benefitsLoading && !benefitsError && (

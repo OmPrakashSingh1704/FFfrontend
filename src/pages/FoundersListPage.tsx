@@ -9,6 +9,7 @@ import { useToast } from '../context/ToastContext'
 import { useAuth } from '../context/AuthContext'
 import { fetchConnectionStatuses, type ConnectionStatus } from '../lib/connections'
 import { buildProfileUrl } from '../lib/slugId'
+import { ProfileGridSkeleton } from '../components/skeletons'
 import type { FounderProfile } from '../types/founder'
 
 const PAGE_SIZE = 20
@@ -160,12 +161,7 @@ export function FoundersListPage() {
         )}
       </div>
 
-      {loading && (
-        <div className="empty-state">
-          <Users className="empty-icon" strokeWidth={1.5} />
-          <p className="empty-description">Loading founders...</p>
-        </div>
-      )}
+      {loading && <ProfileGridSkeleton count={6} />}
 
       {error && <div className="badge error" style={{ marginBottom: '1rem' }}>{error}</div>}
 

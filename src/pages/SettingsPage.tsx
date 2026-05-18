@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { apiRequest } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
+import { ListRowsSkeleton } from '../components/skeletons'
 import {
   Bell,
   Link2,
@@ -849,10 +850,7 @@ export function SettingsPage() {
           </div>
 
           {loadingPrefs ? (
-            <div className="empty-state" style={{ padding: '2rem 0' }}>
-              <Loader2 size={20} className="animate-spin" style={{ color: 'hsl(var(--muted-foreground))' }} />
-              <span className="empty-description">Loading preferences...</span>
-            </div>
+            <ListRowsSkeleton count={5} />
           ) : (
             <>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
@@ -943,10 +941,7 @@ export function SettingsPage() {
             </div>
 
             {loadingAccounts ? (
-              <div className="empty-state" style={{ padding: '2rem 0' }}>
-                <Loader2 size={20} className="animate-spin" style={{ color: 'hsl(var(--muted-foreground))' }} />
-                <span className="empty-description">Loading integrations...</span>
-              </div>
+              <ListRowsSkeleton count={3} />
             ) : integrationsReadOnly ? (
               accounts.length === 0 ? (
                 <p style={{ fontSize: '0.875rem', color: 'hsl(var(--muted-foreground))', padding: '1rem 0' }}>
@@ -1054,10 +1049,7 @@ export function SettingsPage() {
             </div>
 
             {loadingAvailable ? (
-              <div className="empty-state" style={{ padding: '2rem 0' }}>
-                <Loader2 size={20} className="animate-spin" style={{ color: 'hsl(var(--muted-foreground))' }} />
-                <span className="empty-description">Loading platforms...</span>
-              </div>
+              <ListRowsSkeleton count={4} />
             ) : unconnectedPlatforms.length === 0 && available.length > 0 ? (
               <p style={{ fontSize: '0.875rem', color: 'hsl(var(--muted-foreground))', textAlign: 'center', padding: '1rem 0' }}>
                 All available platforms are already connected.
@@ -1126,10 +1118,7 @@ export function SettingsPage() {
             <span className="card-title">Privacy Settings</span>
           </div>
           {loadingPrivacy ? (
-            <div className="empty-state" style={{ padding: '2rem 0' }}>
-              <Loader2 size={20} className="animate-spin" style={{ color: 'hsl(var(--muted-foreground))' }} />
-              <span className="empty-description">Loading privacy settings...</span>
-            </div>
+            <ListRowsSkeleton count={4} />
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column' }}>
               {(

@@ -8,6 +8,7 @@ import {
 import { apiRequest, uploadRequest } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
+import { DetailPageSkeleton } from '../components/skeletons'
 import {
   WorkflowApprovalPanel,
   WorkflowCanvas,
@@ -186,12 +187,7 @@ export function DealRoomDetailPage() {
   }
 
   if (loading) {
-    return (
-      <div className="empty-state" style={{ paddingTop: '6rem' }}>
-        <Loader2 size={24} className="animate-spin" style={{ color: 'hsl(var(--muted-foreground))' }} />
-        <span className="empty-description">Loading deal room...</span>
-      </div>
-    )
+    return <DetailPageSkeleton />
   }
 
   if (!room) {

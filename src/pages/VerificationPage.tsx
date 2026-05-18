@@ -6,6 +6,7 @@ import {
   ShieldCheck, Upload, CheckCircle, XCircle, Clock,
   Loader2, FileText, ChevronDown, ChevronRight
 } from 'lucide-react'
+import { CenteredPageSkeleton } from '../components/skeletons'
 
 type VerificationDoc = {
   id: string
@@ -161,12 +162,7 @@ export function VerificationPage() {
   }
 
   if (loading) {
-    return (
-      <div className="empty-state" style={{ paddingTop: '4rem' }}>
-        <Loader2 size={24} className="animate-spin" style={{ color: 'hsl(var(--muted-foreground))' }} />
-        <span className="empty-description">Loading verification status...</span>
-      </div>
-    )
+    return <CenteredPageSkeleton />
   }
 
   if (!status) {

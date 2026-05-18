@@ -11,6 +11,7 @@ import { useCall } from '../context/CallContext'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 import type { CallSession } from '../types/call'
+import { ListRowsSkeleton } from '../components/skeletons'
 
 /**
  * Calls page — destination view for an active call + a clean history list.
@@ -460,9 +461,7 @@ export function CallsPage() {
       <section className="section">
         <span className="section-label">Recent calls</span>
         {loading ? (
-          <div className="empty-state" style={{ padding: '2rem 0' }}>
-            <p className="empty-description">Loading…</p>
-          </div>
+          <ListRowsSkeleton count={4} />
         ) : historyError ? (
           <div className="card" style={{ borderColor: '#ef4444', padding: '1rem' }}>
             <p style={{ color: '#ef4444', fontSize: '0.875rem', margin: 0 }}>{historyError}</p>

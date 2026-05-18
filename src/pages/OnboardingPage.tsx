@@ -9,6 +9,7 @@ import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 import { apiRequest, uploadRequest } from '../lib/api'
 import { hasErrors, validateRequired } from '../lib/forms'
+import { FormSkeleton } from '../components/skeletons'
 
 
 type ProfileErrors = Partial<Record<'full_name' | 'profiles' | 'form', string>>
@@ -802,13 +803,7 @@ export function OnboardingPage() {
 
   const renderStepContent = () => {
     if (loadingSteps) {
-      return (
-        <div className="card p-8">
-          <div className="empty-state">
-            <p className="empty-description">Loading steps...</p>
-          </div>
-        </div>
-      )
+      return <FormSkeleton fields={4} />
     }
     if (stepsError) {
       return (

@@ -1,6 +1,6 @@
 import { useEffect, useState, type CSSProperties } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { Loader2, Linkedin, Twitter, Globe, MapPin, BadgeCheck, DollarSign, UserPlus, UserCheck, MessageCircle, Handshake } from 'lucide-react'
+import { Linkedin, Twitter, Globe, MapPin, BadgeCheck, DollarSign, UserPlus, UserCheck, MessageCircle, Handshake } from 'lucide-react'
 import { apiRequest } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
@@ -11,6 +11,7 @@ import { JsonLd } from '../components/JsonLd'
 import { ProfilePosts } from '../components/ProfilePosts'
 import { TagOverflow } from '../components/TagOverflow'
 import { StartDealRoomModal, type StartDealRoomTarget } from '../components/StartDealRoomModal'
+import { DetailPageSkeleton } from '../components/skeletons'
 
 type PublicInvestor = {
   id: string
@@ -163,8 +164,8 @@ export function PublicInvestorPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="w-6 h-6 animate-spin" />
+      <div className="min-h-screen px-4 py-8 max-w-4xl mx-auto">
+        <DetailPageSkeleton />
       </div>
     )
   }

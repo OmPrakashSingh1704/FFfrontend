@@ -10,6 +10,7 @@ import { apiRequest } from '../lib/api'
 import { normalizeList } from '../lib/pagination'
 import { useAuth } from '../context/AuthContext'
 import { useFeatureFlags } from '../context/FeatureFlagsContext'
+import { StatCardSkeleton } from '../components/skeletons'
 import type { TrustStatus } from '../types/trust'
 import type { InvestorStats } from '../types/investor'
 import type { IntroRequest } from '../types/intro'
@@ -131,8 +132,12 @@ export function Dashboard() {
       {/* Stats Grid */}
       <section className="grid-4 mb-8" data-testid="dashboard-stats">
         {loading ? (
-          <div className="stat-card" style={{ gridColumn: '1 / -1' }}>
-            <div className="stat-label">Loading stats...</div>
+          <div data-testid="dashboard-stats-loading" style={{ gridColumn: '1 / -1', display: 'contents' }}>
+            <span className="sr-only">Loading stats...</span>
+            <StatCardSkeleton />
+            <StatCardSkeleton />
+            <StatCardSkeleton />
+            <StatCardSkeleton />
           </div>
         ) : stats.length > 0 ? (
           stats.map((stat) => (

@@ -105,7 +105,7 @@ describe('Dashboard', () => {
 
     renderDashboard()
 
-    expect(screen.getByText('Loading stats...')).toBeInTheDocument()
+    expect(screen.getByTestId('dashboard-stats-loading')).toBeInTheDocument()
   })
 
   it('shows fallback when API fails', async () => {

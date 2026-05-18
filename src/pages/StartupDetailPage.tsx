@@ -31,6 +31,7 @@ import type { InvestorProfile } from '../types/investor'
 import type { FounderProfile } from '../types/founder'
 import type { PaginatedResponse } from '../lib/pagination'
 import { EditStartupModal } from './EditStartupModal'
+import { DetailPageSkeleton } from '../components/skeletons'
 
 const DOC_TYPE_LABELS: Record<string, string> = {
   pitch_deck: 'Pitch Deck',
@@ -550,12 +551,7 @@ export function StartupDetailPage() {
         {startup && <CopyLinkButton />}
       </div>
 
-      {loading && (
-        <div className="empty-state">
-          <Briefcase className="empty-icon" strokeWidth={1.5} />
-          <p className="empty-description">Loading startup...</p>
-        </div>
-      )}
+      {loading && <DetailPageSkeleton />}
 
       {error && <div className="badge error" style={{ marginBottom: '1rem' }}>{error}</div>}
 

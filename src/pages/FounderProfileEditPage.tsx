@@ -9,6 +9,7 @@ import { useToast } from '../context/ToastContext'
 import { FormField } from '../components/FormField'
 import { LocationInput } from '../components/LocationInput'
 import { hasErrors, validateRequired } from '../lib/forms'
+import { FormSkeleton } from '../components/skeletons'
 
 const STAGE_OPTIONS = ['idea', 'mvp', 'seed', 'series_a', 'series_b_plus']
 const STAGE_LABELS: Record<string, string> = {
@@ -117,8 +118,8 @@ export function FounderProfileEditPage() {
 
   if (loading) {
     return (
-      <div className="page-loading">
-        <Loader2 className="w-6 h-6 animate-spin" />
+      <div style={{ maxWidth: 700, margin: '0 auto' }}>
+        <FormSkeleton fields={6} />
       </div>
     )
   }

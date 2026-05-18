@@ -8,7 +8,6 @@ import {
   Globe,
   Linkedin,
   ExternalLink,
-  User,
   Target,
   Layers,
   Handshake,
@@ -27,6 +26,7 @@ import { CopyLinkButton } from '../components/CopyLinkButton'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 import { normalizeList } from '../lib/pagination'
+import { DetailPageSkeleton } from '../components/skeletons'
 import type { InvestorProfile } from '../types/investor'
 import type { StartupListItem } from '../types/startup'
 
@@ -159,12 +159,7 @@ export function InvestorDetailPage() {
         {investor && <CopyLinkButton />}
       </div>
 
-      {loading && (
-        <div className="empty-state">
-          <User className="empty-icon" strokeWidth={1.5} />
-          <p className="empty-description">Loading investor...</p>
-        </div>
-      )}
+      {loading && <DetailPageSkeleton />}
 
       {error && <div className="badge error" style={{ marginBottom: '1rem' }}>{error}</div>}
 

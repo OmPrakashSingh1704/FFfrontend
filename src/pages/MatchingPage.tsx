@@ -5,8 +5,9 @@ import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 import { resolveMediaUrl } from '../lib/env'
 import { buildProfileUrl } from '../lib/slugId'
-import { TrendingUp, Briefcase, Star, Loader2, ChevronRight, Zap, Users, ClipboardList } from 'lucide-react'
+import { TrendingUp, Briefcase, Star, ChevronRight, Zap, Users, ClipboardList } from 'lucide-react'
 import { Link } from 'react-router-dom'
+import { ProfileGridSkeleton } from '../components/skeletons'
 
 type ScoreBreakdown = {
   industry_score: number
@@ -205,10 +206,7 @@ export function MatchingPage() {
       </div>
 
       {profilesLoading ? (
-        <div className="empty-state" style={{ paddingTop: '4rem' }}>
-          <Loader2 size={24} className="animate-spin" style={{ color: 'hsl(var(--muted-foreground))' }} />
-          <span className="empty-description">Loading your profiles...</span>
-        </div>
+        <ProfileGridSkeleton count={6} />
       ) : noProfiles ? (
         <div className="empty-state" data-testid="matching-no-profile">
           <div className="empty-icon"><ClipboardList size={24} /></div>
@@ -248,10 +246,7 @@ export function MatchingPage() {
           )}
 
           {matchesLoading ? (
-            <div className="empty-state" style={{ paddingTop: '4rem' }}>
-              <Loader2 size={24} className="animate-spin" style={{ color: 'hsl(var(--muted-foreground))' }} />
-              <span className="empty-description">Computing matches...</span>
-            </div>
+            <ProfileGridSkeleton count={6} />
           ) : mode === 'founder' ? (
             <div style={{ marginBottom: '2rem' }}>
               <h2 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: 8 }}>

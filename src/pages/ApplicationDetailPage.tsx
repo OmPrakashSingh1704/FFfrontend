@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { apiRequest } from '../lib/api'
+import { DetailPageSkeleton } from '../components/skeletons'
 import type { ApplicationDetail } from '../types/application'
 
 export function ApplicationDetailPage() {
@@ -49,7 +50,7 @@ export function ApplicationDetailPage() {
         </Link>
       </header>
 
-      {loading ? <div className="page-loader">Loading application...</div> : null}
+      {loading ? <DetailPageSkeleton /> : null}
       {error ? <div className="form-error">{error}</div> : null}
 
       {application ? (

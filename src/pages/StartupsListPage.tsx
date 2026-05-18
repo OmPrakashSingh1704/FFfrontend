@@ -5,6 +5,7 @@ import { apiRequest } from '../lib/api'
 import { formatLabel } from '../lib/format'
 import { buildProfileUrl } from '../lib/slugId'
 import { Pagination } from '../components/Pagination'
+import { FundGridSkeleton } from '../components/skeletons'
 import type { StartupListItem } from '../types/startup'
 
 type PaginatedResponse = {
@@ -96,12 +97,7 @@ export function StartupsListPage() {
         )}
       </div>
 
-      {loading && (
-        <div className="empty-state">
-          <Briefcase className="empty-icon" strokeWidth={1.5} />
-          <p className="empty-description">Loading startups...</p>
-        </div>
-      )}
+      {loading && <FundGridSkeleton count={6} />}
 
       {error && <div className="badge error" style={{ marginBottom: '1rem' }}>{error}</div>}
 

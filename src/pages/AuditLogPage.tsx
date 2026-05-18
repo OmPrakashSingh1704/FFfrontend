@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { ScrollText, ShieldAlert, Activity, RefreshCw, X, AlertTriangle } from 'lucide-react'
 import { apiRequest } from '../lib/api'
+import { TableRowsSkeleton } from '../components/skeletons'
 
 type AuditLog = {
   id: string
@@ -246,12 +247,7 @@ export function AuditLogPage() {
       </div>
 
       {/* Audit Log Table */}
-      {loading && (
-        <div className="empty-state">
-          <ScrollText className="empty-icon" strokeWidth={1.5} />
-          <p className="empty-description">Loading audit logs...</p>
-        </div>
-      )}
+      {loading && <TableRowsSkeleton rows={8} cols={5} />}
 
       {!loading && (
         <div className="card">

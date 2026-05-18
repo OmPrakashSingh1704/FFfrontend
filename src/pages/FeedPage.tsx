@@ -18,6 +18,7 @@ import {
   Link as LinkIcon,
   Tag,
 } from 'lucide-react'
+import { FeedListSkeleton } from '../components/skeletons'
 import { apiRequest } from '../lib/api'
 import { normalizeList } from '../lib/pagination'
 import { buildProfileUrl } from '../lib/slugId'
@@ -1436,12 +1437,7 @@ export function FeedPage() {
       </div>
 
       {/* Loading / error states */}
-      {loading ? (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', padding: '3rem 0', color: 'hsl(var(--muted-foreground))' }}>
-          <Loader2 className="w-5 h-5 animate-spin" />
-          <span>Loading feed...</span>
-        </div>
-      ) : null}
+      {loading ? <FeedListSkeleton count={4} /> : null}
       {error ? (
         <div className="card" style={{ textAlign: 'center', padding: '2rem', color: '#ef4444', fontSize: '0.875rem' }}>
           {error}

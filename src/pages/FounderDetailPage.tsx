@@ -8,6 +8,7 @@ import { CopyLinkButton } from '../components/CopyLinkButton'
 import { useToast } from '../context/ToastContext'
 import { useAuth } from '../context/AuthContext'
 import { fetchConnectionStatuses, type ConnectionStatus } from '../lib/connections'
+import { DetailPageSkeleton } from '../components/skeletons'
 import type { FounderProfile } from '../types/founder'
 
 export function FounderDetailPage() {
@@ -103,12 +104,7 @@ export function FounderDetailPage() {
         {founder && <CopyLinkButton />}
       </div>
 
-      {loading && (
-        <div className="empty-state">
-          <User className="empty-icon" strokeWidth={1.5} />
-          <p className="empty-description">Loading profile...</p>
-        </div>
-      )}
+      {loading && <DetailPageSkeleton />}
 
       {error && <div className="badge error" style={{ marginBottom: '1rem' }}>{error}</div>}
 

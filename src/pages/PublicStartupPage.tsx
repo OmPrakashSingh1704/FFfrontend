@@ -13,6 +13,7 @@ import { PageHead } from '../components/PageHead'
 import { JsonLd } from '../components/JsonLd'
 import { StartDealRoomModal } from '../components/StartDealRoomModal'
 import { ProfilePosts } from '../components/ProfilePosts'
+import { DetailPageSkeleton } from '../components/skeletons'
 
 type PublicFounder = {
   user_id: string
@@ -217,8 +218,8 @@ export function PublicStartupPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="w-6 h-6 animate-spin" />
+      <div className="min-h-screen px-4 py-8 max-w-4xl mx-auto">
+        <DetailPageSkeleton />
       </div>
     )
   }

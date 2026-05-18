@@ -117,6 +117,6 @@ describe('DealsPage', () => {
     )
 
     renderDealsPage()
-    expect(screen.getByText(/loading deal rooms/i)).toBeInTheDocument()
+    expect(screen.getByTestId('deals-loading')).toBeInTheDocument()
   })
 })

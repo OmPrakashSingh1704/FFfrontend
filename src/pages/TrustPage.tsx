@@ -2,11 +2,11 @@ import { useEffect, useState } from 'react'
 import { apiRequest } from '../lib/api'
 import { normalizeList } from '../lib/pagination'
 import { useFeatureFlags } from '../context/FeatureFlagsContext'
+import { StatsGridSkeleton, ListRowsSkeleton } from '../components/skeletons'
 import {
   Shield,
   Star,
   Users,
-  Loader2,
   TrendingUp,
   TrendingDown,
   Minus,
@@ -80,9 +80,9 @@ export function TrustPage() {
 
       {/* Loading */}
       {loading && (
-        <div className="empty-state">
-          <Loader2 style={{ width: 24, height: 24, animation: 'spin 1s linear infinite' }} />
-          <p className="empty-description">Loading trust status...</p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+          <StatsGridSkeleton count={3} />
+          <ListRowsSkeleton count={5} />
         </div>
       )}
 

@@ -5,6 +5,7 @@ import { apiRequest } from '../lib/api'
 import { normalizeList } from '../lib/pagination'
 import { useToast } from '../context/ToastContext'
 import { useAuth } from '../context/AuthContext'
+import { ListRowsSkeleton } from '../components/skeletons'
 import type { ConnectionRequest } from '../types/connection'
 
 type UserSearchResult = {
@@ -471,11 +472,7 @@ export function ConnectionsPage() {
       )}
 
       {/* Loading */}
-      {loading && (
-        <div className="empty-state">
-          <p className="empty-description">Loading...</p>
-        </div>
-      )}
+      {loading && <ListRowsSkeleton count={5} />}
 
       {/* Error */}
       {error && (

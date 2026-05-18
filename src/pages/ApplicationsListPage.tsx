@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { FileText, ArrowRight, Wallet } from 'lucide-react'
 import { apiRequest } from '../lib/api'
 import { Pagination } from '../components/Pagination'
+import { FundGridSkeleton } from '../components/skeletons'
 import type { ApplicationListItem } from '../types/application'
 
 const PAGE_SIZE = 20
@@ -63,7 +64,7 @@ export function ApplicationsListPage() {
         </Link>
       </header>
 
-      {loading ? <div className="page-loader">Loading applications...</div> : null}
+      {loading ? <FundGridSkeleton count={6} /> : null}
       {error ? <div className="form-error">{error}</div> : null}
 
       {!loading && !error ? (

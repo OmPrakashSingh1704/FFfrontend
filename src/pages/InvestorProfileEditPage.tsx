@@ -9,6 +9,7 @@ import { useToast } from '../context/ToastContext'
 import { FormField } from '../components/FormField'
 import { LocationInput } from '../components/LocationInput'
 import { hasErrors, validateRequired } from '../lib/forms'
+import { FormSkeleton } from '../components/skeletons'
 
 const INVESTOR_TYPE_OPTIONS = ['angel', 'vc', 'micro_vc', 'fund', 'family_office', 'corporate_vc', 'accelerator', 'syndicate']
 const INVESTOR_TYPE_LABELS: Record<string, string> = {
@@ -201,8 +202,8 @@ export function InvestorProfileEditPage() {
 
   if (loading) {
     return (
-      <div className="page-loading">
-        <Loader2 className="w-6 h-6 animate-spin" />
+      <div style={{ maxWidth: 700, margin: '0 auto' }}>
+        <FormSkeleton fields={6} />
       </div>
     )
   }

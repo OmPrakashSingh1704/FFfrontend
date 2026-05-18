@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
-import { BarChart3, Activity, Users, MessageSquare, Zap, TrendingUp, ArrowUp, ArrowDown, Loader2 } from 'lucide-react'
+import { BarChart3, Activity, Users, MessageSquare, Zap, TrendingUp, ArrowUp, ArrowDown } from 'lucide-react'
 import { apiRequest } from '../lib/api'
+import { StatsGridSkeleton, Skeleton } from '../components/skeletons'
 
 type OverviewMetrics = {
   period_days: number
@@ -275,12 +276,7 @@ export function AnalyticsPage() {
       </div>
 
       {/* Loading */}
-      {loading && (
-        <div className="empty-state">
-          <Loader2 style={{ width: 24, height: 24, animation: 'spin 1s linear infinite' }} />
-          <p className="empty-description">Loading analytics...</p>
-        </div>
-      )}
+      {loading && <StatsGridSkeleton count={6} />}
 
       {/* Error */}
       {error && (
@@ -546,10 +542,7 @@ export function AnalyticsPage() {
               </div>
 
               {seriesLoading ? (
-                <div className="empty-state" style={{ padding: '2rem 0' }}>
-                  <Loader2 style={{ width: 20, height: 20, animation: 'spin 1s linear infinite' }} />
-                  <p className="empty-description">Loading metric data...</p>
-                </div>
+                <Skeleton className="h-24 w-full" />
               ) : (
                 <>
                   <div style={{ marginBottom: '1rem' }}>

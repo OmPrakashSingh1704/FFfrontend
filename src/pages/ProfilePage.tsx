@@ -10,6 +10,7 @@ import { normalizeList } from '../lib/pagination'
 import { FormField } from '../components/FormField'
 import { LocationInput } from '../components/LocationInput'
 import { IndustrySelect } from '../components/IndustrySelect'
+import { FormSkeleton, FundCardSkeleton, ListRowsSkeleton } from '../components/skeletons'
 import {
   User,
   Mail,
@@ -1037,9 +1038,7 @@ export function ProfilePage() {
           {/* ── Founder Profile Form ── */}
           {profileTab === 'founder' && (
             founderLoading ? (
-              <div style={{ display: 'flex', justifyContent: 'center', padding: '2rem' }}>
-                <Loader2 className="w-5 h-5 animate-spin" />
-              </div>
+              <FormSkeleton fields={5} />
             ) : (founderIsNew && !showFounderForm) ? (
               <div
                 data-testid="founder-profile-empty-state"
@@ -1175,9 +1174,7 @@ export function ProfilePage() {
           {/* ── Investor Profile Form ── */}
           {profileTab === 'investor' && (
             investorLoading ? (
-              <div style={{ display: 'flex', justifyContent: 'center', padding: '2rem' }}>
-                <Loader2 className="w-5 h-5 animate-spin" />
-              </div>
+              <FormSkeleton fields={5} />
             ) : (investorIsNew && !showInvestorForm) ? (
               <div
                 data-testid="investor-profile-empty-state"
@@ -1414,9 +1411,9 @@ export function ProfilePage() {
         </div>
 
         {loadingStartups ? (
-          <div className="empty-state" style={{ paddingTop: '2rem', paddingBottom: '2rem' }}>
-            <Loader2 size={20} className="animate-spin" style={{ color: 'hsl(var(--muted-foreground))' }} />
-            <span className="empty-description">Loading startups...</span>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+            <FundCardSkeleton />
+            <FundCardSkeleton />
           </div>
         ) : myStartups.length === 0 ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
@@ -1631,10 +1628,7 @@ export function ProfilePage() {
 
                       {/* Docs list */}
                       {isLoadingThis ? (
-                        <div className="empty-state" style={{ padding: '1rem 0' }}>
-                          <Loader2 size={16} className="animate-spin" style={{ color: 'hsl(var(--muted-foreground))' }} />
-                          <span className="empty-description">Loading documents...</span>
-                        </div>
+                        <ListRowsSkeleton count={3} />
                       ) : docs.length === 0 ? (
                         <div className="empty-state" style={{ padding: '1rem 0' }}>
                           <span className="empty-description">No documents yet. Upload a pitch deck to get started.</span>

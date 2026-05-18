@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowLeft, FileText, Search } from 'lucide-react'
+import { ArrowLeft, Search } from 'lucide-react'
 import { apiRequest } from '../lib/api'
 import { normalizeList, type PaginatedResponse } from '../lib/pagination'
+import { TableRowsSkeleton } from '../components/skeletons'
 import type { ApplicationListItem } from '../types/application'
 
 const statusOptions = [
@@ -155,12 +156,7 @@ export function AdminApplicationsPage() {
         </div>
       </div>
 
-      {loading && (
-        <div className="empty-state">
-          <FileText className="empty-icon" strokeWidth={1.5} />
-          <p className="empty-description">Loading applications...</p>
-        </div>
-      )}
+      {loading && <TableRowsSkeleton rows={6} cols={5} />}
       {error && <div className="empty-state"><p className="empty-description" style={{ color: '#ef4444' }}>{error}</p></div>}
 
       {!loading && !error && (

@@ -4,6 +4,7 @@ import { apiRequest } from '../lib/api'
 import { normalizeList } from '../lib/pagination'
 import { useToast } from '../context/ToastContext'
 import { useFeatureFlags } from '../context/FeatureFlagsContext'
+import { StatsGridSkeleton, ListRowsSkeleton } from '../components/skeletons'
 import type { RespectReceived, RespectGiven } from '../types/respect'
 import type { PublicUser } from '../types/founder'
 
@@ -248,8 +249,12 @@ export function RespectPage() {
 
       {/* Loading / Error */}
       {loading ? (
-        <div className="empty-state">
-          <p className="empty-description">Loading respect...</p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <StatsGridSkeleton count={2} />
+          <div className="grid-2">
+            <ListRowsSkeleton count={3} />
+            <ListRowsSkeleton count={3} />
+          </div>
         </div>
       ) : null}
 

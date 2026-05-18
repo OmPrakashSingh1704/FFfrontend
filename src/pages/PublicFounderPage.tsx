@@ -1,7 +1,7 @@
 import { useEffect, useState, type CSSProperties } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
-  Loader2, Linkedin, Twitter, Globe, MapPin, TrendingUp, UserPlus, UserCheck,
+  Linkedin, Twitter, Globe, MapPin, TrendingUp, UserPlus, UserCheck,
   MessageCircle, Handshake, Users, Calendar, BadgeCheck, Building2, Rocket,
 } from 'lucide-react'
 import { apiRequest } from '../lib/api'
@@ -13,6 +13,7 @@ import { PageHead } from '../components/PageHead'
 import { JsonLd } from '../components/JsonLd'
 import { StartDealRoomModal } from '../components/StartDealRoomModal'
 import { ProfilePosts } from '../components/ProfilePosts'
+import { DetailPageSkeleton } from '../components/skeletons'
 
 type PublicFounder = {
   id: string
@@ -162,8 +163,8 @@ export function PublicFounderPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="w-6 h-6 animate-spin" />
+      <div className="min-h-screen px-4 py-8 max-w-4xl mx-auto">
+        <DetailPageSkeleton />
       </div>
     )
   }

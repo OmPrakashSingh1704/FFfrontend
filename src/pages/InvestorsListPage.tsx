@@ -9,6 +9,7 @@ import { useToast } from '../context/ToastContext'
 import { useAuth } from '../context/AuthContext'
 import { fetchConnectionStatuses, type ConnectionStatus } from '../lib/connections'
 import { buildProfileUrl } from '../lib/slugId'
+import { ProfileGridSkeleton } from '../components/skeletons'
 import type { InvestorProfile } from '../types/investor'
 
 const PAGE_SIZE = 20
@@ -160,12 +161,7 @@ export function InvestorsListPage() {
         )}
       </div>
 
-      {loading && (
-        <div className="empty-state">
-          <TrendingUp className="empty-icon" strokeWidth={1.5} />
-          <p className="empty-description">Loading investors...</p>
-        </div>
-      )}
+      {loading && <ProfileGridSkeleton count={6} />}
 
       {error && <div className="badge error" style={{ marginBottom: '1rem' }}>{error}</div>}
 

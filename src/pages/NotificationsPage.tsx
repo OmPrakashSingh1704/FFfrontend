@@ -20,6 +20,7 @@ import {
 } from 'lucide-react'
 import { apiRequest } from '../lib/api'
 import { useToast } from '../context/ToastContext'
+import { ListRowsSkeleton } from '../components/skeletons'
 import type { NotificationItem } from '../types/notification'
 
 const PAGE_SIZE = 30
@@ -208,12 +209,7 @@ export function NotificationsPage() {
         )}
       </div>
 
-      {loading && (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', padding: '3rem 0', color: 'hsl(var(--muted-foreground))' }}>
-          <Loader2 className="w-5 h-5 animate-spin" />
-          <span>Loading notifications...</span>
-        </div>
-      )}
+      {loading && <ListRowsSkeleton count={6} />}
 
       {error && (
         <div className="card" style={{ textAlign: 'center', padding: '2rem', color: '#ef4444', fontSize: '0.875rem' }}>

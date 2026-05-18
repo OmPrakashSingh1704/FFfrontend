@@ -13,6 +13,7 @@ import { addActiveCallId } from '../lib/callSession'
 import { Markdown } from '../components/Markdown'
 import { MarkdownTextarea } from '../components/MarkdownTextarea'
 import { cn } from '../lib/cn'
+import { ChatThreadsSkeleton } from '../components/skeletons'
 import type { ChatAttachment, ChatConversation, ChatMessage, ChatParticipant } from '../types/chat'
 import type { CallSession } from '../types/call'
 
@@ -928,7 +929,7 @@ export function ChatPage() {
 
           <div className="flex-1 overflow-y-auto">
             {loading ? (
-              <div className="p-4 text-xs" style={{ color: 'hsl(var(--muted-foreground))' }}>Loading...</div>
+              <ChatThreadsSkeleton count={6} />
             ) : filteredConversations.length === 0 ? (
               <div className="p-4 text-center">
                 <p className="text-xs" style={{ color: 'hsl(var(--muted-foreground))' }}>No conversations yet.</p>

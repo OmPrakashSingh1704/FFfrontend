@@ -6,6 +6,7 @@ import { normalizeList } from '../lib/pagination'
 import { formatLabel } from '../lib/format'
 import { useToast } from '../context/ToastContext'
 import { Pagination } from '../components/Pagination'
+import { FundGridSkeleton, ListRowsSkeleton } from '../components/skeletons'
 import type { FundListItem } from '../types/fund'
 
 const PAGE_SIZE = 20
@@ -394,12 +395,7 @@ export function FundsListPage() {
             )}
           </div>
 
-          {fundsLoading && (
-            <div className="empty-state">
-              <Wallet className="empty-icon" strokeWidth={1.5} />
-              <p className="empty-description">Loading funds...</p>
-            </div>
-          )}
+          {fundsLoading && <FundGridSkeleton count={6} />}
           {fundsError && <div className="badge error" style={{ marginBottom: '1rem' }}>{fundsError}</div>}
           {!fundsLoading && !fundsError && funds.length === 0 && (
             <div className="empty-state">
@@ -558,12 +554,7 @@ export function FundsListPage() {
             </button>
           </div>
 
-          {benefitsLoading && (
-            <div className="empty-state">
-              <Gift className="empty-icon" strokeWidth={1.5} />
-              <p className="empty-description">Loading benefits...</p>
-            </div>
-          )}
+          {benefitsLoading && <ListRowsSkeleton count={5} />}
           {benefitsError && <div className="badge error" style={{ marginBottom: '1rem' }}>{benefitsError}</div>}
           {!benefitsLoading && !benefitsError && filtered.length === 0 && (
             <div className="empty-state">

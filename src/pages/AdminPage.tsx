@@ -4,6 +4,7 @@ import { Users, Rocket, Briefcase, ArrowRightLeft, Coins, ShieldCheck, RefreshCw
 import { apiRequest } from '../lib/api'
 import { normalizeList } from '../lib/pagination'
 import { useToast } from '../context/ToastContext'
+import { StatsGridSkeleton } from '../components/skeletons'
 
 type AdminStats = {
   users: {
@@ -230,12 +231,7 @@ export function AdminPage() {
         </div>
       </div>
 
-      {loading && (
-        <div className="empty-state">
-          <Users className="empty-icon" strokeWidth={1.5} />
-          <p className="empty-description">Loading admin data...</p>
-        </div>
-      )}
+      {loading && <StatsGridSkeleton count={6} />}
       {error && <div className="empty-state"><p className="empty-description" style={{ color: '#ef4444' }}>{error}</p></div>}
 
       {!loading && !error && (

@@ -3,6 +3,7 @@ import { useLocation } from 'react-router-dom'
 import { Plus, Send, X, ExternalLink, ArrowRight, Clock, Calendar } from 'lucide-react'
 import { apiRequest } from '../lib/api'
 import { normalizeList } from '../lib/pagination'
+import { ListRowsSkeleton } from '../components/skeletons'
 import { useToast } from '../context/ToastContext'
 import { useFeatureFlags } from '../context/FeatureFlagsContext'
 import { useAuth } from '../context/AuthContext'
@@ -347,8 +348,8 @@ export function IntrosPage() {
 
       {/* Loading / Error */}
       {loading ? (
-        <div className="empty-state" data-testid="intros-loading">
-          <p className="empty-description">Loading intros...</p>
+        <div data-testid="intros-loading">
+          <ListRowsSkeleton count={5} />
         </div>
       ) : null}
 

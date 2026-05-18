@@ -4,7 +4,8 @@ import { apiRequest } from '../lib/api'
 import { normalizeList } from '../lib/pagination'
 import { useToast } from '../context/ToastContext'
 import { useAuth } from '../context/AuthContext'
-import { Handshake, ArrowRight, Loader2, Settings, Clock, Inbox, Send } from 'lucide-react'
+import { Handshake, ArrowRight, Settings, Clock, Inbox, Send } from 'lucide-react'
+import { ListRowsSkeleton } from '../components/skeletons'
 import type { DealRoomListItem, InterestExpression } from '../types/deals'
 
 const STATUS_COLORS: Record<string, string> = {
@@ -118,9 +119,8 @@ export function DealsPage() {
       </div>
 
       {loading ? (
-        <div className="empty-state" style={{ paddingTop: '4rem' }}>
-          <Loader2 size={24} className="animate-spin" style={{ color: 'hsl(var(--muted-foreground))' }} />
-          <span className="empty-description">Loading deal rooms...</span>
+        <div data-testid="deals-loading">
+          <ListRowsSkeleton count={5} />
         </div>
       ) : (
         <>

@@ -36,7 +36,6 @@ import {
   Target,
   Globe,
   User,
-  Wallet,
   Send,
   Bookmark,
   BookmarkCheck,
@@ -48,6 +47,7 @@ import { formatLabel } from '../lib/format'
 import { normalizeList } from '../lib/pagination'
 import { Markdown } from '../components/Markdown'
 import { useToast } from '../context/ToastContext'
+import { DetailPageSkeleton } from '../components/skeletons'
 import type { FundDetail } from '../types/fund'
 
 const PENDING_APPLY_KEY = 'ff_pending_apply'
@@ -242,12 +242,7 @@ export function FundDetailPage() {
         Back to Funds
       </Link>
 
-      {loading && (
-        <div className="empty-state">
-          <Wallet className="empty-icon" strokeWidth={1.5} />
-          <p className="empty-description">Loading fund...</p>
-        </div>
-      )}
+      {loading && <DetailPageSkeleton />}
 
       {error && <div className="badge error" style={{ marginBottom: '1rem' }}>{error}</div>}
 

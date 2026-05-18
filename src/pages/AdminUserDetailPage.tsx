@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, Save, User, ShieldCheck, ShieldOff, Trash2 } from 'lucide-react'
+import { ArrowLeft, Save, ShieldCheck, ShieldOff, Trash2 } from 'lucide-react'
 import { apiRequest } from '../lib/api'
 import { useToast } from '../context/ToastContext'
+import { DetailPageSkeleton } from '../components/skeletons'
 
 type AdminUser = {
   id: string
@@ -151,12 +152,7 @@ export function AdminUserDetailPage() {
         Back to Admin
       </button>
 
-      {loading && (
-        <div className="empty-state">
-          <User className="empty-icon" strokeWidth={1.5} />
-          <p className="empty-description">Loading user...</p>
-        </div>
-      )}
+      {loading && <DetailPageSkeleton />}
       {error && <div className="empty-state"><p className="empty-description" style={{ color: '#ef4444' }}>{error}</p></div>}
 
       {!loading && user && (

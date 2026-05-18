@@ -4,6 +4,7 @@ import { Search, ArrowRight, Users, Briefcase, TrendingUp, Wallet } from 'lucide
 import { apiRequest } from '../lib/api'
 import { normalizeList } from '../lib/pagination'
 import { buildProfileUrl } from '../lib/slugId'
+import { ListRowsSkeleton } from '../components/skeletons'
 
 type BackendSearchResult = {
   id: string
@@ -421,11 +422,7 @@ export function SearchPage() {
         </div>
       )}
 
-      {showDiscover && discoverLoading && (
-        <div className="text-center py-12">
-          <p className="text-sm" style={{ color: 'hsl(var(--muted-foreground))' }}>Loading discover content...</p>
-        </div>
-      )}
+      {showDiscover && discoverLoading && <ListRowsSkeleton count={6} />}
     </section>
   )
 }

@@ -7,10 +7,10 @@ import {
   Star,
   Trophy,
   Clock,
-  Loader2,
   ChevronRight,
   Award,
 } from 'lucide-react'
+import { TableRowsSkeleton } from '../components/skeletons'
 
 type CreditHistoryItem = {
   id: string
@@ -126,10 +126,7 @@ export function BillingPage() {
         </div>
 
         {loadingLeagues ? (
-          <div className="empty-state" style={{ padding: '2rem 0' }}>
-            <Loader2 style={{ width: 20, height: 20, animation: 'spin 1s linear infinite' }} />
-            <p className="empty-description">Loading leagues...</p>
-          </div>
+          <TableRowsSkeleton rows={4} cols={4} />
         ) : leagues.length === 0 ? (
           <div className="empty-state" style={{ padding: '2rem 0' }}>
             <Trophy className="empty-icon" />
@@ -189,10 +186,7 @@ export function BillingPage() {
         </div>
 
         {loadingHistory ? (
-          <div className="empty-state" style={{ padding: '2rem 0' }}>
-            <Loader2 style={{ width: 20, height: 20, animation: 'spin 1s linear infinite' }} />
-            <p className="empty-description">Loading history...</p>
-          </div>
+          <TableRowsSkeleton rows={5} cols={3} />
         ) : creditHistory.length === 0 ? (
           <div className="empty-state">
             <Clock className="empty-icon" />

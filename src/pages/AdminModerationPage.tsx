@@ -4,6 +4,7 @@ import { ArrowLeft, Shield, Pin, PinOff, Trash2, UserCog, Landmark, FileText } f
 import { apiRequest } from '../lib/api'
 import { normalizeList } from '../lib/pagination'
 import { useToast } from '../context/ToastContext'
+import { TableRowsSkeleton } from '../components/skeletons'
 import type { FeedEvent } from '../types/feed'
 
 const applicationStatuses = [
@@ -169,12 +170,7 @@ export function AdminModerationPage() {
 
           {eventTypesError && <p style={{ color: '#ef4444', fontSize: '0.875rem', padding: '0 1rem' }}>{eventTypesError}</p>}
 
-          {feedLoading && (
-            <div className="empty-state" style={{ padding: '2rem 0' }}>
-              <Shield className="empty-icon" strokeWidth={1.5} />
-              <p className="empty-description">Loading feed events...</p>
-            </div>
-          )}
+          {feedLoading && <TableRowsSkeleton rows={6} cols={4} />}
           {feedError && <div className="empty-state" style={{ padding: '2rem 0' }}><p className="empty-description" style={{ color: '#ef4444' }}>{feedError}</p></div>}
 
           {!feedLoading && !feedError && (
