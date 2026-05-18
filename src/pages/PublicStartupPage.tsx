@@ -150,6 +150,20 @@ export function PublicStartupPage() {
     return () => { cancelled = true }
   }, [slug])
 
+  // Canonicalize the URL after data loads: if the visitor landed on a
+  // bare-UUID or legacy-suffix URL (eg. /startups/019e2647-... from a
+  // notification deep-link or a stale bookmark), rewrite the path in
+  // place to the pretty form /startups/<slug>-<half-uuid>. Uses
+  // history.replaceState so it doesn't push a new entry — the back
+  // button still works as the user expects.
+  useEffect(() => {
+    if (!data) return
+    const canonical = buildProfileUrl('startups', data.slug || data.name, data.id)
+    if (canonical && window.location.pathname !== canonical) {
+      window.history.replaceState({}, '', canonical)
+    }
+  }, [data])
+
   // Check whether the viewer already has a pending join request. Skip if
   // they're a member (viewer_can_edit) or anon. 404 / 403 are silently
   // ignored — they just mean "no pending request" for our purposes.

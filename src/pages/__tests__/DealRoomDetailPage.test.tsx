@@ -108,8 +108,18 @@ describe('DealRoomDetailPage', () => {
 
     await waitFor(() => expect(screen.getByText(/Acme Corp/)).toBeInTheDocument())
     expect(screen.getByText(/Jane Investor/)).toBeInTheDocument()
-    expect(screen.getByTestId('workflow-canvas-stub')).toHaveAttribute('data-current', 'n1')
+    // Approval panel renders inline below the workflow mini-card.
     expect(screen.getByTestId('wf-approval-panel')).toBeInTheDocument()
+    // Canvas now lives behind the mini-card click — clicking it opens
+    // the floating workflow window where the canvas mounts. Clicking
+    // here verifies both the inline mini-card and the popup canvas
+    // wire up correctly.
+    const { default: userEvent } = await import('@testing-library/user-event')
+    const user = userEvent.setup()
+    await user.click(screen.getByTestId('workflow-mini-card'))
+    await waitFor(() =>
+      expect(screen.getByTestId('workflow-canvas-stub')).toHaveAttribute('data-current', 'n1'),
+    )
   })
 
   it('shows NDA section for non-signed NDA', async () => {

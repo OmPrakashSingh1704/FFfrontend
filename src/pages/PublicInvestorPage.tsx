@@ -106,6 +106,16 @@ export function PublicInvestorPage() {
     return () => { cancelled = true }
   }, [slug])
 
+  // Canonicalize the URL after data loads so visitors arriving via a
+  // bare-UUID URL get bumped to /investors/<slug>-investor-<half-uuid>.
+  useEffect(() => {
+    if (!data) return
+    const canonical = buildProfileUrl('investors', data.display_name, data.id)
+    if (canonical && window.location.pathname !== canonical) {
+      window.history.replaceState({}, '', canonical)
+    }
+  }, [data])
+
   // Pre-populate Connect button state for authed viewers
   useEffect(() => {
     const targetUserId = data?.user?.id

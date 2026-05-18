@@ -130,6 +130,20 @@ export function PublicFounderPage() {
     return () => { cancelled = true }
   }, [slug])
 
+  // Canonicalize the URL once we know the founder's name. Visitors
+  // arriving via /founders/<bare-uuid> (from a notification deep-link
+  // or stale bookmark) get bumped to /founders/<slug>-founder-<half-uuid>
+  // via history.replaceState — no new history entry, back button stays
+  // intuitive.
+  useEffect(() => {
+    if (!data) return
+    const display = data.user?.full_name ?? data.slug
+    const canonical = buildProfileUrl('founders', display, data.id)
+    if (canonical && window.location.pathname !== canonical) {
+      window.history.replaceState({}, '', canonical)
+    }
+  }, [data])
+
   // Pre-populate the Connect button state once we know who we're viewing.
   useEffect(() => {
     const targetUserId = data?.user?.id

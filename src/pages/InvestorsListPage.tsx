@@ -186,7 +186,7 @@ export function InvestorsListPage() {
                   key={investor.id}
                   to={buildProfileUrl(
                     'investors',
-                    [investor.fund_name, investor.display_name].filter(Boolean).join(' ') || investor.user?.full_name,
+                    investor.display_name || investor.user?.full_name,
                     investor.id,
                   )}
                   className="card"

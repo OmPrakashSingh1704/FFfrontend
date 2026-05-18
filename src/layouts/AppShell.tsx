@@ -3,7 +3,7 @@ import {
   Home, Users, Briefcase, TrendingUp, MessageSquare, Bell,
   BarChart3, Settings, Search, FileText,
   Activity, Wallet, Menu, X, Zap, Handshake, ClipboardList, UserCheck, Send,
-  Upload
+  Upload, UserPlus
 } from 'lucide-react'
 import { useState, useEffect, useCallback } from 'react'
 import { Helmet } from 'react-helmet-async'
@@ -39,6 +39,7 @@ const navSections = [
       { path: '/app/startups', label: 'Startups', icon: Briefcase },
       { path: '/app/funds', label: 'Funds', icon: Wallet },
       { path: '/app/connections', label: 'Connections', icon: UserCheck },
+      { path: '/app/invitations', label: 'Invitations', icon: UserPlus },
     ],
   },
   {

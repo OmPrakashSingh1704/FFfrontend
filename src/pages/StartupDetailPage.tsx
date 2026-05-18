@@ -32,6 +32,7 @@ import type { FounderProfile } from '../types/founder'
 import type { PaginatedResponse } from '../lib/pagination'
 import { EditStartupModal } from './EditStartupModal'
 import { DetailPageSkeleton } from '../components/skeletons'
+import { StartupInviteModal } from '../components/StartupInviteModal'
 
 const DOC_TYPE_LABELS: Record<string, string> = {
   pitch_deck: 'Pitch Deck',
@@ -110,6 +111,23 @@ export function StartupDetailPage() {
   const [joinRequests, setJoinRequests] = useState<JoinRequest[]>([])
   const [reviewingId, setReviewingId] = useState<string | null>(null)
 
+  // Outgoing invitations (Flow A) — invitations this startup has sent
+  // that are still pending. Visible to existing members only. The
+  // "Invite member" button in the Team section header opens the modal
+  // that POSTs to /founders/startups/<id>/invite/.
+  type OutgoingInvitation = {
+    id: string
+    invitee_name?: string
+    invitee_email?: string
+    role: string
+    status: string
+    message?: string
+    created_at?: string
+  }
+  const [outgoingInvitations, setOutgoingInvitations] = useState<OutgoingInvitation[]>([])
+  const [showInviteModal, setShowInviteModal] = useState(false)
+  const [cancellingInviteId, setCancellingInviteId] = useState<string | null>(null)
+
   // Approve modal state
   const [approveModal, setApproveModal] = useState<{ requestId: string; name: string } | null>(null)
   const [approveRole, setApproveRole] = useState('employee')
@@ -131,6 +149,43 @@ export function StartupDetailPage() {
       })
       .catch(() => {})
   }, [isMember, startup?.id])
+
+  // Outgoing invitations — fetched in the same gate as join requests.
+  // We filter client-side to pending status so cancelled/declined/expired
+  // rows don't clutter the list — those are visible in an audit-history
+  // view that doesn't exist yet (out of scope here).
+  const refreshOutgoingInvitations = useCallback(async () => {
+    if (!isMember || !startup) return
+    try {
+      const data = await apiRequest<{ results?: OutgoingInvitation[] } | OutgoingInvitation[]>(
+        `/founders/startups/${startup.id}/invitations/`,
+      )
+      const results = Array.isArray(data) ? data : data.results ?? []
+      setOutgoingInvitations(results.filter((inv) => inv.status === 'pending'))
+    } catch {
+      // Silent failure — the section just stays empty.
+    }
+  }, [isMember, startup?.id])
+
+  useEffect(() => {
+    void refreshOutgoingInvitations()
+  }, [refreshOutgoingInvitations])
+
+  const handleCancelInvitation = async (invitationId: string) => {
+    if (!startup) return
+    setCancellingInviteId(invitationId)
+    try {
+      await apiRequest(`/founders/startups/${startup.id}/invitations/${invitationId}/`, {
+        method: 'DELETE',
+      })
+      setOutgoingInvitations((prev) => prev.filter((i) => i.id !== invitationId))
+      pushToast('Invitation cancelled', 'success')
+    } catch {
+      pushToast('Failed to cancel invitation', 'error')
+    } finally {
+      setCancellingInviteId(null)
+    }
+  }
 
   const handleApprove = async () => {
     if (!startup || !approveModal) return
@@ -968,6 +1023,43 @@ export function StartupDetailPage() {
             </div>
           )}
 
+          {/* Outgoing Invitations (members only) — pending invitations
+              this startup has sent. Each row has a Cancel button that
+              DELETEs the invitation, flipping its status to 'cancelled'
+              server-side. */}
+          {isMember && outgoingInvitations.length > 0 && (
+            <div className="section">
+              <div className="card">
+                <div className="section-label" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <UserPlus style={{ width: '0.875rem', height: '0.875rem' }} strokeWidth={1.5} />
+                  Pending invitations
+                  <span className="badge info" style={{ fontSize: '0.7rem' }}>{outgoingInvitations.length}</span>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.5rem' }}>
+                  {outgoingInvitations.map((inv) => (
+                    <div key={inv.id} className="list-item" data-testid={`outgoing-invitation-${inv.id}`}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontWeight: 500, fontSize: '0.875rem' }}>{inv.invitee_name ?? inv.invitee_email ?? 'Unknown'}</div>
+                        <div style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))' }}>
+                          {formatLabel(inv.role)}{inv.message ? ` · "${inv.message}"` : ''}
+                        </div>
+                      </div>
+                      <button
+                        className="btn-sm ghost"
+                        disabled={cancellingInviteId === inv.id}
+                        onClick={() => void handleCancelInvitation(inv.id)}
+                        data-testid={`cancel-invitation-${inv.id}`}
+                        style={{ color: '#ef4444', flexShrink: 0 }}
+                      >
+                        {cancellingInviteId === inv.id ? <Loader2 size={12} className="animate-spin" /> : 'Cancel'}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Team Members */}
           {(startup.members ?? []).length > 0 && (
             <div className="section">
@@ -976,6 +1068,20 @@ export function StartupDetailPage() {
                   <Users style={{ width: '0.875rem', height: '0.875rem' }} strokeWidth={1.5} />
                   Team
                   <span className="badge">{startup.members!.length}</span>
+                  {/* "Invite member" button is visible only to existing
+                      members. The backend enforces the same rule, but
+                      hiding it client-side is cleaner UX. */}
+                  {isMember && (
+                    <button
+                      type="button"
+                      className="btn-sm ghost"
+                      onClick={() => setShowInviteModal(true)}
+                      data-testid="invite-member-btn"
+                      style={{ marginLeft: 'auto', fontSize: '0.6875rem', display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                    >
+                      <UserPlus size={12} strokeWidth={1.5} /> Invite
+                    </button>
+                  )}
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem', marginTop: '0.5rem' }}>
                   {startup.members!.map((m) => (
@@ -1301,6 +1407,21 @@ export function StartupDetailPage() {
           onSave={(updated) => {
             setStartup(updated)
             setShowEditStartupModal(false)
+          }}
+        />
+      )}
+
+      {/* Invite Member Modal (Flow A) — opens from the Team section
+          header button. On success, refreshes the outgoing invitations
+          list so the new pending row appears immediately. */}
+      {showInviteModal && startup && (
+        <StartupInviteModal
+          startupId={startup.id}
+          startupName={startup.name}
+          onClose={() => setShowInviteModal(false)}
+          onSent={() => {
+            setShowInviteModal(false)
+            void refreshOutgoingInvitations()
           }}
         />
       )}
