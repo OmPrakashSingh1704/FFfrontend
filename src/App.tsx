@@ -45,8 +45,10 @@ const AdminModerationPage = lazyPage(() => import('./pages/AdminModerationPage')
 const AdminUserDetailPage = lazyPage(() => import('./pages/AdminUserDetailPage'), 'AdminUserDetailPage')
 const AdminFundsPage = lazyPage(() => import('./pages/AdminFundsPage'), 'AdminFundsPage')
 const AdminApplicationsPage = lazyPage(() => import('./pages/AdminApplicationsPage'), 'AdminApplicationsPage')
+const AdminCallMetricsPage = lazyPage(() => import('./pages/AdminCallMetricsPage'), 'AdminCallMetricsPage')
 const ChatPage = lazyPage(() => import('./pages/ChatPage'), 'ChatPage')
 const CallsPage = lazyPage(() => import('./pages/CallsPage'), 'CallsPage')
+const CallDeviceTestPage = lazyPage(() => import('./pages/CallDeviceTestPage'), 'CallDeviceTestPage')
 const SearchPage = lazyPage(() => import('./pages/SearchPage'), 'SearchPage')
 const InvestorsListPage = lazyPage(() => import('./pages/InvestorsListPage'), 'InvestorsListPage')
 // InvestorDetailPage retired — see /investors/:slugId via PublicInvestorPage.
@@ -283,6 +285,14 @@ function App() {
               }
             />
             <Route
+              path="/app/admin/calls/metrics"
+              element={
+                <ProtectedRoute>
+                  <AdminCallMetricsPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
               path="/app/invitations"
               element={
                 <ProtectedRoute>
@@ -311,6 +321,14 @@ function App() {
               element={
                 <ProtectedRoute>
                   <CallsPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/app/calls/test"
+              element={
+                <ProtectedRoute>
+                  <CallDeviceTestPage />
                 </ProtectedRoute>
               }
             />

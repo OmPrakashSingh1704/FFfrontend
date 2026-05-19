@@ -12,6 +12,7 @@ import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 import type { CallSession } from '../types/call'
 import { ListRowsSkeleton } from '../components/skeletons'
+import { CallReconnectingOverlay } from '../components/CallReconnectingOverlay'
 
 /**
  * Calls page — destination view for an active call + a clean history list.
@@ -242,6 +243,7 @@ export function CallsPage() {
               overflow: 'hidden',
             }}
           >
+            <CallReconnectingOverlay />
             {remoteStream ? (
               <video
                 ref={remoteVideoRef}

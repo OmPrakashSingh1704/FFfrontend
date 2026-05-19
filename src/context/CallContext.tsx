@@ -4,6 +4,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useReducer,
   useRef,
   useState,
 } from 'react'
@@ -12,6 +13,13 @@ import { apiRequest } from '../lib/api'
 import { addActiveCallId, removeActiveCallId } from '../lib/callSession'
 import { buildWsUrl } from '../lib/ws'
 import { getTokens } from '../lib/tokenStorage'
+import {
+  INITIAL_STATE as INITIAL_ICE_STATE,
+  MAX_RECONNECT_ATTEMPTS,
+  type IceMachineState,
+  iceStateReducer,
+} from '../lib/iceStateMachine'
+import { collectCallQualityStats, sendCallQualityBeacon } from '../lib/callQuality'
 import { useWebSocket } from '../hooks/useWebSocket'
 import { useAuth } from './AuthContext'
 import { useToast } from './ToastContext'
@@ -38,6 +46,11 @@ interface CallContextValue {
   wsStatus: string
   initiatorId: string | null
   lastMessage: MessageEvent | null
+  // ICE reconnect state — drives the "Reconnecting..." overlay rendered by
+  // CallsPage and FloatingCallWidget. See src/lib/iceStateMachine.ts for
+  // the state-machine reference.
+  iceState: IceMachineState
+  maxReconnectAttempts: number
   setActiveCall: (call: CallSession | null) => void
   setInitiatorId: (id: string | null) => void
   sendJson: (data: unknown) => void
@@ -77,10 +90,19 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
   // exactly this race.
   const [peerJoined, setPeerJoined] = useState(false)
 
+  // ICE reconnect state machine — runs in parallel with activeCall but is
+  // reset between calls. See src/lib/iceStateMachine.ts.
+  const [iceState, dispatchIce] = useReducer(iceStateReducer, INITIAL_ICE_STATE)
+
   const pcRef = useRef<RTCPeerConnection | null>(null)
   const screenStreamRef = useRef<MediaStream | null>(null)
   const offerInProgress = useRef(false)
   const lastMessageRef = useRef<string | null>(null)
+  // Timing for the quality beacon. pcCreatedAt is set in ensurePeerConnection;
+  // connectedAt is set when iceConnectionState first reaches 'connected'.
+  // Both fed into collectCallQualityStats() on endCall.
+  const pcCreatedAtRef = useRef<number | null>(null)
+  const connectedAtRef = useRef<number | null>(null)
   // ICE candidates that arrived before the peer connection had a remote
   // description. addIceCandidate rejects in that state, so without this
   // buffer the candidates are lost forever — fatal on symmetric NAT where
@@ -167,6 +189,10 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
         iceServers?.length ? { iceServers: iceServers as RTCIceServer[] } : undefined,
       )
       console.info('[call] pc created', { target: targetUserId, iceServers: iceServers?.length ?? 0 })
+      // Stamp creation time for the quality beacon. connectedAt is filled
+      // in by oniceconnectionstatechange below.
+      pcCreatedAtRef.current = Date.now()
+      connectedAtRef.current = null
       pc.onicecandidate = (event) => {
         if (!event.candidate || !activeCall?.call_id) return
         sendJson({
@@ -178,6 +204,25 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
       }
       pc.oniceconnectionstatechange = () => {
         console.info('[call] iceConnectionState ->', pc.iceConnectionState)
+        // Capture first 'connected' for ice_setup_ms in the quality beacon.
+        // Don't overwrite on later reconnects — the metric is "time to
+        // first connection", not "time to most recent".
+        if (
+          (pc.iceConnectionState === 'connected' ||
+            pc.iceConnectionState === 'completed') &&
+          connectedAtRef.current == null
+        ) {
+          connectedAtRef.current = Date.now()
+        }
+        // Feed state changes into the reconnect machine. The reducer decides
+        // whether this triggers a reconnect attempt, recovery, or terminal
+        // failure. Side effects (pc.restartIce, endCall) live in the effect
+        // below so they react to dispatched state, not raw events.
+        dispatchIce({
+          type: 'state',
+          value: pc.iceConnectionState,
+          now: Date.now(),
+        })
       }
       pc.onconnectionstatechange = () => {
         console.info('[call] connectionState ->', pc.connectionState)
@@ -214,6 +259,16 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
     },
     [activeCall?.call_id, activeCall?.ice_servers, sendJson],
   )
+
+  // Ref-stable handle for endCall, used by the ICE side-effect below.
+  // The effect needs endCall but endCall is declared further down; using
+  // a ref breaks the temporal dead zone without having to re-architect
+  // the file.
+  const endCallRef = useRef<() => Promise<void>>(() => Promise.resolve())
+
+  // Tracks the last attempt counter we acted on. Prevents firing
+  // pc.restartIce() on every render of the reconnecting state.
+  const lastIceAttemptRef = useRef(0)
 
   // ── Controls ──────────────────────────────────────────────────────
 
@@ -274,6 +329,28 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
   const endCall = useCallback(async () => {
     const call = activeCall
     if (!call) return
+
+    // Flush the quality beacon BEFORE cleanupMedia() closes the peer
+    // connection. Once pc is closed, getStats() returns nothing useful.
+    // The beacon uses fetch+keepalive so it survives the immediate
+    // teardown that follows.
+    const pc = pcRef.current
+    const pcCreatedAt = pcCreatedAtRef.current
+    if (pc && pcCreatedAt != null) {
+      try {
+        const report = await collectCallQualityStats(pc, {
+          pcCreatedAt,
+          connectedAt: connectedAtRef.current,
+          endedAt: Date.now(),
+          endReason: iceState.status === 'failed' ? 'ice_failed' : 'hangup',
+        })
+        sendCallQualityBeacon(call.call_id, report)
+      } catch (err) {
+        // Quality reporting is best-effort. Never block call end.
+        console.warn('[call] quality beacon failed', err)
+      }
+    }
+
     // Optimistic local cleanup — fire BEFORE the network round-trip so the
     // call frame disappears instantly even if the backend is slow or the WS
     // is dead. If the API ends up failing the server-side row stays "active"
@@ -282,13 +359,65 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
     setInitiatorId(null)
     removeActiveCallId(call.call_id)
     cleanupMedia()
+    pcCreatedAtRef.current = null
+    connectedAtRef.current = null
     try {
       await apiRequest(`/chat/calls/${call.call_id}/end/`, { method: 'POST' })
       pushToast('Call ended', 'info')
     } catch {
       pushToast('Call ended locally — server cleanup may lag.', 'warning')
     }
-  }, [activeCall, cleanupMedia, pushToast])
+  }, [activeCall, cleanupMedia, pushToast, iceState.status])
+
+  // Keep endCallRef pointed at the latest endCall so the ICE effect below
+  // can call it without recreating the effect on every endCall change.
+  useEffect(() => {
+    endCallRef.current = endCall
+  }, [endCall])
+
+  // ── ICE reconnect side effects ────────────────────────────────────
+  //
+  // The reducer in src/lib/iceStateMachine.ts decides WHAT state we're in;
+  // this effect handles the side effects that go with each state:
+  //
+  //   reconnecting → pc.restartIce() once per attempt + tick interval
+  //   failed       → endCall() (the reducer's terminal state)
+  //
+  // Tracking `attempt` separately prevents firing restartIce() on every
+  // re-render of the reconnecting state.
+  useEffect(() => {
+    if (iceState.status === 'reconnecting') {
+      if (iceState.attempt !== lastIceAttemptRef.current) {
+        lastIceAttemptRef.current = iceState.attempt
+        const pc = pcRef.current
+        if (pc && pc.connectionState !== 'closed') {
+          try {
+            pc.restartIce()
+            console.info('[call] restartIce called (attempt', iceState.attempt, ')')
+          } catch (err) {
+            // restartIce throws if the PC is in a state that doesn't allow
+            // it (e.g. just before close). The next tick will catch us up.
+            console.warn('[call] restartIce failed', err)
+          }
+        }
+      }
+      // Tick every second so the 30s overall timeout can fire even when no
+      // browser ICE events arrive (fully offline scenario).
+      const interval = setInterval(() => {
+        dispatchIce({ type: 'tick', now: Date.now() })
+      }, 1_000)
+      return () => clearInterval(interval)
+    }
+
+    // Connected or failed — reset the attempt latch so a future
+    // reconnecting state triggers a fresh restartIce().
+    lastIceAttemptRef.current = 0
+
+    if (iceState.status === 'failed' && activeCall) {
+      console.info('[call] ICE reconnect failed permanently — ending call')
+      void endCallRef.current()
+    }
+  }, [iceState, activeCall?.call_id])
 
   // ── Incoming call ─────────────────────────────────────────────────
 
@@ -596,6 +725,8 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
         wsStatus,
         initiatorId,
         lastMessage,
+        iceState,
+        maxReconnectAttempts: MAX_RECONNECT_ATTEMPTS,
         setActiveCall,
         setInitiatorId,
         sendJson,

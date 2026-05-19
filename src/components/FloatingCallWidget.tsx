@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useLocation } from 'react-router-dom'
 import { Mic, MicOff, PhoneOff, Maximize2, Video, VideoOff, Monitor, MonitorX, GripHorizontal } from 'lucide-react'
 import { useCall } from '../context/CallContext'
+import { CallReconnectingOverlay } from './CallReconnectingOverlay'
 
 const WIDGET_WIDTH = 280
 const WIDGET_HEIGHT = 220 // approximate: 158px video + ~62px controls
@@ -136,6 +137,7 @@ export function FloatingCallWidget() {
 
       {/* Video stage */}
       <div style={{ position: 'relative', height: '158px', background: '#111' }}>
+        <CallReconnectingOverlay />
         {remoteStream ? (
           <video
             ref={remoteVideoRef}
