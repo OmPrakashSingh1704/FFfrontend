@@ -118,8 +118,11 @@ export function ChatPage() {
   const [attachments, setAttachments] = useState<ChatAttachment[]>([])
   const [conversationDetail, setConversationDetail] = useState<ChatConversation | null>(null)
   const [showNewConversation, setShowNewConversation] = useState(false)
+  // When the New Conversation modal opens we pre-load the first page of
+  // messageable users so the dropdown isn't empty until the user types.
+  // useEffect is below the handler declaration since the handler reads
+  // userQuery state — defined in the same hook block.
   const [newTitle, setNewTitle] = useState('')
-  const [newParticipants, setNewParticipants] = useState('')
   const [userQuery, setUserQuery] = useState('')
   const [userResults, setUserResults] = useState<
     Array<{ id: string; full_name: string; email?: string; avatar_url?: string; league?: string; is_online?: boolean }>
@@ -576,14 +579,9 @@ export function ChatPage() {
   }
 
   const handleCreateConversation = async () => {
-    const participants = selectedUsers.length
-      ? selectedUsers
-      : newParticipants
-          .split(',')
-          .map((value) => value.trim())
-          .filter(Boolean)
+    const participants = selectedUsers
     if (participants.length === 0) {
-      setError('Add at least one participant id.')
+      setError('Select at least one person to message.')
       return
     }
     setError(null)
@@ -599,7 +597,6 @@ export function ChatPage() {
       setConversations((prev) => [conversation, ...prev])
       setShowNewConversation(false)
       setNewTitle('')
-      setNewParticipants('')
       setSelectedUsers([])
       setUserQuery('')
       setUserResults([])
@@ -632,16 +629,28 @@ export function ChatPage() {
     }
   }
 
-  const handleSearchUsers = async () => {
-    if (!userQuery.trim()) {
-      setUserResults([])
-      return
-    }
+  // Pre-load on modal open. Doesn't refetch as the user types — they
+  // still click Search (or press Enter, wired below) to refine results.
+  useEffect(() => {
+    if (!showNewConversation) return
+    void handleSearchUsers('')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showNewConversation])
+
+  const handleSearchUsers = async (queryOverride?: string) => {
+    // Empty query → fetch the first page of messageable users so the
+    // modal opens with people already visible. Previously this returned
+    // immediately on an empty query, leaving the dropdown looking broken
+    // until the user typed AND clicked Search.
+    const trimmed = (queryOverride ?? userQuery).trim()
     setUserLoading(true)
     try {
+      const url = trimmed
+        ? `/chat/messageable-users/?search=${encodeURIComponent(trimmed)}`
+        : '/chat/messageable-users/'
       const data = await apiRequest<
         Array<{ id: string; full_name: string; email?: string; avatar_url?: string; league?: string; is_online?: boolean }>
-      >(`/chat/messageable-users/?search=${encodeURIComponent(userQuery.trim())}`)
+      >(url)
       setUserResults(data)
     } catch {
       setUserResults([])
@@ -1475,16 +1484,7 @@ export function ChatPage() {
               ))}
             </div>
             <div className="text-xs mb-3" style={{ color: 'hsl(var(--muted-foreground))' }}>
-              {selectedUsers.length ? `${selectedUsers.length} selected` : 'Or paste participant IDs below'}
-            </div>
-            <div className="form-group">
-              <label>Participant IDs (comma-separated)</label>
-              <input
-                className="input"
-                value={newParticipants}
-                onChange={(event) => setNewParticipants(event.target.value)}
-                placeholder="12, 44"
-              />
+              {selectedUsers.length ? `${selectedUsers.length} selected` : 'Pick at least one person above.'}
             </div>
             <div className="flex justify-end gap-2 mt-2">
               <button type="button" className="btn-sm ghost" onClick={() => setShowNewConversation(false)}>Cancel</button>

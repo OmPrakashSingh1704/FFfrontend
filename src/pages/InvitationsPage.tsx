@@ -27,6 +27,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
+  ArrowRight,
   Check,
   Clock,
   Gavel,
@@ -67,11 +68,24 @@ type JoinRequest = {
   requester_id?: string
   requester_name?: string
   requester_email?: string
-  role: string
+  // `role` is no longer carried on the join-request payload — the founder
+  // picks the position at approval time (see the approve modal below).
   status: string
   message?: string
   created_at?: string
 }
+
+// Same role enum the backend accepts on /members/<id>/ PATCH and on the
+// approve action. Keep in sync with StartupMember.Role in
+// ff_backend/founders/models.py.
+const MEMBER_ROLE_OPTIONS: Array<{ value: string; label: string }> = [
+  { value: 'founder', label: 'Founder' },
+  { value: 'co_founder', label: 'Co-Founder' },
+  { value: 'executive', label: 'Executive' },
+  { value: 'investor', label: 'Investor' },
+  { value: 'advisor', label: 'Advisor' },
+  { value: 'employee', label: 'Employee' },
+]
 
 /**
  * Render a user's name as a Link to /app/users/<id> when we have their
@@ -175,6 +189,13 @@ export function InvitationsPage() {
   const [verdictRows, setVerdictRows] = useState<Row[]>([])
   const [loading, setLoading] = useState(true)
   const [actionId, setActionId] = useState<string | null>(null)
+
+  // Approve-request modal state — the founder picks role + title at
+  // approval time. Mirrors the modal on PublicStartupPage so the two
+  // surfaces behave identically. Stays null when closed.
+  const [approveModal, setApproveModal] = useState<{ req: JoinRequest } | null>(null)
+  const [approveRole, setApproveRole] = useState<string>('employee')
+  const [approveTitle, setApproveTitle] = useState<string>('')
 
   const refresh = useCallback(async () => {
     setLoading(true)
@@ -291,19 +312,31 @@ export function InvitationsPage() {
     }
   }
 
-  // Approve a pending join request to one of MY startups. Uses the
-  // role the requester asked for; founders who want a different role
-  // can change it later from the startup's Team section. Empty title
-  // is fine — that field is optional on StartupMember.
-  const approveRequest = async (req: JoinRequest) => {
+  // Approve flow is now two-step: clicking Approve opens a modal where
+  // the founder picks the position. The requester no longer proposes a
+  // role — see the JoinRequest type comment above. The backend rejects
+  // anything outside the role enum with 400.
+  const openApproveModal = (req: JoinRequest) => {
+    setApproveRole('employee')
+    setApproveTitle('')
+    setApproveModal({ req })
+  }
+
+  const submitApprove = async () => {
+    if (!approveModal) return
+    const { req } = approveModal
     setActionId(req.id)
     try {
       await apiRequest(`/founders/startups/${req.startup_id}/join-requests/${req.id}/review/`, {
         method: 'POST',
-        body: { action: 'approve', role: req.role, title: '' },
+        body: { action: 'approve', role: approveRole, title: approveTitle },
       })
       setRequestsIn((prev) => prev.filter((r) => r.id !== req.id))
+      setApproveModal(null)
       pushToast(`${req.requester_name ?? 'Member'} added to ${req.startup_name}`, 'success')
+      // Refresh so the row reappears under Verdict with status=approved
+      // and the "Manage team" deep-link becomes available there.
+      void refresh()
     } catch (err) {
       const e = err as { details?: { detail?: string } }
       pushToast(e.details?.detail ?? 'Failed to approve.', 'error')
@@ -479,7 +512,6 @@ export function InvitationsPage() {
                   <Link to={buildProfileUrl('startups', req.startup_name, req.startup_id)} style={{ fontWeight: 600, fontSize: '0.9375rem', color: 'hsl(var(--foreground))', textDecoration: 'none' }}>
                     {req.startup_name}
                   </Link>
-                  <span style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))' }}>· {formatLabel(req.role)}</span>
                 </div>
                 <div style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))', marginTop: 2, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                   <Clock size={11} /> Sent {req.created_at ? relativeTime(req.created_at) : 'recently'}
@@ -507,6 +539,11 @@ export function InvitationsPage() {
       }
       case 'request-in': {
         const req = row.data
+        // Verdict tab: rows whose status resolved to "approved" represent
+        // a person who is NOW a team member. Surface a deep-link to the
+        // startup's public page where the founder can edit role/title or
+        // remove them via the Team section.
+        const showManageTeam = !withActions && req.status === 'approved'
         return (
           <article key={`ri-${req.id}`} className="card" data-testid={`row-request-in-${req.id}`}>
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem' }}>
@@ -516,7 +553,7 @@ export function InvitationsPage() {
                     <UserNameLink userId={req.requester_id} name={req.requester_name} email={req.requester_email} />
                   </span>
                   <span style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))' }}>
-                    · wants to join as {formatLabel(req.role)}
+                    · wants to join
                   </span>
                 </div>
                 <div style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))', marginTop: 2 }}>
@@ -528,19 +565,31 @@ export function InvitationsPage() {
                 </div>
                 {req.message ? <MessageBlock>{req.message}</MessageBlock> : null}
                 {!withActions ? <div style={{ marginTop: 6 }}><StatusBadge status={req.status} /></div> : null}
+                {showManageTeam ? (
+                  <div style={{ marginTop: 8 }}>
+                    <Link
+                      to={buildProfileUrl('startups', req.startup_name, req.startup_id)}
+                      className="btn-sm ghost"
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: 4, textDecoration: 'none' }}
+                      data-testid={`manage-team-${req.id}`}
+                      title="Edit this person's role or remove them from the team"
+                    >
+                      Manage team
+                      <ArrowRight size={12} />
+                    </Link>
+                  </div>
+                ) : null}
               </div>
-              {/* Approve grants the role the requester asked for and
-                  removes the row. Reject closes the request with a
-                  confirm prompt. Both fire the same endpoint as the
-                  retired StartupDetailPage modal — keeps the audit
-                  trail consistent. */}
+              {/* Approve opens the role-picker modal — the requester no
+                  longer proposes a position, so the founder must pick.
+                  Reject closes the request with a confirm prompt. */}
               {withActions ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flexShrink: 0 }}>
                   <button
                     type="button"
                     className="btn-sm primary"
                     disabled={actionId === req.id}
-                    onClick={() => void approveRequest(req)}
+                    onClick={() => openApproveModal(req)}
                     data-testid={`review-request-approve-${req.id}`}
                     style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
                   >
@@ -670,6 +719,104 @@ export function InvitationsPage() {
           {verdictRows.map((row) => renderRow(row, false))}
         </div>
       )}
+
+      {/* Approve modal — opened from the Received tab. Founder picks
+          role+title, then we POST to the review endpoint with that
+          payload. Backend now rejects anything outside the role enum. */}
+      {approveModal ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          data-testid="approve-request-modal"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setApproveModal(null)
+          }}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 100,
+            background: 'rgba(0,0,0,0.5)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            padding: '1rem',
+          }}
+        >
+          <div
+            style={{
+              width: '100%', maxWidth: 420,
+              background: 'hsl(var(--card))',
+              border: '1px solid hsl(var(--border))',
+              borderRadius: 12,
+              padding: '1.25rem',
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem' }}>
+              <h3 style={{ fontWeight: 600, fontSize: '1rem' }}>
+                Add {approveModal.req.requester_name ?? approveModal.req.requester_email ?? 'member'}
+              </h3>
+              <button
+                type="button"
+                className="btn-sm ghost"
+                style={{ padding: 4 }}
+                onClick={() => setApproveModal(null)}
+                aria-label="Close"
+              >
+                <X size={14} />
+              </button>
+            </div>
+            <p style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))', marginBottom: '1rem' }}>
+              Joining <strong>{approveModal.req.startup_name}</strong>
+            </p>
+            <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: 4, color: 'hsl(var(--muted-foreground))' }}>
+              Position
+            </label>
+            <select
+              className="input"
+              value={approveRole}
+              onChange={(e) => setApproveRole(e.target.value)}
+              data-testid="approve-role-select"
+              style={{ width: '100%', marginBottom: '0.75rem' }}
+            >
+              {MEMBER_ROLE_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
+            </select>
+            <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: 4, color: 'hsl(var(--muted-foreground))' }}>
+              Title (optional)
+            </label>
+            <input
+              className="input"
+              type="text"
+              value={approveTitle}
+              onChange={(e) => setApproveTitle(e.target.value)}
+              placeholder="e.g. CTO, Head of Growth"
+              maxLength={100}
+              data-testid="approve-title-input"
+              style={{ width: '100%', marginBottom: '1rem' }}
+            />
+            <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+              <button
+                type="button"
+                className="btn-sm ghost"
+                onClick={() => setApproveModal(null)}
+                disabled={actionId === approveModal.req.id}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="btn-sm primary"
+                onClick={() => void submitApprove()}
+                disabled={actionId === approveModal.req.id}
+                data-testid="approve-request-confirm"
+              >
+                {actionId === approveModal.req.id ? (
+                  <><Loader2 size={12} className="animate-spin" /> Adding…</>
+                ) : (
+                  <><Check size={12} /> Add to team</>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </section>
   )
 }

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { FileText, ArrowRight, Wallet } from 'lucide-react'
+import { FileText, ArrowRight, Wallet, ExternalLink } from 'lucide-react'
 import { apiRequest } from '../lib/api'
 import { Pagination } from '../components/Pagination'
 import { FundGridSkeleton } from '../components/skeletons'
@@ -89,6 +89,29 @@ export function ApplicationsListPage() {
                     <span>Applied: {new Date(application.applied_date).toLocaleDateString()}</span>
                   ) : null}
                 </div>
+                {/* Opportunity quick-open. Lives inside the card link, so
+                    stopPropagation prevents the outer Link from also firing
+                    when the founder clicks the external icon. */}
+                {application.fund_application_link ? (
+                  <a
+                    href={application.fund_application_link}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={(e) => e.stopPropagation()}
+                    data-testid={`application-card-opportunity-${application.id}`}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 4,
+                      marginTop: 8,
+                      fontSize: '0.75rem',
+                      color: 'var(--gold)',
+                      textDecoration: 'none',
+                    }}
+                  >
+                    Open opportunity <ExternalLink size={11} />
+                  </a>
+                ) : null}
               </Link>
             ))}
             {applications.length === 0 ? (

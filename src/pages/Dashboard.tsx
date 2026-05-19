@@ -36,6 +36,9 @@ type DashboardStats = {
   label: string
   value: string | number
   icon: typeof Zap
+  // Optional deep link — when present the stat card renders as a Link so
+  // the number doubles as navigation (e.g. "Saved Startups" → /app/saved).
+  to?: string
 }
 
 function getGreeting() {
@@ -82,7 +85,7 @@ export function Dashboard() {
             setStats([
               { label: 'Pending Intros', value: investorStats.pending_intros, icon: Zap },
               { label: 'Portfolio', value: investorStats.portfolio_count, icon: Briefcase },
-              { label: 'Saved Startups', value: investorStats.saved_startups, icon: FolderHeart },
+              { label: 'Saved Startups', value: investorStats.saved_startups, icon: FolderHeart, to: '/app/saved?tab=startups' },
               { label: 'Accepted', value: investorStats.accepted_intros, icon: CheckCircle },
             ])
             setDealFlow(normalizeList(dealFlowRaw).slice(0, 5))
@@ -140,15 +143,39 @@ export function Dashboard() {
             <StatCardSkeleton />
           </div>
         ) : stats.length > 0 ? (
-          stats.map((stat) => (
-            <div key={stat.label} className="stat-card" data-testid={`stat-${stat.label.toLowerCase().replace(/\s+/g, '-')}`}>
-              <div className="stat-header">
-                <span className="stat-label">{stat.label}</span>
-                <stat.icon className="stat-icon" />
+          stats.map((stat) => {
+            const inner = (
+              <>
+                <div className="stat-header">
+                  <span className="stat-label">{stat.label}</span>
+                  <stat.icon className="stat-icon" />
+                </div>
+                <div className="stat-value">{stat.value}</div>
+              </>
+            )
+            const testid = `stat-${stat.label.toLowerCase().replace(/\s+/g, '-')}`
+            // When `to` is set, render the whole card as a navigable Link
+            // (no underline, inherit color — visually the same as the static
+            // card). Hover affordance comes from the existing .stat-card CSS.
+            if (stat.to) {
+              return (
+                <Link
+                  key={stat.label}
+                  to={stat.to}
+                  className="stat-card"
+                  data-testid={testid}
+                  style={{ textDecoration: 'none', color: 'inherit', cursor: 'pointer' }}
+                >
+                  {inner}
+                </Link>
+              )
+            }
+            return (
+              <div key={stat.label} className="stat-card" data-testid={testid}>
+                {inner}
               </div>
-              <div className="stat-value">{stat.value}</div>
-            </div>
-          ))
+            )
+          })
         ) : needsOnboarding ? (
           <div className="stat-card" style={{ gridColumn: '1 / -1', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem' }}>

@@ -3,7 +3,7 @@ import { Link, useParams } from 'react-router-dom'
 import {
   Loader2, Linkedin, Twitter, Globe, MapPin, Handshake,
   FileText, BadgeCheck, Briefcase, TrendingUp, Building2,
-  DollarSign, Sparkles, Upload, UserPlus, X,
+  DollarSign, Sparkles, Upload, UserPlus, X, Check, Pencil, Trash2,
 } from 'lucide-react'
 import { apiRequest, uploadRequest } from '../lib/api'
 import { useToast } from '../context/ToastContext'
@@ -21,6 +21,20 @@ type PublicFounder = {
   avatar_url: string | null
   // null when the founder has no FounderProfile, or has is_public=false.
   // In that case we render the name as plain text (no link out to a 404).
+  founder_profile_slug: string | null
+}
+
+// Non-founder team member (employee/executive/advisor/investor). Comes from
+// the new `members` payload on /public/startups/<slug>/, populated by
+// anyone the founder added via the join-request approval flow.
+type PublicMember = {
+  id: string
+  user_id: string
+  full_name: string
+  avatar_url: string | null
+  role: string
+  role_label: string
+  title: string
   founder_profile_slug: string | null
 }
 
@@ -74,10 +88,37 @@ type PublicStartup = {
 
   // People
   founders?: PublicFounder[]
+  members?: PublicMember[]
 
   // Viewer-scoped flags
   viewer_can_edit?: boolean
+  // True only when the viewer is a founder/co-founder of this startup.
+  // Gates the join-request review UI — see `IncomingJoinRequests` below.
+  viewer_is_founder?: boolean
 }
+
+// Single pending join request as returned by /founders/startups/<id>/join-requests/.
+// Role intentionally absent — the requester no longer proposes one; founders
+// pick at approve time.
+type IncomingJoinRequest = {
+  id: string
+  requester_id?: string
+  requester_name?: string
+  requester_email?: string
+  message?: string
+  created_at?: string
+}
+
+// All the StartupMember.Role values the backend accepts on approve. Mirrors
+// the canonical enum in ff_backend/founders/models.py — keep in sync.
+const MEMBER_ROLE_OPTIONS: Array<{ value: string; label: string }> = [
+  { value: 'founder', label: 'Founder' },
+  { value: 'co_founder', label: 'Co-Founder' },
+  { value: 'executive', label: 'Executive' },
+  { value: 'investor', label: 'Investor' },
+  { value: 'advisor', label: 'Advisor' },
+  { value: 'employee', label: 'Employee' },
+]
 
 const SITE_URL = 'https://www.founderslib.in'
 
@@ -117,6 +158,26 @@ export function PublicStartupPage() {
   const [joinMessage, setJoinMessage] = useState('')
   const [joiningStartup, setJoiningStartup] = useState(false)
   const [joinRequestSent, setJoinRequestSent] = useState(false)
+
+  // Founder-side review state. Only fetched/rendered when
+  // `data.viewer_is_founder` is true. The approve modal holds the picked
+  // role+title since the backend now requires the founder to choose a
+  // position at approve time (and rejects anything outside the role enum).
+  const [incomingRequests, setIncomingRequests] = useState<IncomingJoinRequest[]>([])
+  const [approveModal, setApproveModal] = useState<{ requestId: string; name: string } | null>(null)
+  const [approveRole, setApproveRole] = useState<string>('employee')
+  const [approveTitle, setApproveTitle] = useState<string>('')
+  const [approvingId, setApprovingId] = useState<string | null>(null)
+  const [rejectingId, setRejectingId] = useState<string | null>(null)
+
+  // Edit-existing-member state. The backend at /members/<id>/ accepts a
+  // PATCH with {role, title}; same role enum the approve modal uses. Only
+  // one row can be in edit mode at a time — keyed by member.id.
+  const [editingMemberId, setEditingMemberId] = useState<string | null>(null)
+  const [editRole, setEditRole] = useState<string>('employee')
+  const [editTitle, setEditTitle] = useState<string>('')
+  const [savingMemberId, setSavingMemberId] = useState<string | null>(null)
+  const [removingMemberId, setRemovingMemberId] = useState<string | null>(null)
   const [data, setData] = useState<PublicStartup | null>(null)
   const [loading, setLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
@@ -201,6 +262,135 @@ export function PublicStartupPage() {
       pushToast(msg, 'error')
     } finally {
       setJoiningStartup(false)
+    }
+  }
+
+  // Pull pending incoming join requests when the viewer is a founder. The
+  // list endpoint returns paginated `{results: [...]}` shape; we tolerate
+  // both shapes for resilience against future serializer changes. Silent
+  // on errors — failure just means the section stays empty, which is the
+  // correct UX (don't block the rest of the page).
+  useEffect(() => {
+    const startupId = data?.id
+    if (!startupId || !data?.viewer_is_founder) return
+    let cancelled = false
+    apiRequest<{ results?: IncomingJoinRequest[] } | IncomingJoinRequest[]>(
+      `/founders/startups/${startupId}/join-requests/`,
+    )
+      .then((res) => {
+        if (cancelled) return
+        const items = Array.isArray(res) ? res : (res.results ?? [])
+        setIncomingRequests(items)
+      })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [data?.id, data?.viewer_is_founder])
+
+  const handleOpenApprove = (req: IncomingJoinRequest) => {
+    // Reset to the safe default so a previous open doesn't leak its role
+    // selection into the next request the founder reviews.
+    setApproveRole('employee')
+    setApproveTitle('')
+    setApproveModal({
+      requestId: req.id,
+      name: req.requester_name ?? req.requester_email ?? 'this user',
+    })
+  }
+
+  const handleApprove = async () => {
+    if (!data || !approveModal) return
+    setApprovingId(approveModal.requestId)
+    try {
+      await apiRequest(`/founders/startups/${data.id}/join-requests/${approveModal.requestId}/review/`, {
+        method: 'POST',
+        body: { action: 'approve', role: approveRole, title: approveTitle },
+      })
+      setIncomingRequests((prev) => prev.filter((r) => r.id !== approveModal.requestId))
+      pushToast('Member added', 'success')
+      setApproveModal(null)
+    } catch (err) {
+      const apiErr = err as { details?: { detail?: string }; message?: string }
+      pushToast(apiErr?.details?.detail ?? apiErr?.message ?? 'Failed to approve', 'error')
+    } finally {
+      setApprovingId(null)
+    }
+  }
+
+  const handleReject = async (requestId: string) => {
+    if (!data) return
+    setRejectingId(requestId)
+    try {
+      await apiRequest(`/founders/startups/${data.id}/join-requests/${requestId}/review/`, {
+        method: 'POST',
+        body: { action: 'reject' },
+      })
+      setIncomingRequests((prev) => prev.filter((r) => r.id !== requestId))
+      pushToast('Request rejected', 'success')
+    } catch (err) {
+      const apiErr = err as { details?: { detail?: string }; message?: string }
+      pushToast(apiErr?.details?.detail ?? apiErr?.message ?? 'Failed to reject', 'error')
+    } finally {
+      setRejectingId(null)
+    }
+  }
+
+  const handleStartEditMember = (m: PublicMember) => {
+    setEditingMemberId(m.id)
+    setEditRole(m.role)
+    setEditTitle(m.title)
+  }
+
+  const handleSaveMember = async (memberId: string) => {
+    if (!data) return
+    setSavingMemberId(memberId)
+    try {
+      // PATCH returns the updated StartupMember row. We splice the new
+      // role/title back into the local `data.members` so the page reflects
+      // the change without a full refetch.
+      type UpdatedMember = { role: string; title: string }
+      const updated = await apiRequest<UpdatedMember>(
+        `/founders/startups/${data.id}/members/${memberId}/`,
+        { method: 'PATCH', body: { role: editRole, title: editTitle } },
+      )
+      setData((prev) => prev ? {
+        ...prev,
+        members: prev.members?.map((m) =>
+          m.id === memberId
+            ? {
+                ...m,
+                role: updated.role,
+                title: updated.title,
+                role_label: MEMBER_ROLE_OPTIONS.find((opt) => opt.value === updated.role)?.label ?? updated.role,
+              }
+            : m,
+        ),
+      } : prev)
+      setEditingMemberId(null)
+      pushToast('Position updated', 'success')
+    } catch (err) {
+      const apiErr = err as { details?: { detail?: string }; message?: string }
+      pushToast(apiErr?.details?.detail ?? apiErr?.message ?? 'Failed to update', 'error')
+    } finally {
+      setSavingMemberId(null)
+    }
+  }
+
+  const handleRemoveMember = async (m: PublicMember) => {
+    if (!data) return
+    if (!window.confirm(`Remove ${m.full_name} from ${data.name}?`)) return
+    setRemovingMemberId(m.id)
+    try {
+      await apiRequest(`/founders/startups/${data.id}/members/${m.id}/`, { method: 'DELETE' })
+      setData((prev) => prev ? {
+        ...prev,
+        members: prev.members?.filter((x) => x.id !== m.id),
+      } : prev)
+      pushToast('Member removed', 'success')
+    } catch (err) {
+      const apiErr = err as { details?: { detail?: string }; message?: string }
+      pushToast(apiErr?.details?.detail ?? apiErr?.message ?? 'Failed to remove', 'error')
+    } finally {
+      setRemovingMemberId(null)
     }
   }
 
@@ -780,6 +970,323 @@ export function PublicStartupPage() {
             })}
           </div>
         </section>
+      ) : null}
+
+      {/* Team — everyone added by the founder via join-request approval
+          who isn't a founder/co-founder themselves. Founders see inline
+          edit (role + title) and remove controls on each row; everyone
+          else sees a read-only listing. */}
+      {data.members && data.members.length > 0 ? (
+        <section className="mb-8" data-testid="public-startup-team">
+          <h2 className="text-sm font-semibold uppercase tracking-wide mb-3" style={{ color: 'hsl(var(--muted-foreground))' }}>
+            Team
+          </h2>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            {data.members.map((m) => {
+              const isSelf = currentUser?.id === m.user_id
+              const isEditing = editingMemberId === m.id
+              const subline = [m.title, m.role_label].filter(Boolean).join(' · ')
+              const nameNode = isSelf ? (
+                <Link to="/app/me" style={{ textDecoration: 'none', fontWeight: 500 }} data-testid={`public-member-link-self-${m.user_id}`}>
+                  {m.full_name} <span style={{ opacity: 0.6, fontSize: '0.75em' }}>(you)</span>
+                </Link>
+              ) : m.founder_profile_slug ? (
+                <Link
+                  to={`/founders/${m.founder_profile_slug}`}
+                  style={{ textDecoration: 'none', fontWeight: 500 }}
+                  data-testid={`public-member-link-${m.user_id}`}
+                >
+                  {m.full_name}
+                </Link>
+              ) : (
+                <span style={{ fontWeight: 500 }}>{m.full_name}</span>
+              )
+
+              if (isEditing) {
+                return (
+                  <div
+                    key={m.id}
+                    data-testid={`public-member-row-edit-${m.user_id}`}
+                    style={{
+                      padding: '0.75rem 0.875rem',
+                      border: '1px solid hsl(var(--border))',
+                      borderRadius: '0.5rem',
+                      background: 'hsl(var(--muted))',
+                    }}
+                  >
+                    <div style={{ fontSize: '0.875rem', marginBottom: '0.5rem' }}>{nameNode}</div>
+                    <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.5rem' }}>
+                      <select
+                        className="input"
+                        value={editRole}
+                        onChange={(e) => setEditRole(e.target.value)}
+                        data-testid={`edit-role-select-${m.user_id}`}
+                        style={{ flex: '1 1 140px', minWidth: 0 }}
+                      >
+                        {MEMBER_ROLE_OPTIONS.map((opt) => (
+                          <option key={opt.value} value={opt.value}>{opt.label}</option>
+                        ))}
+                      </select>
+                      <input
+                        className="input"
+                        type="text"
+                        value={editTitle}
+                        onChange={(e) => setEditTitle(e.target.value)}
+                        placeholder="Title (optional)"
+                        maxLength={100}
+                        data-testid={`edit-title-input-${m.user_id}`}
+                        style={{ flex: '2 1 180px', minWidth: 0 }}
+                      />
+                    </div>
+                    <div style={{ display: 'flex', gap: '0.375rem', justifyContent: 'flex-end' }}>
+                      <button
+                        type="button"
+                        className="btn-sm ghost"
+                        onClick={() => setEditingMemberId(null)}
+                        disabled={savingMemberId === m.id}
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        className="btn-sm primary"
+                        onClick={() => void handleSaveMember(m.id)}
+                        disabled={savingMemberId === m.id}
+                        data-testid={`edit-save-${m.user_id}`}
+                      >
+                        {savingMemberId === m.id ? (
+                          <><Loader2 size={12} className="animate-spin" /> Saving…</>
+                        ) : (
+                          <><Check size={12} /> Save</>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                )
+              }
+
+              return (
+                <div
+                  key={m.id}
+                  data-testid={`public-member-row-${m.user_id}`}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.75rem',
+                    padding: '0.625rem 0.875rem',
+                    border: '1px solid hsl(var(--border))',
+                    borderRadius: '0.5rem',
+                    background: 'hsl(var(--card))',
+                  }}
+                >
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: '0.875rem' }}>{nameNode}</div>
+                    {subline ? (
+                      <div style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))', marginTop: 2 }}>
+                        {subline}
+                      </div>
+                    ) : null}
+                  </div>
+                  {data.viewer_is_founder ? (
+                    <div style={{ display: 'flex', gap: '0.375rem', flexShrink: 0 }}>
+                      <button
+                        type="button"
+                        className="btn-sm ghost"
+                        onClick={() => handleStartEditMember(m)}
+                        title="Change role or title"
+                        aria-label="Edit member"
+                        data-testid={`edit-member-${m.user_id}`}
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        className="btn-sm ghost"
+                        onClick={() => void handleRemoveMember(m)}
+                        disabled={removingMemberId === m.id}
+                        title="Remove from team"
+                        aria-label="Remove member"
+                        data-testid={`remove-member-${m.user_id}`}
+                      >
+                        {removingMemberId === m.id ? (
+                          <Loader2 size={12} className="animate-spin" />
+                        ) : (
+                          <Trash2 className="w-3.5 h-3.5" />
+                        )}
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
+              )
+            })}
+          </div>
+        </section>
+      ) : null}
+
+      {/* Incoming join requests — founders only. Each row shows the
+          requester's pitch and exposes Approve / Reject. Approve opens a
+          modal where the founder picks the role and an optional title;
+          backend requires a valid role enum value or it 400s. */}
+      {data.viewer_is_founder && incomingRequests.length > 0 ? (
+        <section className="mb-8" data-testid="incoming-join-requests">
+          <h2 className="text-sm font-semibold uppercase tracking-wide mb-3 inline-flex items-center gap-2" style={{ color: 'hsl(var(--muted-foreground))' }}>
+            <UserPlus className="w-3.5 h-3.5" />
+            Pending join requests
+            <span className="badge" style={{ background: '#3b82f622', color: '#3b82f6', border: '1px solid #3b82f644', fontSize: '0.7rem' }}>
+              {incomingRequests.length}
+            </span>
+          </h2>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            {incomingRequests.map((req) => (
+              <div
+                key={req.id}
+                data-testid={`join-request-row-${req.id}`}
+                style={{
+                  display: 'flex',
+                  gap: '0.75rem',
+                  alignItems: 'flex-start',
+                  padding: '0.875rem 1rem',
+                  border: '1px solid hsl(var(--border))',
+                  borderRadius: '0.5rem',
+                  background: 'hsl(var(--card))',
+                }}
+              >
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 600, fontSize: '0.875rem' }}>
+                    {req.requester_name ?? req.requester_email ?? 'Unknown'}
+                  </div>
+                  {req.message ? (
+                    <div style={{ fontSize: '0.8125rem', color: 'hsl(var(--muted-foreground))', marginTop: 4 }}>
+                      {req.message}
+                    </div>
+                  ) : null}
+                </div>
+                <div style={{ display: 'flex', gap: '0.375rem', flexShrink: 0 }}>
+                  <button
+                    type="button"
+                    className="btn-sm primary"
+                    onClick={() => handleOpenApprove(req)}
+                    disabled={approvingId === req.id || rejectingId === req.id}
+                    data-testid={`approve-request-${req.id}`}
+                  >
+                    <Check className="w-3.5 h-3.5" />
+                    Approve
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-sm ghost"
+                    onClick={() => void handleReject(req.id)}
+                    disabled={approvingId === req.id || rejectingId === req.id}
+                    data-testid={`reject-request-${req.id}`}
+                  >
+                    {rejectingId === req.id ? (
+                      <Loader2 size={12} className="animate-spin" />
+                    ) : (
+                      <X className="w-3.5 h-3.5" />
+                    )}
+                    Reject
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
+      {/* Approve modal — founder picks position+title. Required because the
+          backend rejects approve actions that don't carry a valid role. */}
+      {approveModal ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          data-testid="approve-request-modal"
+          onClick={(e) => {
+            // Click outside the inner card dismisses the modal so the
+            // founder can back out without committing.
+            if (e.target === e.currentTarget) setApproveModal(null)
+          }}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 100,
+            background: 'rgba(0,0,0,0.5)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            padding: '1rem',
+          }}
+        >
+          <div
+            style={{
+              width: '100%', maxWidth: 420,
+              background: 'hsl(var(--card))',
+              border: '1px solid hsl(var(--border))',
+              borderRadius: 12,
+              padding: '1.25rem',
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+              <h3 style={{ fontWeight: 600, fontSize: '1rem' }}>
+                Add {approveModal.name}
+              </h3>
+              <button
+                type="button"
+                className="btn-sm ghost"
+                style={{ padding: 4 }}
+                onClick={() => setApproveModal(null)}
+                aria-label="Close"
+              >
+                <X size={14} />
+              </button>
+            </div>
+            <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: 4, color: 'hsl(var(--muted-foreground))' }}>
+              Position
+            </label>
+            <select
+              className="input"
+              value={approveRole}
+              onChange={(e) => setApproveRole(e.target.value)}
+              data-testid="approve-role-select"
+              style={{ width: '100%', marginBottom: '0.75rem' }}
+            >
+              {MEMBER_ROLE_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
+            </select>
+            <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: 4, color: 'hsl(var(--muted-foreground))' }}>
+              Title (optional)
+            </label>
+            <input
+              className="input"
+              type="text"
+              value={approveTitle}
+              onChange={(e) => setApproveTitle(e.target.value)}
+              placeholder="e.g. CTO, Head of Growth"
+              maxLength={100}
+              data-testid="approve-title-input"
+              style={{ width: '100%', marginBottom: '1rem' }}
+            />
+            <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+              <button
+                type="button"
+                className="btn-sm ghost"
+                onClick={() => setApproveModal(null)}
+                disabled={approvingId === approveModal.requestId}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="btn-sm primary"
+                onClick={() => void handleApprove()}
+                disabled={approvingId === approveModal.requestId}
+                data-testid="approve-request-confirm"
+              >
+                {approvingId === approveModal.requestId ? (
+                  <><Loader2 size={12} className="animate-spin" /> Adding…</>
+                ) : (
+                  <><Check size={12} /> Add to team</>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
       ) : null}
 
       <ProfilePosts startupId={data.id} />

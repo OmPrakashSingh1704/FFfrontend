@@ -5,6 +5,7 @@ export type ApplicationListItem = {
   fund: string
   fund_name?: string
   fund_logo?: string | null
+  fund_application_link?: string | null
   status?: string
   applied_date?: string | null
   created_at?: string
@@ -17,6 +18,12 @@ export type ApplicationDetail = {
   startup_name?: string
   fund: string
   fund_name?: string
+  // Opportunity URLs surfaced from the Fund row so the founder can re-open
+  // the external application page from this detail view without re-finding
+  // the fund. Null/undefined when the fund hasn't set these.
+  fund_application_link?: string | null
+  fund_website_url?: string | null
+  fund_deadline?: string | null
   status?: string
   applied_date?: string | null
   notes?: string | null

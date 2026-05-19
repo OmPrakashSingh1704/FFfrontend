@@ -7,6 +7,7 @@ import { formatLabel } from '../lib/format'
 import { useToast } from '../context/ToastContext'
 import { Pagination } from '../components/Pagination'
 import { FundGridSkeleton, ListRowsSkeleton } from '../components/skeletons'
+import { StartupPickerModal, type PickerStartup } from '../components/StartupPickerModal'
 import type { FundListItem } from '../types/fund'
 
 const PAGE_SIZE = 20
@@ -14,7 +15,11 @@ const PAGE_SIZE = 20
 const PENDING_APPLY_KEY = 'ff_pending_apply'
 const CLAIMED_BENEFITS_KEY = 'ff_claimed_benefits'
 
-type PendingApply = { type: 'fund' | 'benefit'; id: string; name: string }
+// `startup_id` survives the external-link round-trip so the "Did you apply?"
+// confirmation knows which startup to attach to the application row.
+// Older sessions may have entries without this field — handled by falling
+// back to the user's first startup when missing.
+type PendingApply = { type: 'fund' | 'benefit'; id: string; name: string; startup_id?: string }
 
 type Benefit = {
   id: string
@@ -189,6 +194,32 @@ export function FundsListPage() {
   const [appliedFundIds, setAppliedFundIds] = useState<Set<string>>(new Set())
   const [claimedBenefitIds, setClaimedBenefitIds] = useState<Set<string>>(new Set())
   const [pendingDialog, setPendingDialog] = useState<PendingApply | null>(null)
+  // The /applications/ create endpoint REQUIRES both `fund` and `startup`.
+  // If the user owns multiple startups we ASK which one via a picker modal
+  // instead of silently picking the first row — picking the wrong one
+  // attaches the application to a startup the founder didn't intend.
+  const [myStartups, setMyStartups] = useState<PickerStartup[]>([])
+  // Modal state. When a multi-startup user clicks Apply, we stash what
+  // they're applying TO here, open the picker, and resume after they pick.
+  const [pickerFor, setPickerFor] = useState<{ fund_id: string; fund_name: string; application_link?: string | null } | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    void (async () => {
+      try {
+        const res = await apiRequest<Array<{ id: string; name: string }> | { results: Array<{ id: string; name: string }> }>(
+          '/founders/my-startups/',
+        )
+        if (cancelled) return
+        setMyStartups(normalizeList(res))
+      } catch {
+        // 403 (investor with no founder profile) is expected — apply
+        // simply stays disabled with a friendly hint.
+        if (!cancelled) setMyStartups([])
+      }
+    })()
+    return () => { cancelled = true }
+  }, [])
 
   // Load funds
   useEffect(() => {
@@ -269,8 +300,50 @@ export function FundsListPage() {
     return () => document.removeEventListener('visibilitychange', onVisible)
   }, [])
 
-  const trackExternalApply = (type: 'fund' | 'benefit', id: string, name: string) => {
-    sessionStorage.setItem(PENDING_APPLY_KEY, JSON.stringify({ type, id, name }))
+  const trackExternalApply = (type: 'fund' | 'benefit', id: string, name: string, startup_id?: string) => {
+    // startup_id only applies to fund applications. Benefits aren't tied
+    // to a startup row, so we pass through without it for type='benefit'.
+    const payload: PendingApply = { type, id, name }
+    if (type === 'fund' && startup_id) payload.startup_id = startup_id
+    sessionStorage.setItem(PENDING_APPLY_KEY, JSON.stringify(payload))
+  }
+
+  /**
+   * Click-handler for the "Apply now" button on a fund card.
+   *
+   * Branches:
+   *   - 0 startups → toast a hint, do nothing
+   *   - 1 startup  → track + let the <a> default action open the link
+   *   - 2+ startups → preventDefault, open picker; after pick we
+   *                   programmatically open the link in a new tab and
+   *                   write the chosen startup_id into PendingApply
+   */
+  const handleApplyNowClick = (
+    event: React.MouseEvent<HTMLAnchorElement>,
+    fund: { id: string; name: string; application_link?: string | null },
+  ) => {
+    if (myStartups.length === 0) {
+      event.preventDefault()
+      pushToast('Add a startup to your profile before applying to funds.', 'error')
+      return
+    }
+    if (myStartups.length === 1) {
+      trackExternalApply('fund', fund.id, fund.name, myStartups[0].id)
+      return
+    }
+    // 2+ startups — block the link and prompt.
+    event.preventDefault()
+    setPickerFor({ fund_id: fund.id, fund_name: fund.name, application_link: fund.application_link })
+  }
+
+  const handlePickerConfirm = (startup_id: string) => {
+    if (!pickerFor) return
+    trackExternalApply('fund', pickerFor.fund_id, pickerFor.fund_name, startup_id)
+    // Open the external link in a new tab now that we have the choice.
+    if (pickerFor.application_link) {
+      window.open(pickerFor.application_link, '_blank', 'noopener,noreferrer')
+    }
+    setPickerFor(null)
   }
 
   const handleDialogConfirm = async () => {
@@ -279,12 +352,26 @@ export function FundsListPage() {
     const { type, id, name } = pendingDialog
     setPendingDialog(null)
     if (type === 'fund') {
+      // Prefer the explicit choice the user made at apply time (lives in
+      // pendingDialog.startup_id). Fall back to the only startup for
+      // single-startup users — or, for legacy session entries written
+      // before the picker existed, the first startup. Bail with a hint
+      // if the user has 0 startups (somehow got this far without one).
+      const startup_id = pendingDialog.startup_id ?? myStartups[0]?.id
+      if (!startup_id) {
+        pushToast('Add a startup to your profile before applying to funds.', 'error')
+        return
+      }
       try {
-        await apiRequest('/applications/', { method: 'POST', body: { fund: id } })
+        await apiRequest('/applications/', {
+          method: 'POST',
+          body: { fund: id, startup: startup_id },
+        })
         setAppliedFundIds((prev) => new Set([...prev, id]))
         pushToast(`Application to "${name}" recorded!`, 'success')
-      } catch {
-        pushToast('Could not record application.', 'error')
+      } catch (err) {
+        const apiErr = err as { details?: { detail?: string }; message?: string }
+        pushToast(apiErr?.details?.detail ?? apiErr?.message ?? 'Could not record application.', 'error')
       }
     } else {
       const claimed = [...claimedBenefitIds, id]
@@ -471,7 +558,8 @@ export function FundsListPage() {
                           rel="noreferrer"
                           className="btn-sm primary"
                           style={{ fontSize: '0.75rem' }}
-                          onClick={() => trackExternalApply('fund', fund.id, fund.name)}
+                          onClick={(e) => handleApplyNowClick(e, fund)}
+                          data-testid={`fund-apply-${fund.id}`}
                         >
                           <ExternalLink style={{ width: 12, height: 12 }} />
                           Apply now
@@ -582,6 +670,19 @@ export function FundsListPage() {
           )}
         </>
       )}
+
+      {/* Startup picker — shown when a user with 2+ startups clicks Apply
+          on a fund. The choice is stored alongside the pending-apply
+          payload so the confirm dialog attaches the application to the
+          right startup. */}
+      <StartupPickerModal
+        open={!!pickerFor}
+        startups={myStartups}
+        title="Apply with which startup?"
+        description={pickerFor ? `Applying to "${pickerFor.fund_name}". We'll open the fund's application page in a new tab.` : undefined}
+        onPick={handlePickerConfirm}
+        onClose={() => setPickerFor(null)}
+      />
 
       {/* "Did you apply/claim?" dialog */}
       {pendingDialog && (

@@ -66,6 +66,7 @@ const InvestorProfileEditPage = lazyPage(() => import('./pages/InvestorProfileEd
 const SettingsPage = lazyPage(() => import('./pages/SettingsPage'), 'SettingsPage')
 const BillingPage = lazyPage(() => import('./pages/BillingPage'), 'BillingPage')
 const InvitationsPage = lazyPage(() => import('./pages/InvitationsPage'), 'InvitationsPage')
+const SavedPage = lazyPage(() => import('./pages/SavedPage'), 'SavedPage')
 const HelpPage = lazyPage(() => import('./pages/HelpPage'), 'HelpPage')
 const VerifyEmailPage = lazyPage(() => import('./pages/VerifyEmailPage'), 'VerifyEmailPage')
 const OnboardingPage = lazyPage(() => import('./pages/OnboardingPage'), 'OnboardingPage')
@@ -335,6 +336,14 @@ function App() {
               element={
                 <ProtectedRoute>
                   <FundsListPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/app/saved"
+              element={
+                <ProtectedRoute>
+                  <SavedPage />
                 </ProtectedRoute>
               }
             />

@@ -48,10 +48,14 @@ import { normalizeList } from '../lib/pagination'
 import { Markdown } from '../components/Markdown'
 import { useToast } from '../context/ToastContext'
 import { DetailPageSkeleton } from '../components/skeletons'
+import { StartupPickerModal } from '../components/StartupPickerModal'
 import type { FundDetail } from '../types/fund'
 
 const PENDING_APPLY_KEY = 'ff_pending_apply'
-type PendingApply = { type: 'fund' | 'benefit'; id: string; name: string }
+// startup_id rides along so the "Did you apply?" confirmation knows which
+// startup to attach the application to. Optional for backward compat with
+// older session entries.
+type PendingApply = { type: 'fund' | 'benefit'; id: string; name: string; startup_id?: string }
 
 type SavedFundEntry = { id: string; fund: { id: string } }
 
@@ -71,7 +75,11 @@ export function FundDetailPage() {
   // viewer's startups and auto-include the first one. If they have zero,
   // we disable the Apply button and surface a friendly hint.
   const [myStartups, setMyStartups] = useState<MyStartup[]>([])
-  const primaryStartupId = myStartups[0]?.id ?? null
+  // Picker modal — opened when a multi-startup user clicks Apply. The
+  // `mode` distinguishes the two call sites: 'external' opens the fund's
+  // application_link after the choice, 'direct' POSTs to /applications/.
+  const [pickerMode, setPickerMode] = useState<'external' | 'direct' | null>(null)
+  const [submittingDirect, setSubmittingDirect] = useState(false)
 
   useEffect(() => {
     if (!id) return
@@ -172,14 +180,17 @@ export function FundDetailPage() {
     if (!pendingDialog || !id) return
     sessionStorage.removeItem(PENDING_APPLY_KEY)
     setPendingDialog(null)
-    if (!primaryStartupId) {
+    // Prefer the startup the user picked at apply time; fall back to the
+    // single startup case, otherwise bail.
+    const startup_id = pendingDialog.startup_id ?? (myStartups.length === 1 ? myStartups[0].id : null)
+    if (!startup_id) {
       pushToast('Add a startup to your profile before applying to funds.', 'error')
       return
     }
     try {
       await apiRequest('/applications/', {
         method: 'POST',
-        body: { fund: id, startup: primaryStartupId },
+        body: { fund: id, startup: startup_id },
       })
       setIsApplied(true)
       pushToast('Application recorded!', 'success')
@@ -191,6 +202,80 @@ export function FundDetailPage() {
   const handleDialogDismiss = () => {
     sessionStorage.removeItem(PENDING_APPLY_KEY)
     setPendingDialog(null)
+  }
+
+  // Click-handler for the "Apply Now" external link. If the user has 0
+  // startups → toast + block; 1 startup → record + let <a> do its thing;
+  // 2+ → block default, open picker (mode='external').
+  const handleExternalApplyClick = (event: React.MouseEvent<HTMLAnchorElement>) => {
+    if (!fund || !id) return
+    if (myStartups.length === 0) {
+      event.preventDefault()
+      pushToast('Add a startup to your profile before applying to funds.', 'error')
+      return
+    }
+    if (myStartups.length === 1) {
+      sessionStorage.setItem(
+        PENDING_APPLY_KEY,
+        JSON.stringify({ type: 'fund', id, name: fund.name, startup_id: myStartups[0].id }),
+      )
+      return
+    }
+    event.preventDefault()
+    setPickerMode('external')
+  }
+
+  // Direct Apply button (no fund.application_link). Same branching, but
+  // when there's exactly one startup we POST inline. 2+ opens the picker
+  // with mode='direct'.
+  const handleDirectApplyClick = async () => {
+    if (!fund || !id) return
+    if (myStartups.length === 0) {
+      pushToast('Add a startup to your profile before applying to funds.', 'error')
+      return
+    }
+    if (myStartups.length > 1) {
+      setPickerMode('direct')
+      return
+    }
+    await submitDirectApply(myStartups[0].id)
+  }
+
+  const submitDirectApply = async (startup_id: string) => {
+    if (!id) return
+    setSubmittingDirect(true)
+    try {
+      await apiRequest('/applications/', {
+        method: 'POST',
+        body: { fund: id, startup: startup_id },
+      })
+      setIsApplied(true)
+      pushToast('Application submitted!', 'success')
+    } catch (err) {
+      pushToast(extractApiError(err, 'Could not submit application.'), 'error')
+    } finally {
+      setSubmittingDirect(false)
+    }
+  }
+
+  const handlePickerConfirm = (startup_id: string) => {
+    if (!fund || !id) return
+    if (pickerMode === 'external') {
+      sessionStorage.setItem(
+        PENDING_APPLY_KEY,
+        JSON.stringify({ type: 'fund', id, name: fund.name, startup_id }),
+      )
+      if (fund.application_link) {
+        window.open(fund.application_link, '_blank', 'noopener,noreferrer')
+      }
+      setPickerMode(null)
+      return
+    }
+    // direct mode — POST and close after.
+    void (async () => {
+      await submitDirectApply(startup_id)
+      setPickerMode(null)
+    })()
   }
 
   const handleSave = async () => {
@@ -309,7 +394,8 @@ export function FundDetailPage() {
                     target="_blank"
                     rel="noreferrer"
                     className="btn-sm primary"
-                    onClick={() => sessionStorage.setItem(PENDING_APPLY_KEY, JSON.stringify({ type: 'fund', id, name: fund.name }))}
+                    onClick={handleExternalApplyClick}
+                    data-testid="apply-fund-external"
                   >
                     <Send style={{ width: '0.875rem', height: '0.875rem' }} strokeWidth={1.5} />
                     Apply Now
@@ -318,32 +404,19 @@ export function FundDetailPage() {
                   <button
                     className="btn-sm primary"
                     type="button"
-                    disabled={!primaryStartupId}
+                    disabled={myStartups.length === 0 || submittingDirect}
                     title={
-                      primaryStartupId
+                      myStartups.length > 0
                         ? undefined
                         : 'Add a startup to your profile to apply to funds.'
                     }
-                    onClick={() => void (async () => {
-                      if (!primaryStartupId) {
-                        pushToast('Add a startup to your profile before applying to funds.', 'error')
-                        return
-                      }
-                      try {
-                        await apiRequest('/applications/', {
-                          method: 'POST',
-                          body: { fund: id, startup: primaryStartupId },
-                        })
-                        setIsApplied(true)
-                        pushToast('Application submitted!', 'success')
-                      } catch (err) {
-                        pushToast(extractApiError(err, 'Could not submit application.'), 'error')
-                      }
-                    })()}
+                    onClick={() => void handleDirectApplyClick()}
                     data-testid="apply-fund-btn"
                   >
-                    <Send style={{ width: '0.875rem', height: '0.875rem' }} strokeWidth={1.5} />
-                    Apply
+                    {submittingDirect
+                      ? <><Loader2 size={14} className="animate-spin" /> Submitting…</>
+                      : <><Send style={{ width: '0.875rem', height: '0.875rem' }} strokeWidth={1.5} /> Apply</>
+                    }
                   </button>
                 )}
               </div>
@@ -450,6 +523,24 @@ export function FundDetailPage() {
 
         </>
       )}
+
+      {/* Startup picker — opens when the user has 2+ startups and clicks
+          Apply. Two flows: 'external' opens the fund's application_link
+          after the choice (and stashes startup_id for the return-dialog
+          confirmation), 'direct' POSTs to /applications/ immediately. */}
+      <StartupPickerModal
+        open={pickerMode !== null}
+        startups={myStartups}
+        title="Apply with which startup?"
+        description={
+          pickerMode === 'external'
+            ? fund ? `Applying to "${fund.name}". We'll open the fund's application page in a new tab.` : undefined
+            : fund ? `This will create an application row for "${fund.name}" attached to the chosen startup.` : undefined
+        }
+        submitting={pickerMode === 'direct' && submittingDirect}
+        onPick={handlePickerConfirm}
+        onClose={() => setPickerMode(null)}
+      />
 
       {/* "Did you apply?" dialog */}
       {pendingDialog && (
