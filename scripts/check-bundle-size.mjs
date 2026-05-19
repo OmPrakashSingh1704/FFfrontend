@@ -20,10 +20,15 @@ const ASSETS_DIR = resolve(ROOT, 'dist', 'assets')
 const BUDGETS = {
   // Per-prefix budgets. First match wins.
   perChunk: [
-    // Entry budget bumped from 90 -> 95 KB to absorb react-helmet-async,
-    // which is essential SEO infra (per-route titles/OG/canonical for
-    // social previews + crawler indexing). See index.html + PageHead.tsx.
-    { match: /^index-/,           label: 'entry',         gzipKB: 95,  initialPaint: true  },
+    // Entry budget history:
+    //   90 → 95 KB: absorbed react-helmet-async (SEO infra — per-route
+    //               titles/OG/canonical for social previews + crawlers).
+    //   95 → 100 KB: absorbed the auth-expiry bridge (api.ts <-> AuthContext
+    //               via window CustomEvent + cross-tab storage listener).
+    //               Without it, 401s after token expiry leave the user
+    //               stranded on protected pages firing failing requests
+    //               instead of redirecting to landing. Essential UX infra.
+    { match: /^index-/,           label: 'entry',         gzipKB: 100, initialPaint: true  },
     { match: /^vendor-react/,     label: 'react',         gzipKB: 20,  initialPaint: true  },
     { match: /^vendor-query/,     label: 'react-query',   gzipKB: 15,  initialPaint: true  },
     { match: /^vendor-sentry/,    label: 'sentry',        gzipKB: 10,  initialPaint: true  },
