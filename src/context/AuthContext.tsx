@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
-import { apiRequest } from '../lib/api'
+import { AUTH_EXPIRED_EVENT, apiRequest } from '../lib/api'
 import { clearActiveCallIds, getActiveCallIds } from '../lib/callSession'
 import { clearTokens, getTokens, setTokens } from '../lib/tokenStorage'
 import type { User } from '../types/user'
@@ -70,6 +70,51 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     void refreshUser()
   }, [refreshUser])
+
+  // Listen for the global "session expired" signal fired by api.ts when
+  // a 401 can't be recovered (refresh failed, or refreshed token still
+  // rejected). We flip status to 'unauthenticated' here so ProtectedRoute
+  // immediately redirects to landing — otherwise the user stays on a
+  // protected page and every subsequent API call burns trying.
+  //
+  // Token clearing already happened inside api.ts; we just sync React
+  // state to match. clearTokens() is idempotent so calling it again is
+  // safe insurance against any race where api.ts cleared in one tab and
+  // we're reacting in another.
+  useEffect(() => {
+    const onAuthExpired = () => {
+      clearTokens()
+      setAccessToken(null)
+      setUser(null)
+      setStatus('unauthenticated')
+      hasLoadedUserRef.current = false
+    }
+    window.addEventListener(AUTH_EXPIRED_EVENT, onAuthExpired)
+    return () => window.removeEventListener(AUTH_EXPIRED_EVENT, onAuthExpired)
+  }, [])
+
+  // Cross-tab logout: when another tab clears the tokens (logout, or
+  // its own auth-expired handler), localStorage fires a 'storage' event
+  // here. If the access token went away while we still think we're
+  // authed, sync down to unauthenticated so this tab redirects too.
+  useEffect(() => {
+    const onStorage = (e: StorageEvent) => {
+      // tokenStorage uses specific keys — don't react to unrelated writes.
+      // Empty / null values are the only ones that indicate a logout; a
+      // value change (e.g. token refresh in another tab) is fine and
+      // shouldn't log us out here.
+      if (e.key && e.key.includes('token') && (e.newValue === null || e.newValue === '')) {
+        if (getTokens().accessToken === null) {
+          setAccessToken(null)
+          setUser(null)
+          setStatus('unauthenticated')
+          hasLoadedUserRef.current = false
+        }
+      }
+    }
+    window.addEventListener('storage', onStorage)
+    return () => window.removeEventListener('storage', onStorage)
+  }, [])
 
   const login = useCallback(async (email: string, password: string) => {
     setStatus('loading')

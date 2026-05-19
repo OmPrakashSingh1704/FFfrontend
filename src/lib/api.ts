@@ -7,6 +7,19 @@ export type ApiError = {
   details?: unknown
 }
 
+// Custom event name fired whenever the request layer decides the session
+// has irrecoverably expired (refresh failed, or a freshly-refreshed access
+// token is still rejected). AuthContext listens for it and flips status to
+// 'unauthenticated', which lets ProtectedRoute redirect to the landing
+// page instead of leaving the user on a broken protected screen that keeps
+// firing failing API calls.
+export const AUTH_EXPIRED_EVENT = 'ff:auth-expired'
+
+function fireAuthExpired() {
+  if (typeof window === 'undefined') return
+  window.dispatchEvent(new CustomEvent(AUTH_EXPIRED_EVENT))
+}
+
 type RequestOptions = {
   method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
   body?: unknown
@@ -88,8 +101,10 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
     try {
       accessToken = await refreshAccessToken(tokens.refreshToken)
     } catch (error) {
-      // Refresh itself failed — tokens really are invalid, log the user out.
+      // Refresh itself failed — tokens really are invalid, log the user out
+      // AND notify AuthContext so ProtectedRoute can redirect to landing.
       clearTokens()
+      fireAuthExpired()
       throw error
     }
 
@@ -109,12 +124,21 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
       // isn't accessible, and we must NOT nuke the session.
       if (retry.status === 401) {
         clearTokens()
+        fireAuthExpired()
       }
       const retryData = await safeJson(retry)
       throw { status: retry.status, message: 'Request failed', details: retryData } as ApiError
     }
 
     return (await safeJson(retry)) as T
+  }
+
+  // Hit a 401 but we have no refresh token to try — session is dead, kick
+  // the user back to landing instead of leaving them stranded on a
+  // protected page that just keeps firing failing requests.
+  if (response.status === 401 && auth && !tokens.refreshToken && tokens.accessToken) {
+    clearTokens()
+    fireAuthExpired()
   }
 
   if (!response.ok) {
@@ -153,6 +177,15 @@ export async function uploadRequest<T>(
     signal,
     ...(USE_COOKIE_AUTH ? { credentials: 'include' } : {}),
   })
+
+  // Upload doesn't bother with the refresh-and-retry dance (file bodies
+  // are large and re-uploading on every transient 401 is wasteful), but
+  // we still need to notify AuthContext on hard 401 so the user gets
+  // bounced to landing instead of staring at a "Upload failed" toast.
+  if (response.status === 401 && auth && tokens.accessToken) {
+    clearTokens()
+    fireAuthExpired()
+  }
 
   if (!response.ok) {
     const data = await safeJson(response)
