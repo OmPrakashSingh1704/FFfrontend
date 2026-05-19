@@ -266,18 +266,18 @@ export function InvestorDetailPage() {
                   </p>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
                     <button type="button" className="btn primary"
-                      style={{ flexDirection: 'column', height: 'auto', padding: '1rem', gap: '0.5rem', textAlign: 'center' }}
+                      style={{ flexDirection: 'column', height: 'auto', padding: '0.5rem 0.625rem', gap: '0.125rem', textAlign: 'center' }}
                       onClick={() => { setShowConnectPrompt(false); navigate('/app/intros', { state: { openForm: true, target_user_id: targetUserId ? String(targetUserId) : undefined } }) }}>
-                      <UserCheck size={20} strokeWidth={1.5} />
-                      <span style={{ fontWeight: 600 }}>Warm Introduction</span>
-                      <span style={{ fontSize: '0.75rem', fontWeight: 400, opacity: 0.85 }}>Include your pitch and why you're a fit</span>
+                      <UserCheck size={14} strokeWidth={1.5} />
+                      <span style={{ fontWeight: 600, fontSize: '0.8125rem' }}>Warm Introduction</span>
+                      <span style={{ fontSize: '0.625rem', fontWeight: 400, opacity: 0.85, lineHeight: 1.25 }}>Include your pitch and why you're a fit</span>
                     </button>
                     <button type="button" className="btn"
-                      style={{ flexDirection: 'column', height: 'auto', padding: '1rem', gap: '0.5rem', textAlign: 'center', background: 'hsl(var(--muted))', color: 'hsl(var(--foreground))' }}
+                      style={{ flexDirection: 'column', height: 'auto', padding: '0.5rem 0.625rem', gap: '0.125rem', textAlign: 'center', background: 'hsl(var(--muted))', color: 'hsl(var(--foreground))' }}
                       onClick={() => { setShowConnectPrompt(false); void handleConnectDirect() }}>
-                      <UserPlus size={20} strokeWidth={1.5} />
-                      <span style={{ fontWeight: 600 }}>Connection Request</span>
-                      <span style={{ fontSize: '0.75rem', fontWeight: 400, opacity: 0.7 }}>Quick request with an optional note</span>
+                      <UserPlus size={14} strokeWidth={1.5} />
+                      <span style={{ fontWeight: 600, fontSize: '0.8125rem' }}>Connection Request</span>
+                      <span style={{ fontSize: '0.625rem', fontWeight: 400, opacity: 0.7, lineHeight: 1.25 }}>Quick request with an optional note</span>
                     </button>
                   </div>
                 </div>
