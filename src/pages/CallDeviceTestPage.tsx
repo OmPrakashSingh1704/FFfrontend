@@ -21,7 +21,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, Camera, CameraOff, Mic, MicOff } from 'lucide-react'
+import { ArrowLeft, CameraOff, Mic, MicOff } from 'lucide-react'
 import { ConnectionStatus, type ConnectionState } from '../components/ConnectionStatus'
 import { DeviceLevelMeter } from '../components/DeviceLevelMeter'
 

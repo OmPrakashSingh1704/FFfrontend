@@ -186,18 +186,22 @@ export function PublicStartupPage() {
   const logoInputRef = useRef<HTMLInputElement | null>(null)
   const { pushToast } = useToast()
 
+  // See PublicFounderPage for the rationale: send the FULL slugId to the
+  // backend so its half-UUID fallback can resolve the row when the parsed
+  // slug part alone doesn't match the stored DB slug.
   const parsed = slugId ? parseSlugId(slugId) : null
   const slug = parsed?.slug || slugId || ''
+  const apiSlug = slugId || slug
 
   useEffect(() => {
-    if (!slug) return
+    if (!apiSlug) return
     let cancelled = false
     setLoading(true)
     setNotFound(false)
     setData(null)
     void (async () => {
       try {
-        const res = await apiRequest<PublicStartup>(`/public/startups/${slug}/`)
+        const res = await apiRequest<PublicStartup>(`/public/startups/${apiSlug}/`)
         if (!cancelled) setData(res)
       } catch (err: unknown) {
         if (!cancelled) {
@@ -209,7 +213,7 @@ export function PublicStartupPage() {
       }
     })()
     return () => { cancelled = true }
-  }, [slug])
+  }, [apiSlug])
 
   // Canonicalize the URL after data loads: if the visitor landed on a
   // bare-UUID or legacy-suffix URL (eg. /startups/019e2647-... from a

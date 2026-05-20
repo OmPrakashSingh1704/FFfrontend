@@ -81,18 +81,22 @@ export function PublicInvestorPage() {
   const [myStartups, setMyStartups] = useState<StartDealRoomTarget[]>([])
   const [dealRoomOpen, setDealRoomOpen] = useState(false)
 
+  // See PublicFounderPage for the rationale: send the FULL slugId to the
+  // backend so its half-UUID fallback can resolve the row when the parsed
+  // slug part alone doesn't match the stored DB slug.
   const parsed = slugId ? parseSlugId(slugId) : null
   const slug = parsed?.slug || slugId || ''
+  const apiSlug = slugId || slug
 
   useEffect(() => {
-    if (!slug) return
+    if (!apiSlug) return
     let cancelled = false
     setLoading(true)
     setNotFound(false)
     setData(null)
     void (async () => {
       try {
-        const res = await apiRequest<PublicInvestor>(`/public/investors/${slug}/`)
+        const res = await apiRequest<PublicInvestor>(`/public/investors/${apiSlug}/`)
         if (!cancelled) setData(res)
       } catch (err: unknown) {
         if (!cancelled) {
@@ -104,7 +108,7 @@ export function PublicInvestorPage() {
       }
     })()
     return () => { cancelled = true }
-  }, [slug])
+  }, [apiSlug])
 
   // Canonicalize the URL after data loads so visitors arriving via a
   // bare-UUID URL get bumped to /investors/<slug>-investor-<half-uuid>.

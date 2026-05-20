@@ -102,21 +102,26 @@ export function PublicFounderPage() {
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus | null>(null)
   const [dealRoomOpen, setDealRoomOpen] = useState(false)
 
-  // Pull the slug out of `<slug>-<short-uuid>`. The short-uuid is for
-  // permanence (lets us rename slugs without breaking links); only the
-  // slug part is needed to hit the slug-keyed public endpoint.
+  // Parse for display purposes (canonicalize URL, structured data) but
+  // send the FULL slugId to the backend — the backend supports a half-UUID
+  // tail fallback (`<slug>-<role>-<half-uuid>`) when the slug part alone
+  // doesn't match the stored DB slug. Sending only the slug part strips
+  // that fallback off and breaks every founder whose DB slug doesn't
+  // already contain the `-founder` role token (which is most of them,
+  // because the model's _generate_slug only slugifies the user's name).
   const parsed = slugId ? parseSlugId(slugId) : null
   const slug = parsed?.slug || slugId || ''
+  const apiSlug = slugId || slug
 
   useEffect(() => {
-    if (!slug) return
+    if (!apiSlug) return
     let cancelled = false
     setLoading(true)
     setNotFound(false)
     setData(null)
     void (async () => {
       try {
-        const res = await apiRequest<PublicFounder>(`/public/founders/${slug}/`)
+        const res = await apiRequest<PublicFounder>(`/public/founders/${apiSlug}/`)
         if (!cancelled) setData(res)
       } catch (err: unknown) {
         if (!cancelled) {
@@ -128,7 +133,7 @@ export function PublicFounderPage() {
       }
     })()
     return () => { cancelled = true }
-  }, [slug])
+  }, [apiSlug])
 
   // Canonicalize the URL once we know the founder's name. Visitors
   // arriving via /founders/<bare-uuid> (from a notification deep-link

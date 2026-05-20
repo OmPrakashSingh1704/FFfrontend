@@ -98,7 +98,11 @@ export async function collectCallQualityStats(
     }
 
     if (localCandidateId) {
-      const local = stats.get(localCandidateId) as RTCIceCandidateStats | undefined
+      // Structural type instead of `RTCIceCandidateStats` — that name was
+      // removed from TS's lib.dom.d.ts between versions and isn't reliably
+      // present on Vercel's build TS. We only touch two fields anyway.
+      type LocalCandidate = { candidateType?: string; protocol?: string }
+      const local = stats.get(localCandidateId) as LocalCandidate | undefined
       if (local) {
         const t = local.candidateType
         if (t === 'host' || t === 'srflx' || t === 'prflx' || t === 'relay') {

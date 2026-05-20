@@ -5,7 +5,7 @@ import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 import { resolveMediaUrl } from '../lib/env'
 import { buildProfileUrl } from '../lib/slugId'
-import { TrendingUp, Briefcase, Star, ChevronRight, Zap, Users, ClipboardList } from 'lucide-react'
+import { TrendingUp, Briefcase, Star, ChevronRight, Users, ClipboardList } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { ProfileGridSkeleton } from '../components/skeletons'
 
@@ -199,10 +199,6 @@ export function MatchingPage() {
           <h1 className="page-title">Matching</h1>
           <p className="page-description">Founders and investors matched by compatibility based on stage, sector, and goals.</p>
         </div>
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 999, fontSize: '0.75rem', fontWeight: 600, background: '#22c55e18', color: '#22c55e', border: '1px solid #22c55e33' }}>
-          <Zap size={11} />
-          Live
-        </span>
       </div>
 
       {profilesLoading ? (
