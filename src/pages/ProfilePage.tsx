@@ -758,7 +758,7 @@ export function ProfilePage() {
                   height: 24,
                   borderRadius: '50%',
                   background: 'var(--gold)',
-                  color: '#fff',
+                  color: 'var(--gold-foreground)',
                   border: '2px solid hsl(var(--card))',
                   display: 'flex',
                   alignItems: 'center',

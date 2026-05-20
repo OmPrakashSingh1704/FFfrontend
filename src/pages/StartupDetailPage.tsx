@@ -18,6 +18,8 @@ import {
   Handshake,
   ShieldCheck,
   UserPlus,
+  Bookmark,
+  BookmarkCheck,
   X,
 } from 'lucide-react'
 import { apiRequest, uploadRequest } from '../lib/api'
@@ -396,6 +398,12 @@ export function StartupDetailPage() {
   const [interestMessage, setInterestMessage] = useState('')
   const [expressingInterest, setExpressingInterest] = useState(false)
 
+  // Save-startup state (investors only). The toggle endpoint at
+  // /investors/save-startup/<id>/ flips state — we mirror locally so the
+  // icon updates instantly without refetching the list.
+  const [isSaved, setIsSaved] = useState(false)
+  const [togglingSave, setTogglingSave] = useState(false)
+
   const fetchFounderProfilesForUsers = useCallback(async (userIds: string[]) => {
     const ids = userIds.filter(Boolean)
     const found: Record<string, string> = {}
@@ -482,6 +490,40 @@ export function StartupDetailPage() {
       .catch(() => {})
     return () => { cancelled = true }
   }, [isInvestor])
+
+  // Initial saved state — pull the investor's saved list once and check
+  // whether this startup is in it. The save-startup endpoint is a toggle
+  // (no GET), so we need the saved-startups list to know which icon to
+  // render on first paint.
+  useEffect(() => {
+    if (!isInvestor || !id) return
+    let cancelled = false
+    type SavedRow = { startup: string }
+    apiRequest<SavedRow[] | { results: SavedRow[] }>('/investors/saved-startups/')
+      .then((data) => {
+        if (cancelled) return
+        const rows = Array.isArray(data) ? data : data.results ?? []
+        setIsSaved(rows.some((r) => r.startup === id))
+      })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [isInvestor, id])
+
+  const handleToggleSave = async () => {
+    if (!id || togglingSave) return
+    setTogglingSave(true)
+    const prevSaved = isSaved
+    setIsSaved(!prevSaved)  // optimistic
+    try {
+      await apiRequest(`/investors/save-startup/${id}/`, { method: 'POST' })
+      pushToast(prevSaved ? 'Removed from saved' : 'Saved', 'success')
+    } catch (err) {
+      setIsSaved(prevSaved)  // revert on failure
+      pushToast(err instanceof Error ? err.message : 'Failed to update saved', 'error')
+    } finally {
+      setTogglingSave(false)
+    }
+  }
 
   useEffect(() => {
     const founderIds = (startup?.founders_list ?? []).map((f) => f.id).filter((id): id is string => typeof id === 'string' && id.length > 0)
@@ -723,6 +765,27 @@ export function StartupDetailPage() {
                   data-testid="edit-startup-btn"
                 >
                   Edit Startup
+                </button>
+              )}
+
+              {/* Save startup (investors only, non-members) — toggle button
+                  pointing at /investors/save-startup/<id>/. The Saved page
+                  surfaces these rows; without this button, an investor had
+                  a "Saved" tab they could never populate. */}
+              {isInvestor && !isMember && (
+                <button
+                  className="btn-sm ghost"
+                  type="button"
+                  onClick={() => void handleToggleSave()}
+                  disabled={togglingSave}
+                  style={{ flexShrink: 0 }}
+                  aria-pressed={isSaved}
+                  aria-label={isSaved ? 'Remove from saved' : 'Save startup'}
+                  title={isSaved ? 'Remove from saved' : 'Save startup'}
+                  data-testid="save-startup-btn"
+                >
+                  {isSaved ? <BookmarkCheck size={14} /> : <Bookmark size={14} />}
+                  {isSaved ? 'Saved' : 'Save'}
                 </button>
               )}
 

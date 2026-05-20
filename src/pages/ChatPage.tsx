@@ -1353,7 +1353,7 @@ export function ChatPage() {
                 className="shrink-0 w-8 h-8 rounded-lg flex items-center justify-center transition-colors"
                 style={{
                   background: canSendOrSave ? 'var(--gold)' : 'hsl(var(--muted))',
-                  color: canSendOrSave ? 'white' : 'hsl(var(--muted-foreground))',
+                  color: canSendOrSave ? 'var(--gold-foreground)' : 'hsl(var(--muted-foreground))',
                 }}
                 type="button"
                 onClick={() => {

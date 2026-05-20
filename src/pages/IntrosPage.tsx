@@ -2,11 +2,12 @@ import { useEffect, useState } from 'react'
 import { useLocation } from 'react-router-dom'
 import { Plus, Send, X, ExternalLink, ArrowRight, Clock, Calendar } from 'lucide-react'
 import { apiRequest } from '../lib/api'
-import { normalizeList } from '../lib/pagination'
+import { normalizeList, type PaginatedResponse } from '../lib/pagination'
 import { ListRowsSkeleton } from '../components/skeletons'
 import { useToast } from '../context/ToastContext'
 import { useFeatureFlags } from '../context/FeatureFlagsContext'
 import { useAuth } from '../context/AuthContext'
+import { RecipientPicker } from '../components/RecipientPicker'
 import type { IntroRequest, IntroRequestCreate, RecipientOption } from '../types/intro'
 import type { StartupListItem } from '../types/startup'
 import type { InvestorProfile } from '../types/investor'
@@ -21,6 +22,47 @@ const statusBadgeClass: Record<string, string> = {
 }
 
 type LocationState = { openForm?: boolean; target_user_id?: string } | null
+
+/**
+ * Walk DRF page-number pagination until exhausted, return one flat list.
+ * Strips the absolute scheme/host/api-prefix off `next` so the call stays
+ * relative to the configured API base. Caps at MAX_PAGES so a runaway loop
+ * (broken server-side `next` link) can't burn the browser.
+ */
+async function fetchAllPaginated<T>(initialPath: string): Promise<T[]> {
+  const MAX_PAGES = 50
+  const all: T[] = []
+  let next: string | null = initialPath
+  for (let i = 0; i < MAX_PAGES && next; i++) {
+    const data: T[] | PaginatedResponse<T> = await apiRequest<T[] | PaginatedResponse<T>>(next)
+    if (Array.isArray(data)) {
+      all.push(...data)
+      next = null
+    } else {
+      if (data.results) all.push(...data.results)
+      next = data.next ? toRelativeApiPath(data.next) : null
+    }
+  }
+  return all
+}
+
+function toRelativeApiPath(url: string | null | undefined): string | null {
+  if (!url) return null
+  let path = url
+  if (url.startsWith('http://') || url.startsWith('https://')) {
+    try {
+      const parsed = new URL(url)
+      path = `${parsed.pathname}${parsed.search}`
+    } catch {
+      return null
+    }
+  } else if (!path.startsWith('/')) {
+    path = `/${path}`
+  }
+  // apiRequest already prepends the API_BASE_URL with /api/v1 — strip it
+  // from the absolute `next` link the server returns.
+  return path.replace(/^\/api\/v\d+/, '')
+}
 
 export function IntrosPage() {
   const { pushToast } = useToast()
@@ -94,24 +136,38 @@ export function IntrosPage() {
   const openCreateForm = async () => {
     setShowForm(true)
     try {
-      const [startupsData, investorsData, foundersData] = await Promise.all([
+      const [startupsData, investors, founders] = await Promise.all([
         apiRequest<StartupListItem[] | { results: StartupListItem[] }>('/founders/my-startups/'),
-        apiRequest<InvestorProfile[] | { results: InvestorProfile[] }>('/investors/'),
-        apiRequest<FounderProfile[] | { results: FounderProfile[] }>('/founders/'),
+        // /investors/ and /founders/ are paginated (default page size 20).
+        // The old code only read the first page, so anyone past row 20
+        // was invisible in the picker. Walk all pages with the max
+        // page_size (100) to drop request count from ~N to ~N/100.
+        fetchAllPaginated<InvestorProfile>('/investors/?page_size=100'),
+        fetchAllPaginated<FounderProfile>('/founders/?page_size=100'),
       ])
 
       setMyStartups(normalizeList(startupsData))
 
-      const investorOptions: RecipientOption[] = normalizeList(investorsData)
-        .filter((inv) => inv.user?.id && inv.user.id !== currentUser?.id)
-        .map((inv) => ({
-          user_id: inv.user!.id,
+      const investorOptions: RecipientOption[] = investors
+        // The investor LIST endpoint uses InvestorProfilePublicSerializer,
+        // which returns `user_id` as a flat field (no nested `user` object).
+        // The DETAIL endpoint nests `user`. Prefer the flat id and fall back
+        // to the nested shape so this code works for both responses.
+        .map((inv) => {
+          const uid = inv.user_id ?? inv.user?.id
+          return uid ? { inv, uid } : null
+        })
+        .filter((row): row is { inv: InvestorProfile; uid: string } =>
+          row !== null && row.uid !== currentUser?.id,
+        )
+        .map(({ inv, uid }) => ({
+          user_id: uid,
           display_name: inv.display_name || inv.user?.full_name || 'Investor',
           subtitle: inv.fund_name ?? undefined,
           type: 'investor' as const,
         }))
 
-      const founderOptions: RecipientOption[] = normalizeList(foundersData)
+      const founderOptions: RecipientOption[] = founders
         .filter((f) => f.user?.id && f.user.id !== currentUser?.id)
         .map((f) => ({
           user_id: f.user!.id,
@@ -261,32 +317,14 @@ export function IntrosPage() {
               )}
               <div className="form-group">
                 <label>Introduce me to *</label>
-                <select
-                  className="select"
+                <RecipientPicker
+                  recipients={recipients}
                   value={createForm.recipient_user_id}
-                  onChange={(e) => setCreateForm((f) => ({ ...f, recipient_user_id: e.target.value }))}
+                  onChange={(userId) =>
+                    setCreateForm((f) => ({ ...f, recipient_user_id: userId }))
+                  }
                   data-testid="recipient-select"
-                >
-                  <option value="">Select a person</option>
-                  {recipients.filter((r) => r.type === 'investor').length > 0 && (
-                    <optgroup label="Investors">
-                      {recipients.filter((r) => r.type === 'investor').map((r) => (
-                        <option key={r.user_id} value={r.user_id}>
-                          {r.display_name}{r.subtitle ? ` — ${r.subtitle}` : ''}
-                        </option>
-                      ))}
-                    </optgroup>
-                  )}
-                  {recipients.filter((r) => r.type === 'founder').length > 0 && (
-                    <optgroup label="Founders">
-                      {recipients.filter((r) => r.type === 'founder').map((r) => (
-                        <option key={r.user_id} value={r.user_id}>
-                          {r.display_name}{r.subtitle ? ` — ${r.subtitle}` : ''}
-                        </option>
-                      ))}
-                    </optgroup>
-                  )}
-                </select>
+                />
               </div>
               <div className="form-group">
                 <label>Pitch Summary *</label>
